@@ -1,0 +1,44 @@
+name: flutter_live
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Added for your Home Screen WebView
+  webview_flutter: ^4.7.0
+
+  cupertino_icons: ^1.0.8
+
+  fl_chart: ^0.66.0
+
+  pdf: ^3.10.8       # 新增：用于生成 PDF
+  printing: ^5.11.1  # 新增：用于打印和导出文件
+  path_provider: ^2.1.1
+  http: ^1.1.0 # 用于下载头像图片到 PDF
+  dio: ^5.9.0
+  intl: ^0.20.2
+  video_player: ^2.8.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: SourceHanSans
+      fonts:
+        - asset: assets/fonts/SourceHanSansSC-Regular.ttf # 必须准备此字体文件
+
+  # If you decide to add local HTML or images later,
+  # you will uncomment and use the assets section below:
+#  assets:
+#    - assets/videos/bg.mp4
