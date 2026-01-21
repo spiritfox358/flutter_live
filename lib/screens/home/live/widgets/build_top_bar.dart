@@ -12,7 +12,7 @@ class BuildTopBar extends StatelessWidget {
   // 可选：添加 key 或其他参数
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       color: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -22,7 +22,7 @@ class BuildTopBar extends StatelessWidget {
             const Spacer(),
             const ViewerList(),
             const SizedBox(width: 8),
-            const Icon(Icons.close, color: Colors.white, size: 28),
+            Icon(Icons.close, color: Colors.white.withAlpha(230), size: 25),
           ],
         ),
       ),

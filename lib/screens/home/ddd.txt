@@ -1,16 +1,30 @@
- static const String _aliyunEffect_qlzy = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/qlzy.webm';
-  static const String _aliyunEffectUrl_xlyx = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E5%AF%BB%E9%BE%99%E6%B8%B8%E4%BE%A0.webm';
-  static const String _aliyunEffectUrl_ylyx = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/ylyx.webm';
-  static const String _aliyunEffectUrl_dsyx = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E9%83%BD%E5%B8%82%C2%B7%E6%B8%B8%E4%BE%A0.webm';
-  static const String _aliyunEffectUrl_ltjt = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E9%BE%99%E8%85%BE%E4%B9%9D%E5%A4%A9.webm';
+static const String ranger_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E9%83%BD%E5%B8%82%E6%B8%B8%E4%BE%A0.mp4';
+  static const String ranger_2 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E5%AF%BB%E9%BE%99%E6%B8%B8%E4%BE%A0.mp4';
+  static const String ranger_3 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0.mp4';
+  static const String dragon_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E6%BD%9C%E9%BE%99%E5%9C%A8%E6%B8%8A.mp4';
+  static const String dragon_2 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E9%BE%99%E8%85%BE%E4%B9%9D%E5%A4%A9.mp4';
+  static const String radiant_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E7%92%80%E7%92%A8%E5%85%89%E7%BF%BC.mp4';
+  static const String rose_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E7%8E%AB%E7%91%B0%E4%B9%8B%E7%BA%A6.mp4';
+  static const String diamond_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E6%B0%B8%E6%81%92%E4%B9%8B%E9%92%BB.mp4';
+  static const String seaStar_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E6%B5%B7%E6%B4%8B%E4%B9%8B%E6%98%9F.mp4';
+  static const String lion_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E7%8B%82%E7%8B%AE%E6%80%92%E5%90%BC.mp4';
+  static const String reallyLoveYou_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E7%9C%9F%E7%9A%84%E7%88%B1%E4%BD%A0.mp4';
+  static const String diamondCar_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E9%92%BB%E7%9F%B3%E8%B7%91%E8%BD%A6.mp4';
+  static const String blackGoldCarnival_1 = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E9%BB%91%E9%87%91%E5%98%89%E5%B9%B4%E5%8D%8E.mp4';
 
+  // 1. 完整保留你的礼物数据，并根据截图添加 tag 和 expireTime 示例
   final List<GiftItemData> _gifts = const [
-    GiftItemData(name: "潜龙在渊", price: 1, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/qlzy.png", effectAsset: _aliyunEffect_qlzy),
-    GiftItemData(name: "寻龙游侠", price: 9, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/xlyx.png", effectAsset: _aliyunEffectUrl_xlyx),
-    GiftItemData(name: "御龙游侠", price: 66, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/ylyx.png", effectAsset: _aliyunEffectUrl_ylyx),
-    GiftItemData(name: "都市游侠", price: 520, iconUrl: "https://cdn-icons-png.flaticon.com/512/3209/3209921.png", effectAsset: _aliyunEffectUrl_dsyx),
-    GiftItemData(name: "龙腾九天", price: 520, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/ltjt.png", effectAsset: _aliyunEffectUrl_ltjt),
+    GiftItemData(name: "真的爱你", price: 520, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E7%9C%9F%E7%9A%84%E7%88%B1%E4%BD%A0.png", effectAsset: reallyLoveYou_1),
+    GiftItemData(name: "钻石跑车", price: 1500, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E9%92%BB%E7%9F%B3%E8%B7%91%E8%BD%A6.png", effectAsset: diamondCar_1),
+    GiftItemData(name: "黑金嘉年华", price: 36000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E9%92%BB%E7%9F%B3%E5%98%89%E5%B9%B4%E5%8D%8E.png", effectAsset: blackGoldCarnival_1, tag: "万象"),
+    GiftItemData(name: "都市游侠", price: 10000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E9%83%BD%E5%B8%82%E6%B8%B8%E4%BE%A0.png", effectAsset: ranger_1),
+    GiftItemData(name: "寻龙游侠", price: 20000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/xlyx.png", effectAsset: ranger_2),
+    GiftItemData(name: "御龙游侠", price: 30000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/ylyx.png", effectAsset: ranger_3, tag: "神秘", expireTime: "08/07 22:59"),
+    GiftItemData(name: "潜龙在渊", price: 16888, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/qlzy.png", effectAsset: dragon_1),
+    GiftItemData(name: "龙腾九天", price: 30000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/ltjt.png", effectAsset: dragon_2, tag: "神秘", expireTime: "08/07 22:41"),
+    GiftItemData(name: "璀璨光翼", price: 30000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/ltjt.png", effectAsset: radiant_1),
+    GiftItemData(name: "玫瑰之约", price: 6000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E7%8E%AB%E7%91%B0%E4%B9%8B%E7%BA%A6.png", effectAsset: rose_1),
+    GiftItemData(name: "永恒之钻", price: 30000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E6%B0%B8%E6%81%92%E4%B9%8B%E9%92%BB.png", effectAsset: diamond_1, tag: "万象"),
+    GiftItemData(name: "海洋之星", price: 30000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E6%B5%B7%E6%B4%8B%E4%B9%8B%E5%BF%83.png", effectAsset: seaStar_1),
+    GiftItemData(name: "狂狮怒吼", price: 30000, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E7%8B%82%E7%8B%AE%E6%80%92%E5%90%BC.png", effectAsset: lion_1),
   ];
-
-
-  const String aliyunBgUrl = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg2.mp4';

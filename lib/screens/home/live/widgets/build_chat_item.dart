@@ -10,10 +10,10 @@ class BuildChatItem extends StatelessWidget {
   // 可选：添加 key 或其他参数
   @override
   Widget build(BuildContext context) {
-    return Card(
+    return Container(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3.0),
+        padding: const EdgeInsets.symmetric(vertical: 1.0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -24,13 +24,13 @@ class BuildChatItem extends StatelessWidget {
                   color: Colors.black.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 child: Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
+                        horizontal: 2,
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
