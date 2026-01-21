@@ -503,9 +503,6 @@ class _GiftItemWidgetState extends State<_GiftItemWidget>
                         borderRadius: BorderRadius.vertical(
                           bottom: Radius.circular(8.0), // 👈 只底部有圆角
                         ),
-                        // 🔴 6. 关键修改：圆角不用减去 1.5 了，直接填 0 或者不写
-                        // 因为外层 Container 已经开启了 Clip.antiAlias，
-                        // 这个按钮还是矩形，多余的部分会被父容器切掉，从而完美贴合边缘。
                       ),
                       child: const Text(
                         "赠送",
