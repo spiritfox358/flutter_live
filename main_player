@@ -1,0 +1,116 @@
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:dio/dio.dart'; // 用于下载
+import 'package:path_provider/path_provider.dart'; // 用于获取路径
+
+// 引入本地插件
+import 'package:my_alpha_player/my_alpha_player.dart';
+
+void main() {
+  runApp(const MaterialApp(home: LivePage()));
+}
+
+class LivePage extends StatefulWidget {
+  const LivePage({Key? key}) : super(key: key);
+
+  @override
+  State<LivePage> createState() => _LivePageState();
+}
+
+class _LivePageState extends State<LivePage> {
+  MyAlphaPlayerController? _playerController;
+  String _btnText = "下载并播放";
+  bool _isDownloading = false;
+
+  // 你的目标视频地址
+  final String _targetUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/output.mp4";
+
+  // 播放逻辑：检查本地 -> 没有就下载 -> 有了就播放
+  Future<void> _downloadAndPlay() async {
+    if (_isDownloading) return;
+
+    try {
+      setState(() {
+        _isDownloading = true;
+        _btnText = "准备中...";
+      });
+
+      // 1. 确定本地保存路径
+      final dir = await getApplicationDocumentsDirectory();
+      // 取文件名的最后一段作为本地文件名 (output.mp4)
+      final fileName = _targetUrl.split('/').last;
+      final savePath = "${dir.path}/$fileName";
+      final file = File(savePath);
+
+      // 2. 检查文件是否存在
+      bool exists = await file.exists();
+      if (!exists) {
+        setState(() => _btnText = "正在下载资源...");
+        print("🚀 开始下载: $_targetUrl");
+
+        // 使用 Dio 下载
+        await Dio().download(_targetUrl, savePath);
+        print("✅ 下载完成: $savePath");
+      } else {
+        print("👌 文件已存在，直接播放");
+      }
+
+      // 3. 调用插件播放
+      if (_playerController != null) {
+        setState(() => _btnText = "播放中");
+        // 传入绝对路径
+        await _playerController!.play(savePath);
+      }
+
+    } catch (e) {
+      print("❌ 出错: $e");
+      setState(() => _btnText = "出错: $e");
+    } finally {
+      setState(() => _isDownloading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black, // 黑色背景方便看透明效果
+      body: Stack(
+        children: [
+          // 背景图 (用于测试透视效果)
+          Positioned.fill(
+            child: Image.network(
+              "https://images.unsplash.com/photo-1534351590666-13e3e96b5017",
+              fit: BoxFit.cover,
+            ),
+          ),
+
+          // 1. AlphaPlayer 视图 (覆盖在最上层)
+          Positioned.fill(
+            child: MyAlphaPlayerView(
+              onCreated: (controller) {
+                _playerController = controller;
+                print("📺 播放器已创建");
+              },
+            ),
+          ),
+
+          // 2. 控制按钮
+          Positioned(
+            bottom: 50,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: ElevatedButton.icon(
+                icon: _isDownloading
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Icon(Icons.play_arrow),
+                label: Text(_btnText),
+                onPressed: _downloadAndPlay,
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}

@@ -11,6 +11,9 @@ dependencies:
   flutter:
     sdk: flutter
 
+  my_alpha_player:
+    path: ./my_alpha_player
+
   # Added for your Home Screen WebView
   webview_flutter: ^4.7.0
 
@@ -24,7 +27,7 @@ dependencies:
   http: ^1.1.0 # 用于下载头像图片到 PDF
   dio: ^5.9.0
   intl: ^0.20.2
-  video_player: ^2.8.1
+  video_player: ^2.8.6    # 官方接口
 
 dev_dependencies:
   flutter_test:
@@ -37,6 +40,7 @@ flutter:
     - family: SourceHanSans
       fonts:
         - asset: assets/fonts/SourceHanSansSC-Regular.ttf # 必须准备此字体文件
+        - asset: assets/videos/demo.mp4
 
   # If you decide to add local HTML or images later,
   # you will uncomment and use the assets section below:

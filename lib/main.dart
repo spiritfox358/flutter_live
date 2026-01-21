@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/dashboard_tabs.dart';
+import 'package:flutter_live/screens/home/live_list_page.dart';
+import 'package:flutter_live/screens/home/live/index.dart';
 import 'package:flutter_live/screens/questions/exam_list_screen.dart';
 import 'screens/course_screen.dart';
 import 'screens/doc_screen.dart';
 import 'screens/me_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
@@ -81,11 +84,12 @@ class MainContainer extends StatefulWidget {
 class _MainContainerState extends State<MainContainer> {
   int _currentIndex = 0;
 
+
   final List<Widget> _screens = [
-    const DashboardTabPage(),
-    const CourseScreen(),
-    const DocScreen(),
-    const ExamListScreen(),
+    const LiveListPage(),
+    // const CourseScreen(),
+    // const DocScreen(),
+    // const ExamListScreen(),
     const MeScreen(),
   ];
 
@@ -100,9 +104,9 @@ class _MainContainerState extends State<MainContainer> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
           // BottomNavigationBarItem(icon: Icon(Icons.school), label: '训练'),
-          BottomNavigationBarItem(icon: Icon(Icons.school), label: '课程'),
-          BottomNavigationBarItem(icon: Icon(Icons.description), label: '文档'),
-          BottomNavigationBarItem(icon: Icon(Icons.message), label: '消息'),
+          // BottomNavigationBarItem(icon: Icon(Icons.school), label: '课程'),
+          // BottomNavigationBarItem(icon: Icon(Icons.description), label: '文档'),
+          // BottomNavigationBarItem(icon: Icon(Icons.message), label: '消息'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '我'),
         ],
       ),

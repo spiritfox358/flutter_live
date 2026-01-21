@@ -1,7 +1,16 @@
- colors: [
-                      Colors.transparent,
-                      Colors.transparent,
-                      Colors.white.withOpacity(0.75),
-                      Colors.white.withOpacity(0.9)
-                    ],
-                    stops: const [0.0, 0.45, 0.6, 1.0],
+ static const String _aliyunEffect_qlzy = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/qlzy.webm';
+  static const String _aliyunEffectUrl_xlyx = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E5%AF%BB%E9%BE%99%E6%B8%B8%E4%BE%A0.webm';
+  static const String _aliyunEffectUrl_ylyx = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/ylyx.webm';
+  static const String _aliyunEffectUrl_dsyx = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E9%83%BD%E5%B8%82%C2%B7%E6%B8%B8%E4%BE%A0.webm';
+  static const String _aliyunEffectUrl_ltjt = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/effect_video/%E9%BE%99%E8%85%BE%E4%B9%9D%E5%A4%A9.webm';
+
+  final List<GiftItemData> _gifts = const [
+    GiftItemData(name: "潜龙在渊", price: 1, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/qlzy.png", effectAsset: _aliyunEffect_qlzy),
+    GiftItemData(name: "寻龙游侠", price: 9, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/xlyx.png", effectAsset: _aliyunEffectUrl_xlyx),
+    GiftItemData(name: "御龙游侠", price: 66, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/ylyx.png", effectAsset: _aliyunEffectUrl_ylyx),
+    GiftItemData(name: "都市游侠", price: 520, iconUrl: "https://cdn-icons-png.flaticon.com/512/3209/3209921.png", effectAsset: _aliyunEffectUrl_dsyx),
+    GiftItemData(name: "龙腾九天", price: 520, iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/ltjt.png", effectAsset: _aliyunEffectUrl_ltjt),
+  ];
+
+
+  const String aliyunBgUrl = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg2.mp4';

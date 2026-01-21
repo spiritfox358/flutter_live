@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
 
-import 'package:flutter_live/screens/home/live_streaming_page.dart';
+import 'package:flutter_live/screens/home/live/index.dart';
 
 class LiveListPage extends StatefulWidget {
   const LiveListPage({super.key});
