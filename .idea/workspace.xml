@@ -4,43 +4,8 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/flutter_live.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/gift_convert.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_item.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_item_state.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_panel.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/profile_pill.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/viewer_list.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_item.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_list.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_input_bar.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_top_bar.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live_streaming_page3.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/main_old" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/main_player" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/my_alpha_player/android/gradle/wrapper/gradle-wrapper.jar" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/my_alpha_player/android/gradle/wrapper/gradle-wrapper.properties" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/NativeAlphaPlayerFactory.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/NativeAlphaPlayerView.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/qwerwer" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/fzxt_flutter.iml" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/AndroidManifest.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/android/build.gradle.kts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/gradle.properties" beforeDir="false" afterPath="$PROJECT_DIR$/android/gradle.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/ddd.txt" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/ddd.txt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_streaming_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/index.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
+    <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -126,6 +91,21 @@
       <option name="presentableId" value="Default" />
       <updated>1768925595133</updated>
     </task>
+    <task id="LOCAL-00001" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1768975835063</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1768975835063</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <option name="CHECK_CODE_SMELLS_BEFORE_PROJECT_COMMIT" value="false" />
+    <option name="CHECK_NEW_TODO" value="false" />
+    <MESSAGE value="1. initial" />
+    <option name="LAST_COMMIT_MESSAGE" value="1. initial" />
   </component>
 </project>
