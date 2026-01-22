@@ -83,7 +83,7 @@ class AIBoss {
   final String name;
   final String avatarUrl;
   final String videoUrl;
-  final int difficulty;
+  final int difficulty; // 难度系数 1-10
   final List<String> tauntMessages;
 
   const AIBoss({
@@ -99,17 +99,16 @@ final List<AIBoss> _bosses = [
   const AIBoss(
     name: "机械姬·零号",
     avatarUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712109.png",
-    // 🟢 确保这里的视频地址是可用的
     videoUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/ai_avatar_1.mp4",
     difficulty: 3,
-    tauntMessages: ["人类的手速太慢了", "就这点分数吗？", "哔...系统检测到你弱爆了"],
+    tauntMessages: ["就这？手速太慢了", "由于分差过大，我已开启省电模式", "哔...检测到你在摆烂"],
   ),
   const AIBoss(
     name: "赛博魔王",
     avatarUrl: "https://cdn-icons-png.flaticon.com/512/6195/6195678.png",
-    videoUrl: "", // 这个Boss没视频，会显示随机背景
+    videoUrl: "",
     difficulty: 8,
-    tauntMessages: ["颤抖吧凡人！", "大火箭也不过如此", "毁灭倒计时开始"],
+    tauntMessages: ["这点分不够塞牙缝", "颤抖吧凡人！", "全军出击！给我碾压对面！"],
   ),
 ];
 
@@ -121,14 +120,11 @@ class LiveStreamingPage extends StatefulWidget {
   State<LiveStreamingPage> createState() => _LiveStreamingPageState();
 }
 
-class _LiveStreamingPageState extends State<LiveStreamingPage>
-    with TickerProviderStateMixin {
+class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProviderStateMixin {
   late VideoPlayerController _bgController;
   bool _isBgInitialized = false;
   bool _isVideoBackground = false;
   String _currentBgImage = "";
-
-  // 🟢 新增：用于存储当前PK对手的随机背景图
   String _opponentBgImage = "";
 
   PKStatus _pkStatus = PKStatus.idle;
@@ -137,13 +133,14 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   int _pkTimeLeft = 0;
   Timer? _pkTimer;
 
+  bool _isAiRaging = false;
+
   AIBoss? _currentBoss;
-  VideoPlayerController? _aiVideoController; // AI 视频控制器
+  VideoPlayerController? _aiVideoController;
 
   final List<String> _bgImageUrls = [
     "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.png",
     "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_2.png",
-    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_3.png", // 假设有更多背景
   ];
 
   MyAlphaPlayerController? _alphaPlayerController;
@@ -161,6 +158,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   GiftItemData? _lastGiftSent;
   late AnimationController _comboScaleController;
   late AnimationController _countdownController;
+
+  // 🟢 移除了震动控制器定义
 
   final List<String> _dummyNames = ["Luna", "右岸", "从此安静", "梦醒时分", "快乐小狗", "榜一大哥"];
   final List<String> _dummyContents = ["主播好美！", "这歌好听", "点赞点赞", "666", "关注了"];
@@ -196,66 +195,96 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
         }
       }
     });
+
+    // 🟢 移除了震动控制器初始化
   }
 
-  // 🟢 启动 AI 对战
+  // 🟢 移除了 _triggerShake() 方法
+
   void _startAIBattle() {
     if (_pkStatus != PKStatus.idle) return;
 
     final boss = _bosses[Random().nextInt(_bosses.length)];
     _currentBoss = boss;
+    _opponentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)];
+    _isAiRaging = false;
 
-    // 🟢 核心修改：PK开始时，随机选一张背景图给敌方
-    final random = Random();
-    _opponentBgImage = _bgImageUrls[random.nextInt(_bgImageUrls.length)];
-
-    // 1. 先立即更新状态
     setState(() {
       _pkStatus = PKStatus.playing;
       _myPKScore = 0;
       _opponentPKScore = 0;
-      _pkTimeLeft = 120;
+      _pkTimeLeft = 90;
     });
 
     _addFakeMessage(boss.name, "系统连接成功...挑战开始！", Colors.redAccent);
 
-    // 2. 异步初始化视频
     if (boss.videoUrl.isNotEmpty) {
       _aiVideoController = VideoPlayerController.networkUrl(Uri.parse(boss.videoUrl));
       _aiVideoController!.initialize().then((_) {
         _aiVideoController!.setLooping(true);
         _aiVideoController!.play();
         if (mounted) setState(() {});
-      }).catchError((e) {
-        print("AI视频加载失败: $e");
       });
     }
 
-    // 3. 启动计时器和 AI 逻辑
     _pkTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (!mounted) return;
 
       final random = Random();
-      // AI 涨分逻辑
-      if (random.nextInt(100) < (boss.difficulty * 5)) {
+
+      if (random.nextDouble() < 0.6) {
         setState(() {
-          int baseScore = 1 + random.nextInt(10);
-          _opponentPKScore += baseScore * boss.difficulty;
+          int baseGrowth = boss.difficulty * 2;
+          if (_opponentPKScore < _myPKScore) {
+            baseGrowth = (baseGrowth * 1.5).toInt();
+          }
+          _opponentPKScore += random.nextInt(10) + baseGrowth;
         });
       }
-      // AI 暴击
-      if (random.nextDouble() < 0.02) {
-        final bonus = 50 * boss.difficulty;
-        setState(() => _opponentPKScore += bonus);
-        _addFakeMessage(boss.name, "⚡ 能量过载！战力飙升 +$bonus", Colors.orange);
-      }
-      // AI 嘲讽
-      if (random.nextDouble() < 0.05 && boss.tauntMessages.isNotEmpty) {
-        final msg = boss.tauntMessages[random.nextInt(boss.tauntMessages.length)];
-        _addFakeMessage(boss.name, msg, Colors.redAccent);
+
+      if (_myPKScore > _opponentPKScore + 500 && !_isAiRaging) {
+        _isAiRaging = true;
+        _addFakeMessage(boss.name, "😡 警告：Boss进入暴走追分模式！", Colors.redAccent);
       }
 
-      // 倒计时
+      if (_isAiRaging) {
+        setState(() {
+          int catchUp = (_myPKScore - _opponentPKScore) ~/ 10;
+          _opponentPKScore += max(catchUp, boss.difficulty * 5);
+        });
+      }
+
+      double critChance = 0.02 + (boss.difficulty * 0.005);
+      if (_isAiRaging) critChance *= 2.0;
+
+      if (random.nextDouble() < critChance) {
+        int bigGiftScore = 0;
+        String giftName = "";
+
+        if (random.nextBool()) {
+          bigGiftScore = 520;
+          giftName = "跑车";
+        } else {
+          bigGiftScore = 1314;
+          giftName = "火箭";
+        }
+
+        setState(() {
+          _opponentPKScore += bigGiftScore;
+          if (_opponentPKScore > _myPKScore && (_opponentPKScore - bigGiftScore) < _myPKScore) {
+            // 🟢 移除了震动调用
+            _addFakeMessage(boss.name, "🚀 感谢大哥送来的$giftName！实现反超！", Colors.orangeAccent);
+          }
+        });
+      }
+
+      if (random.nextDouble() < 0.03 && boss.tauntMessages.isNotEmpty) {
+        final msg = boss.tauntMessages[random.nextInt(boss.tauntMessages.length)];
+        if (_opponentPKScore > _myPKScore) {
+          _addFakeMessage(boss.name, msg, Colors.cyanAccent);
+        }
+      }
+
       if (timer.tick % 2 == 0) {
         setState(() {
           _pkTimeLeft--;
@@ -287,13 +316,22 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
 
   void _stopPK() {
     _pkTimer?.cancel();
-    // 停止并销毁 AI 视频
+
+    setState(() {
+      _pkStatus = PKStatus.coHost; // 进入连麦模式
+    });
+
+    _addFakeMessage("系统", "PK结束，进入连麦模式", Colors.greenAccent);
+  }
+
+  void _disconnectCoHost() {
     _aiVideoController?.dispose();
     _aiVideoController = null;
 
     setState(() {
       _pkStatus = PKStatus.idle;
     });
+    _addFakeMessage("系统", "连麦已断开", Colors.grey);
   }
 
   void _addFakeMessage(String name, String content, Color color) {
@@ -307,9 +345,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
 
   void _pickRandomImage() {
     final random = Random();
-    setState(
-          () => _currentBgImage = _bgImageUrls[random.nextInt(_bgImageUrls.length)],
-    );
+    setState(() => _currentBgImage = _bgImageUrls[random.nextInt(_bgImageUrls.length)]);
   }
 
   void _toggleBackgroundMode() {
@@ -337,7 +373,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
       if (_isVideoBackground) _bgController.play();
       setState(() => _isBgInitialized = true);
     } catch (e) {
-      print("背景视频加载失败: $e");
+      print("背景加载失败: $e");
     }
   }
 
@@ -349,8 +385,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     _alphaPlayerController?.onVideoSize = (width, height) {
       if (width > 0 && height > 0 && mounted) {
         final newRatio = width / height;
-        if (_videoAspectRatio == null ||
-            (_videoAspectRatio! - newRatio).abs() > 0.01) {
+        if (_videoAspectRatio == null || (_videoAspectRatio! - newRatio).abs() > 0.01) {
           setState(() {
             _videoAspectRatio = newRatio;
           });
@@ -406,29 +441,23 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     });
   }
 
-  // 🟢 辅助方法：构建半屏 PK 视图 (修正版：强制竖屏撑满)
   Widget _buildPKHalfView({
-    Widget? content, // 自定义内容（如相机预览）
-    String? bgImageUrl, // 背景图
-    VideoPlayerController? videoController, // 视频控制器（优先使用）
-    AIBoss? bossInfo, // Boss信息（用于显示名字等）
+    Widget? content,
+    String? bgImageUrl,
+    VideoPlayerController? videoController,
+    AIBoss? bossInfo,
   }) {
     return Expanded(
       child: Container(
-        // 关键点1：裁剪溢出内容，确保是规整的长方形
         clipBehavior: Clip.hardEdge,
-        decoration: BoxDecoration(
-          color: Colors.black, // 底色纯黑
-        ),
+        decoration: const BoxDecoration(color: Colors.black),
         child: Stack(
-          fit: StackFit.expand, // 关键点2：让子组件填满空间
+          fit: StackFit.expand,
           children: [
-            // --- 底层：背景图或视频 ---
             if (videoController != null && videoController.value.isInitialized)
-            // 关键点3：视频强制撑满 (BoxFit.cover)
               SizedBox.expand(
                 child: FittedBox(
-                  fit: BoxFit.cover, // 裁剪并填满，不要黑边
+                  fit: BoxFit.cover,
                   child: SizedBox(
                     width: videoController.value.size.width,
                     height: videoController.value.size.height,
@@ -439,47 +468,39 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
             else if (bgImageUrl != null)
               Image.network(
                 bgImageUrl,
-                fit: BoxFit.cover, // 图片也强制撑满
-                color: Colors.black.withOpacity(0.3), // 稍微压暗一点背景
+                fit: BoxFit.cover,
+                color: Colors.black.withOpacity(0.3),
                 colorBlendMode: BlendMode.darken,
               )
             else
-              Container(color: Colors.grey[900]), // 兜底颜色
+              Container(color: Colors.grey[900]),
 
-            // --- 中层：自定义内容 (如相机预览) ---
             if (content != null && videoController == null)
               SizedBox.expand(
                 child: FittedBox(
                   fit: BoxFit.cover,
-                  child: SizedBox(
-                    // 假设相机是竖屏 9:16
-                    width: 1,
-                    height: 16/9,
-                    child: content,
-                  ),
+                  child: SizedBox(width: 1, height: 16/9, child: content),
                 ),
               ),
 
-            // --- 顶层：信息遮罩 (渐变黑) ---
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withOpacity(0.4), // 顶部稍黑，看清血条
+                    Colors.black.withOpacity(0.4),
                     Colors.transparent,
-                    Colors.black.withOpacity(0.4), // 底部稍黑，看清名字
+                    Colors.black.withOpacity(0.4),
                   ],
                   stops: const [0.0, 0.2, 1.0],
                 ),
               ),
             ),
 
-            // --- Boss 信息 (如果有) ---
             if (bossInfo != null)
               Positioned(
-                bottom: 10, left: 10, // 放在底部，不要挡住血条
+                bottom: 10, left: 10,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
@@ -506,6 +527,17 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                       ),
                     ),
                   ],
+                ),
+              ),
+
+            if (bossInfo != null && _isAiRaging)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.red.withOpacity(0.6), width: 3),
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -545,14 +577,10 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     _lastGiftSent = giftData;
 
     setState(() {
-      final existingIndex = _activeGifts.indexWhere(
-            (g) => g.comboKey == comboKey,
-      );
+      final existingIndex = _activeGifts.indexWhere((g) => g.comboKey == comboKey);
       if (existingIndex != -1) {
         final oldGift = _activeGifts[existingIndex];
-        _activeGifts[existingIndex] = oldGift.copyWith(
-          count: oldGift.count + 1,
-        );
+        _activeGifts[existingIndex] = oldGift.copyWith(count: oldGift.count + 1);
       } else {
         final newGift = GiftEvent(
           senderName: senderName,
@@ -564,6 +592,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
 
       if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) {
         _myPKScore += giftData.price;
+        // 🟢 移除了震动调用
       }
     });
 
@@ -622,6 +651,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     _textController.dispose();
     _comboScaleController.dispose();
     _countdownController.dispose();
+    // 🟢 移除了 _shakeController.dispose();
     super.dispose();
   }
 
@@ -631,22 +661,16 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     final padding = MediaQuery.of(context).padding;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    // --- 布局常量 ---
     const double topBarHeight = 50.0;
     const double pkBarHeight = 80.0;
     const double gap1 = 10.0;
     const double gap2 = 5.0;
 
-    // --- 坐标计算 ---
-    // 视频高度 (PK模式)
     final double pkVideoHeight = size.width * 0.85;
-
-    // PK模式下视频底部的 Y 轴坐标
     final double pkVideoBottomY = padding.top + topBarHeight + gap1 + pkBarHeight + gap2 + pkVideoHeight;
-
-    // 视频特效比例
     final double videoRatio = _videoAspectRatio ?? (9 / 16);
 
+    // 🟢 移除了 AnimatedBuilder 和 Transform.translate
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.black,
@@ -654,12 +678,10 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
         fit: StackFit.expand,
         children: [
           // ==============================
-          // 层级 1: 页面主体内容 (视频、聊天等)
+          // 层级 1: 页面主体
           // ==============================
           _pkStatus == PKStatus.idle
-          // 🟢 单人模式
               ? _buildSingleModeLayout(size, bottomInset)
-          // 🟢 PK模式
               : Column(
             children: [
               Container(
@@ -674,17 +696,40 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                       child: const BuildTopBar(title: "直播间"),
                     ),
                     SizedBox(height: gap1),
-                    SizedBox(
-                      height: pkBarHeight,
-                      child: PKScoreBar(
-                        myScore: _myPKScore,
-                        opponentScore: _opponentPKScore,
-                        secondsLeft: _pkTimeLeft,
-                        status: _pkStatus,
+
+                    // PK血条 or 连麦提示
+                    if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
+                      SizedBox(
+                        height: pkBarHeight,
+                        child: PKScoreBar(
+                          myScore: _myPKScore,
+                          opponentScore: _opponentPKScore,
+                          secondsLeft: _pkTimeLeft,
+                          status: _pkStatus,
+                        ),
+                      )
+                    else
+                      Container(
+                        height: pkBarHeight,
+                        alignment: Alignment.center,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white24,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.mic, color: Colors.greenAccent, size: 14),
+                              SizedBox(width: 4),
+                              Text("连麦中", style: TextStyle(color: Colors.white, fontSize: 12)),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+
                     SizedBox(height: gap2),
-                    // 视频区域
                     SizedBox(
                       height: pkVideoHeight,
                       width: size.width,
@@ -697,32 +742,39 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                 bgImageUrl: _isVideoBackground ? null : _currentBgImage,
                               ),
                               Container(width: 1.5, color: Colors.black),
-                              // 🟢 敌方视图：传入随机生成的 _opponentBgImage
                               _buildPKHalfView(
-                                bgImageUrl: _opponentBgImage, // 核心修改
+                                bgImageUrl: _opponentBgImage,
                                 videoController: _aiVideoController,
                                 bossInfo: _currentBoss,
                               ),
                             ],
                           ),
-                          // 右下角按钮
+
+                          // 挂断按钮
+                          if (_pkStatus == PKStatus.coHost)
+                            Positioned(
+                              top: 10, right: 10,
+                              child: GestureDetector(
+                                onTap: _disconnectCoHost,
+                                child: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                  child: const Icon(Icons.call_end, color: Colors.white, size: 20),
+                                ),
+                              ),
+                            ),
+
                           Positioned(
                             right: 10, bottom: 10,
                             child: Column(
                               children: [
-                                _buildCircleBtn(
-                                    onTap: _showMusicPanel,
-                                    icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
-                                    borderColor: Colors.purpleAccent,
-                                    label: "点歌"
-                                ),
+                                _buildCircleBtn(onTap: _showMusicPanel, icon: const Icon(Icons.music_note, color: Colors.white, size: 20), borderColor: Colors.purpleAccent, label: "点歌"),
                                 const SizedBox(height: 10),
-                                _buildCircleBtn(
-                                    onTap: _toggleBackgroundMode,
-                                    icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20),
-                                    borderColor: Colors.cyanAccent,
-                                    label: "背景"
-                                ),
+                                _buildCircleBtn(onTap: _toggleBackgroundMode, icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20), borderColor: Colors.cyanAccent, label: "背景"),
                               ],
                             ),
                           ),
@@ -732,7 +784,6 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                   ],
                 ),
               ),
-              // 聊天区
               Expanded(
                 child: Container(
                   color: Colors.black,
@@ -742,11 +793,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                       BuildInputBar(
                         textController: _textController,
                         onTapGift: _showGiftPanel,
-                        onSend: (text) {
-                          setState(() {
-                            _messages.insert(0, ChatMessage(name: "我", content: text, level: 99, levelColor: Colors.amber));
-                          });
-                        },
+                        onSend: (text) => setState(() => _messages.insert(0, ChatMessage(name: "我", content: text, level: 99, levelColor: Colors.amber))),
                       ),
                       SizedBox(height: padding.bottom > 0 ? padding.bottom : 10),
                     ],
@@ -760,17 +807,15 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
           // 层级 2: 全屏 Alpha 特效
           // ==============================
           Positioned(
-            top: 0,
             left: 0,
             right: 0,
             bottom: -2,
             child: IgnorePointer(
-              ignoring: true, // 确保点击穿透
+              ignoring: true,
               child: Opacity(
                 opacity: _isEffectPlaying ? 1.0 : 0.0,
-                child: FittedBox(
-                  fit: BoxFit.cover,
-                  alignment: Alignment.bottomCenter, // 居低对齐
+                child: Align(
+                  alignment: Alignment.bottomCenter,
                   child: SizedBox(
                     width: size.width,
                     height: size.width / videoRatio,
@@ -782,16 +827,14 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
           ),
 
           // ==============================
-          // 层级 3: 🟢 礼物横幅 (在特效之上)
+          // 层级 3: 礼物横幅
           // ==============================
           Positioned(
             left: 0,
             width: size.width,
-            // PK模式定位在视频下方，单人模式定位在聊天框上方
             top: _pkStatus == PKStatus.idle ? null : pkVideoBottomY - 160,
             height: 160,
             bottom: _pkStatus == PKStatus.idle ? (220.0 + (bottomInset > 0 ? 0 : 0)) : null,
-
             child: Align(
               alignment: Alignment.bottomLeft,
               child: Padding(
@@ -810,7 +853,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
           ),
 
           // ==============================
-          // 层级 4: 连击按钮 (最顶层)
+          // 层级 4: 连击按钮
           // ==============================
           if (_showComboButton && _lastGiftSent != null)
             Positioned(
@@ -852,19 +895,16 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
       ),
     );
   }
-// 🟢 单人模式布局 (移除内部的礼物横幅，改为外部统一处理)
+
   Widget _buildSingleModeLayout(Size size, double bottomInset) {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. 视频/背景
         _isVideoBackground
             ? (_isBgInitialized
             ? FittedBox(fit: BoxFit.cover, child: SizedBox(width: _bgController.value.size.width, height: _bgController.value.size.height, child: VideoPlayer(_bgController)))
             : Container(color: Colors.black))
             : Image.network(_currentBgImage, fit: BoxFit.cover),
-
-        // 2. 遮罩
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -873,11 +913,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
             ),
           ),
         ),
-
-        // 3. 顶部栏
         Positioned(top: 0, left: 0, right: 0, child: SafeArea(child: BuildTopBar(title: "直播间"))),
-
-        // 4. 聊天区域
         Column(
           children: [
             const Spacer(),
@@ -893,8 +929,6 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
             SizedBox(height: MediaQuery.of(context).padding.bottom),
           ],
         ),
-
-        // 5. 发起PK按钮
         Positioned(
           bottom: 120, right: 20,
           child: GestureDetector(
@@ -925,7 +959,6 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     );
   }
 
-  // 辅助方法：构建圆形按钮
   Widget _buildCircleBtn({required VoidCallback onTap, required Widget icon, required Color borderColor, String? label}) {
     return GestureDetector(
       onTap: onTap,

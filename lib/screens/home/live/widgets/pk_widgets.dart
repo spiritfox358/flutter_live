@@ -5,6 +5,7 @@ enum PKStatus {
   matching,
   playing,
   punishment,
+  coHost,     // 🟢 新增：连麦模式 (PK结束后的闲聊)
 }
 
 class PKScoreBar extends StatefulWidget {
