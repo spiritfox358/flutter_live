@@ -4,12 +4,16 @@ import '../profile_pill.dart';
 import '../viewer_list.dart';
 
 class BuildTopBar extends StatelessWidget {
-  // 如果需要从外部传递数据，可以定义构造函数
   final String title;
+  // 🟢 1. 新增：定义点击回调
+  final VoidCallback? onClose;
 
-  const BuildTopBar({super.key, required this.title});
+  const BuildTopBar({
+    super.key,
+    required this.title,
+    this.onClose, // 🟢 2. 加入构造函数
+  });
 
-  // 可选：添加 key 或其他参数
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -22,7 +26,16 @@ class BuildTopBar extends StatelessWidget {
             const Spacer(),
             const ViewerList(),
             const SizedBox(width: 8),
-            Icon(Icons.close, color: Colors.white.withAlpha(230), size: 25),
+
+            // 🟢 3. 包裹 GestureDetector 添加点击事件
+            GestureDetector(
+              onTap: onClose, // 绑定回调
+              behavior: HitTestBehavior.opaque, // 扩大点击区域有效性
+              child: Padding(
+                padding: const EdgeInsets.all(4.0), // 增加一点点击热区
+                child: Icon(Icons.close, color: Colors.white.withAlpha(230), size: 25),
+              ),
+            ),
           ],
         ),
       ),

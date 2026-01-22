@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:ui'; // 引入 fontFeatures
 
 enum PKStatus {
   idle,
   matching,
   playing,
   punishment,
-  coHost,     // 🟢 新增：连麦模式 (PK结束后的闲聊)
+  coHost,
 }
 
 class PKScoreBar extends StatefulWidget {
@@ -107,6 +108,14 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
     return score.toString();
   }
 
+  // 时间格式化
+  String _formatTime(int totalSeconds) {
+    if (totalSeconds < 0) return "00:00";
+    final m = totalSeconds ~/ 60;
+    final s = totalSeconds % 60;
+    return "${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}";
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.status == PKStatus.idle) return const SizedBox();
@@ -115,6 +124,12 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
     double targetRatio = total == 0 ? 0.5 : widget.myScore / total;
     targetRatio = targetRatio.clamp(0.15, 0.85);
 
+    // 逻辑：如果都没分(total=0)，中间是直角；一旦有分，中间变圆角
+    final Radius centerRadius = total == 0 ? Radius.zero : const Radius.circular(20);
+
+    // 逻辑：紧急时刻判断 (最后10秒 & 正在PK)
+    final bool isUrgent = widget.secondsLeft <= 10 && widget.status == PKStatus.playing;
+
     return Container(
       height: 100,
       padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -122,7 +137,9 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
 
+          // ==============================
           // 1. 核心血条区域
+          // ==============================
           LayoutBuilder(
             builder: (context, constraints) {
               final maxWidth = constraints.maxWidth;
@@ -131,7 +148,6 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                 height: 18,
                 child: TweenAnimationBuilder<double>(
                   tween: Tween<double>(end: targetRatio),
-                  // 推进动画
                   duration: const Duration(milliseconds: 1500),
                   curve: Curves.easeOutExpo,
                   builder: (context, ratio, child) {
@@ -147,7 +163,7 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                         Container(
                           decoration: BoxDecoration(
                             color: Colors.grey[800],
-                            // 🟢 1. 彻底去掉背景圆角
+                            // 背景始终直角
                           ),
                         ),
 
@@ -162,7 +178,7 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                               gradient: LinearGradient(
                                 colors: [Color(0xFF448AFF), Color(0xFF2962FF)],
                               ),
-                              // 🟢 2. 彻底去掉蓝色条圆角，变成直角矩形
+                              // 蓝色条始终直角
                             ),
                             alignment: Alignment.centerRight,
                             padding: const EdgeInsets.only(right: 8),
@@ -181,12 +197,10 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                         // --- 层级3: 左侧我方 (红色) ---
                         Align(
                           alignment: Alignment.centerLeft,
-                          // 🟢 3. 关键修改：
-                          // 使用 ClipRRect，但只给【右侧】加圆角。
-                          // 这样最左边是直角，中间交界处是圆角。
+                          // 使用 centerRadius 变量，0分时直角，有分时圆角
                           child: ClipRRect(
-                            borderRadius: const BorderRadius.horizontal(
-                              right: Radius.circular(20),
+                            borderRadius: BorderRadius.horizontal(
+                              right: centerRadius,
                             ),
                             child: SizedBox(
                               width: leftWidth,
@@ -194,7 +208,7 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                               child: Stack(
                                 fit: StackFit.expand,
                                 children: [
-                                  // 红色底色 (保持不变)
+                                  // 红色底色
                                   Container(
                                     decoration: const BoxDecoration(
                                       gradient: LinearGradient(
@@ -203,11 +217,10 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                                     ),
                                   ),
 
-                                  // 尾部渐变光 (保持不变)
+                                  // 保留爆闪光效
                                   AnimatedBuilder(
                                     animation: _flashController,
                                     builder: (context, child) {
-                                      // ... 闪光逻辑保持不变 ...
                                       final double t = _flashValue.value;
                                       final double intensity = 0.60 + (0.15 * t);
                                       final double currentWidth = 20.0 + (15.0 * t);
@@ -233,7 +246,7 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                                     },
                                   ),
 
-                                  // 分数文字 (保持不变)
+                                  // 分数文字
                                   Align(
                                     alignment: Alignment.centerLeft,
                                     child: Padding(
@@ -255,7 +268,7 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                           ),
                         ),
 
-                        // --- 层级4: 飘字动画 (位于我方血条内) ---
+                        // --- 层级4: 飘字动画 ---
                         if (_popController.isAnimating || _popController.isCompleted)
                           Positioned(
                             left: 0,
@@ -296,18 +309,68 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
 
           const SizedBox(height: 6),
 
-          // 2. 倒计时
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+          // ==============================
+          // 2. 倒计时部分 (已优化：背景更亮、边框更细、PK有间隙)
+          // ==============================
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(10),
+              // 🟢 修改1：紧急时刻颜色改亮一点 (从深红 D50000 -> 亮红Accent FF1744)，并加点透明度
+              color: isUrgent ? const Color(0xFFFF1744).withOpacity(0.9) : Colors.black.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(20),
+              // 🟢 修改2：边框宽度从 1.5 -> 1.0
+              border: isUrgent ? Border.all(color: Colors.yellowAccent, width: 1.0) : null,
             ),
-            child: Text(
-              widget.status == PKStatus.punishment
-                  ? "惩罚时间 ${widget.secondsLeft}s"
-                  : "PK ${widget.secondsLeft}s",
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (widget.status != PKStatus.punishment) ...[
+                  // P: 红色
+                  const Text(
+                    "P",
+                    style: TextStyle(
+                      color: Color(0xFFFF2E56),
+                      fontWeight: FontWeight.w900,
+                      fontStyle: FontStyle.italic,
+                      fontSize: 15,
+                      height: 1.0,
+                      shadows: [Shadow(color: Colors.black26, offset: Offset(1,1))],
+                    ),
+                  ),
+
+                  // 🟢 修改3：这里加一个间隙，让 P 和 K 分开一点
+                  const SizedBox(width: 0),
+
+                  // K: 蓝色
+                  const Text(
+                    "K",
+                    style: TextStyle(
+                      color: Color(0xFF2979FF),
+                      fontWeight: FontWeight.w900,
+                      fontStyle: FontStyle.italic,
+                      fontSize: 15,
+                      height: 1.0,
+                      shadows: [Shadow(color: Colors.black26, offset: Offset(1,1))],
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+
+                // 倒计时数字
+                Text(
+                  widget.status == PKStatus.punishment
+                      ? "惩罚时间 ${widget.secondsLeft}s"
+                      : _formatTime(widget.secondsLeft),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
             ),
           ),
 

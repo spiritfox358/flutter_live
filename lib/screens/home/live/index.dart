@@ -28,7 +28,8 @@ final List<AIBoss> _bosses = [
   const AIBoss(
     name: "机械姬·零号",
     avatarUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712109.png",
-    videoUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/ai_avatar_1.mp4",
+    videoUrl:
+        "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/ai_avatar_1.mp4",
     difficulty: 3,
     tauntMessages: ["就这？手速太慢了", "由于分差过大，我已开启省电模式", "哔...检测到你在摆烂"],
   ),
@@ -48,7 +49,8 @@ class LiveStreamingPage extends StatefulWidget {
   State<LiveStreamingPage> createState() => _LiveStreamingPageState();
 }
 
-class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProviderStateMixin {
+class _LiveStreamingPageState extends State<LiveStreamingPage>
+    with TickerProviderStateMixin {
   // ==================== 状态变量区域 ====================
 
   // 背景控制
@@ -71,6 +73,11 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
   AIBoss? _currentBoss;
   VideoPlayerController? _aiVideoController;
   String _opponentBgImage = "";
+  // 🤖 AI 拟人化逻辑变量
+  int _lastMyScoreCheck = 0;      // 上一次检测到的我的分数（用于判断我是否涨分）
+  int _aiNextActionTimestamp = 0; // AI 下一次行动的时间戳（用于模拟延迟）
+  int _aiComboCount = 0;          // AI 当前连击剩余次数
+  bool _isAiInShock = false;      // AI 是否处于“震惊僵直”状态
 
   // 特效播放
   MyAlphaPlayerController? _alphaPlayerController;
@@ -92,7 +99,14 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
   late AnimationController _countdownController;
 
   // 模拟数据
-  final List<String> _dummyNames = ["Luna", "右岸", "从此安静", "梦醒时分", "快乐小狗", "榜一大哥"];
+  final List<String> _dummyNames = [
+    "Luna",
+    "右岸",
+    "从此安静",
+    "梦醒时分",
+    "快乐小狗",
+    "榜一大哥",
+  ];
   final List<String> _dummyContents = ["主播好美！", "这歌好听", "点赞点赞", "666", "关注了"];
 
   // ==================== 生命周期 ====================
@@ -138,9 +152,6 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
     super.dispose();
   }
 
-  // ==================== 业务逻辑区域 ====================
-
-  // --- PK 系统 ---
   void _startAIBattle() {
     if (_pkStatus != PKStatus.idle) return;
 
@@ -149,15 +160,22 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
     _opponentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)];
     _isAiRaging = false;
 
+    // 重置 AI 状态
+    _lastMyScoreCheck = 0;
+    _aiNextActionTimestamp = 0;
+    _aiComboCount = 0;
+    _isAiInShock = false;
+
     setState(() {
       _pkStatus = PKStatus.playing;
       _myPKScore = 0;
       _opponentPKScore = 0;
-      _pkTimeLeft = 90;
+      _pkTimeLeft = 90; // 90秒 PK
     });
 
     _addFakeMessage(boss.name, "系统连接成功...挑战开始！", Colors.redAccent);
 
+    // 播放 AI 视频
     if (boss.videoUrl.isNotEmpty) {
       _aiVideoController = VideoPlayerController.networkUrl(Uri.parse(boss.videoUrl));
       _aiVideoController!.initialize().then((_) {
@@ -167,60 +185,98 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
       });
     }
 
+    // ⏱️ 启动 AI 逻辑循环 (500ms 刷新一次，模拟人的反应周期)
     _pkTimer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (!mounted) return;
       final random = Random();
+      final now = DateTime.now().millisecondsSinceEpoch;
 
-      // AI 自动涨分逻辑
-      if (random.nextDouble() < 0.6) {
-        setState(() {
-          int baseGrowth = boss.difficulty * 2;
-          if (_opponentPKScore < _myPKScore) baseGrowth = (baseGrowth * 1.5).toInt();
-          _opponentPKScore += random.nextInt(10) + baseGrowth;
-        });
-      }
-
-      // 暴走模式检测
-      if (_myPKScore > _opponentPKScore + 500 && !_isAiRaging) {
-        _isAiRaging = true;
-        _addFakeMessage(boss.name, "😡 警告：Boss进入暴走追分模式！", Colors.redAccent);
-      }
-
-      if (_isAiRaging) {
-        setState(() {
-          int catchUp = (_myPKScore - _opponentPKScore) ~/ 10;
-          _opponentPKScore += max(catchUp, boss.difficulty * 5);
-        });
-      }
-
-      // 暴击大额礼物
-      double critChance = 0.02 + (boss.difficulty * 0.005);
-      if (_isAiRaging) critChance *= 2.0;
-
-      if (random.nextDouble() < critChance) {
-        int bigGiftScore = random.nextBool() ? 520 : 1314;
-        String giftName = bigGiftScore == 520 ? "跑车" : "火箭";
-        setState(() {
-          _opponentPKScore += bigGiftScore;
-          if (_opponentPKScore > _myPKScore && (_opponentPKScore - bigGiftScore) < _myPKScore) {
-            _addFakeMessage(boss.name, "🚀 感谢大哥送来的$giftName！实现反超！", Colors.orangeAccent);
-          }
-        });
-      }
-
-      // AI 嘲讽
-      if (random.nextDouble() < 0.03 && boss.tauntMessages.isNotEmpty && _opponentPKScore > _myPKScore) {
-        final msg = boss.tauntMessages[random.nextInt(boss.tauntMessages.length)];
-        _addFakeMessage(boss.name, msg, Colors.cyanAccent);
-      }
-
-      // 倒计时
+      // 1. 倒计时逻辑
       if (timer.tick % 2 == 0) {
         setState(() => _pkTimeLeft--);
         if (_pkTimeLeft <= 0) {
           _pkTimer?.cancel();
           _enterPunishmentPhase();
+          return;
         }
+      }
+
+      // ================= 🤖 拟人化 AI 核心逻辑 =================
+
+      // 🛑 阶段 A: 开局观察期 (前 5 秒 AI 几乎不动，假装在看对面)
+      if (90 - _pkTimeLeft < 5) {
+        if (random.nextDouble() < 0.1) { // 偶尔送个免费小礼物
+          setState(() => _opponentPKScore += 1);
+        }
+        return;
+      }
+
+      // 👀 阶段 B: 监测玩家行为 (如果我涨分了，AI 会愣住)
+      if (_myPKScore > _lastMyScoreCheck) {
+        int diff = _myPKScore - _lastMyScoreCheck;
+        _lastMyScoreCheck = _myPKScore;
+
+        // 如果我突然涨了很多分 (比如送了跑车)，AI 会陷入更久的“震惊”
+        int shockTime = diff > 500 ? 3000 : 1500;
+
+        // 设置僵直时间：当前时间 + 随机延迟 (1.5s ~ 3s)
+        _aiNextActionTimestamp = now + shockTime + random.nextInt(1000);
+        _isAiInShock = true;
+
+        // 只有 30% 的概率会发弹幕惊讶
+        if (random.nextDouble() < 0.3) {
+          Future.delayed(Duration(milliseconds: 1000), () {
+            if(mounted) _addFakeMessage(boss.name, "卧槽？搞偷袭？", Colors.grey);
+          });
+        }
+        return; // 这一帧 AI 处于震惊中，不操作
+      }
+
+      // ⏳ 阶段 C: 等待僵直结束
+      if (now < _aiNextActionTimestamp) {
+        return; // 还在反应延迟中，什么都不做
+      }
+
+      // ⚔️ 阶段 D: AI 决策行动
+
+      // D1. 连击模式 (模拟一直点屏幕送小心心)
+      if (_aiComboCount > 0) {
+        setState(() {
+          // 每次连击增加 1~10 分 (模拟小礼物)
+          _opponentPKScore += random.nextInt(10) + 1;
+          _aiComboCount--;
+        });
+        return;
+      }
+
+      // D2. 决策新动作 (如果没有连击，决定下一步做什么)
+      double actionRoll = random.nextDouble();
+
+      // 情况 1: 触发连击 (30% 概率)
+      if (actionRoll < 0.3) {
+        _aiComboCount = random.nextInt(20) + 10; // 连击 10~30 次
+      }
+      // 情况 2: 送大礼物 (5% 概率，且只在最后 30 秒或落后时触发)
+      else if (actionRoll < 0.35 && (_pkTimeLeft < 30 || _opponentPKScore < _myPKScore)) {
+        int giftScore = random.nextBool() ? 520 : 1314; // 跑车或火箭
+        setState(() => _opponentPKScore += giftScore);
+        _addFakeMessage(boss.name, "🚀 感谢大哥送来的支援！", Colors.orangeAccent);
+        // 送完大礼物，通常会休息一下 (CD 2秒)
+        _aiNextActionTimestamp = now + 2000;
+      }
+      // 情况 3: 摆烂/发呆 (40% 概率)
+      else if (actionRoll < 0.75) {
+        // 什么都不做，假装在打字或者没钱了
+      }
+      // 情况 4: 偷塔逻辑 (最后 5 秒，极高概率触发)
+      else if (_pkTimeLeft <= 5 && actionRoll < 0.9) {
+        setState(() => _opponentPKScore += 999);
+        _addFakeMessage(boss.name, "🔥 偷塔！！！", Colors.red);
+      }
+
+      // 难度修正：如果 Boss 难度高，额外加点分
+      if (boss.difficulty > 5 && random.nextDouble() < 0.5) {
+        setState(() => _opponentPKScore += boss.difficulty);
       }
     });
   }
@@ -267,10 +323,14 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
     _lastGiftSent = giftData;
 
     setState(() {
-      final existingIndex = _activeGifts.indexWhere((g) => g.comboKey == comboKey);
+      final existingIndex = _activeGifts.indexWhere(
+        (g) => g.comboKey == comboKey,
+      );
       if (existingIndex != -1) {
         final oldGift = _activeGifts[existingIndex];
-        _activeGifts[existingIndex] = oldGift.copyWith(count: oldGift.count + 1);
+        _activeGifts[existingIndex] = oldGift.copyWith(
+          count: oldGift.count + 1,
+        );
       } else {
         final newGift = GiftEvent(
           senderName: senderName,
@@ -285,7 +345,9 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
       }
     });
 
-    _addEffectToQueue(giftData.effectAsset);
+    if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
+      _addEffectToQueue(giftData.effectAsset!);
+    }
     _triggerComboMode();
   }
 
@@ -313,7 +375,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
     _alphaPlayerController?.onVideoSize = (width, height) {
       if (width > 0 && height > 0 && mounted) {
         final newRatio = width / height;
-        if (_videoAspectRatio == null || (_videoAspectRatio! - newRatio).abs() > 0.01) {
+        if (_videoAspectRatio == null ||
+            (_videoAspectRatio! - newRatio).abs() > 0.01) {
           setState(() => _videoAspectRatio = newRatio);
         }
       }
@@ -364,7 +427,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
 
   // --- 辅助功能 ---
   void _initializeBackground() async {
-    const String aliyunBgUrl = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4';
+    const String aliyunBgUrl =
+        'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4';
     _bgController = VideoPlayerController.networkUrl(
       Uri.parse(aliyunBgUrl),
       videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
@@ -393,12 +457,18 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
   }
 
   void _pickRandomImage() {
-    setState(() => _currentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)]);
+    setState(
+      () =>
+          _currentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)],
+    );
   }
 
   void _addFakeMessage(String name, String content, Color color) {
     setState(() {
-      _messages.insert(0, ChatMessage(name: name, content: content, level: 99, levelColor: color));
+      _messages.insert(
+        0,
+        ChatMessage(name: name, content: content, level: 99, levelColor: color),
+      );
     });
   }
 
@@ -406,12 +476,14 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
     final random = Random();
     List<ChatMessage> temp = [];
     for (int i = 0; i < 20; i++) {
-      temp.add(ChatMessage(
-        name: _dummyNames[random.nextInt(_dummyNames.length)],
-        content: _dummyContents[random.nextInt(_dummyContents.length)],
-        level: random.nextInt(50) + 1,
-        levelColor: Colors.primaries[random.nextInt(Colors.primaries.length)],
-      ));
+      temp.add(
+        ChatMessage(
+          name: _dummyNames[random.nextInt(_dummyNames.length)],
+          content: _dummyContents[random.nextInt(_dummyContents.length)],
+          level: random.nextInt(50) + 1,
+          levelColor: Colors.primaries[random.nextInt(Colors.primaries.length)],
+        ),
+      );
     }
     setState(() => _messages = temp.reversed.toList());
   }
@@ -423,10 +495,12 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
       backgroundColor: Colors.transparent,
       barrierColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => GiftPanel(onSend: (gift) {
-        _sendGift(gift);
-        Navigator.pop(context);
-      }),
+      builder: (_) => GiftPanel(
+        onSend: (gift) {
+          _sendGift(gift);
+          Navigator.pop(context);
+        },
+      ),
     );
   }
 
@@ -453,7 +527,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
     const double gap2 = 5.0;
 
     final double pkVideoHeight = size.width * 0.85;
-    final double pkVideoBottomY = padding.top + topBarHeight + gap1 + pkBarHeight + gap2 + pkVideoHeight;
+    final double pkVideoBottomY =
+        padding.top + topBarHeight + gap1 + pkBarHeight + gap2 + pkVideoHeight;
     final double videoRatio = _videoAspectRatio ?? (9 / 16);
 
     return Scaffold(
@@ -466,132 +541,226 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
           // 层级 1: 页面主体逻辑 (根据状态切换视图)
           // ==============================
           _pkStatus == PKStatus.idle
-          // 🟢 场景 1: 单人直播模式 (代码已抽离)
+              // 🟢 场景 1: 单人直播模式 (代码已抽离)
               ? SingleModeView(
-            isVideoBackground: _isVideoBackground,
-            isBgInitialized: _isBgInitialized,
-            bgController: _bgController,
-            currentBgImage: _currentBgImage,
-            messages: _messages,
-            textController: _textController,
-            onTapGift: _showGiftPanel,
-            onStartPK: _startAIBattle,
-            onSendMessage: (text) => setState(() => _messages.insert(0, ChatMessage(name: "我", content: text, level: 99, levelColor: Colors.amber))),
-          )
-          // 🟢 场景 2: PK / 连麦模式
+                  isVideoBackground: _isVideoBackground,
+                  isBgInitialized: _isBgInitialized,
+                  bgController: _bgController,
+                  currentBgImage: _currentBgImage,
+                  messages: _messages,
+                  textController: _textController,
+                  onTapGift: _showGiftPanel,
+                  onStartPK: _startAIBattle,
+                  onClose: () => Navigator.of(context).pop(),
+                  onSendMessage: (text) => setState(
+                    () => _messages.insert(
+                      0,
+                      ChatMessage(
+                        name: "我",
+                        content: text,
+                        level: 99,
+                        levelColor: Colors.amber,
+                      ),
+                    ),
+                  ),
+                )
+              // 🟢 场景 2: PK / 连麦模式
               : Column(
-            children: [
-              Container(
-                width: double.infinity,
-                color: Colors.black,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      margin: EdgeInsets.only(top: padding.top),
-                      height: topBarHeight,
-                      child: const BuildTopBar(title: "直播间"),
-                    ),
-                    SizedBox(height: gap1),
-
-                    // PK血条 or 连麦提示
-                    if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
-                      SizedBox(
-                        height: pkBarHeight,
-                        child: PKScoreBar(
-                          myScore: _myPKScore,
-                          opponentScore: _opponentPKScore,
-                          secondsLeft: _pkTimeLeft,
-                          status: _pkStatus,
-                        ),
-                      )
-                    else
-                      Container(
-                        height: pkBarHeight,
-                        alignment: Alignment.center,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [Icon(Icons.mic, color: Colors.greenAccent, size: 14), SizedBox(width: 4), Text("连麦中", style: TextStyle(color: Colors.white, fontSize: 12))],
-                          ),
-                        ),
-                      ),
-
-                    SizedBox(height: gap2),
-
-                    // PK 视频区域 (左右分屏)
-                    SizedBox(
-                      height: pkVideoHeight,
-                      width: size.width,
-                      child: Stack(
+                      width: double.infinity,
+                      color: Colors.black,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 🟢 核心分屏组件 (代码已抽离)
-                          PKBattleView(
-                            leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
-                            leftBgImage: _isVideoBackground ? null : _currentBgImage,
-                            rightBgImage: _opponentBgImage,
-                            rightVideoController: _aiVideoController,
-                            currentBoss: _currentBoss,
-                            isAiRaging: _isAiRaging,
+                          Container(
+                            margin: EdgeInsets.only(top: padding.top),
+                            height: topBarHeight,
+                            child: BuildTopBar(
+                              title: "直播间",
+                              onClose: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
                           ),
+                          SizedBox(height: gap1),
 
-                          // 挂断按钮
-                          if (_pkStatus == PKStatus.coHost)
-                            Positioned(
-                              top: 10, right: 10,
-                              child: GestureDetector(
-                                onTap: _disconnectCoHost,
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle, border: Border.all(color: Colors.white, width: 2)),
-                                  child: const Icon(Icons.call_end, color: Colors.white, size: 20),
+                          // PK血条 or 连麦提示
+                          if (_pkStatus == PKStatus.playing ||
+                              _pkStatus == PKStatus.punishment)
+                            SizedBox(
+                              height: pkBarHeight,
+                              child: PKScoreBar(
+                                myScore: _myPKScore,
+                                opponentScore: _opponentPKScore,
+                                secondsLeft: _pkTimeLeft,
+                                status: _pkStatus,
+                              ),
+                            )
+                          else
+                            Container(
+                              height: pkBarHeight,
+                              alignment: Alignment.center,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white24,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.mic,
+                                      color: Colors.greenAccent,
+                                      size: 14,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      "连麦中",
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
 
-                          // 右下角控制按钮
-                          Positioned(
-                            right: 10, bottom: 10,
-                            child: Column(
+                          SizedBox(height: gap2),
+
+                          // PK 视频区域 (左右分屏)
+                          SizedBox(
+                            height: pkVideoHeight,
+                            width: size.width,
+                            child: Stack(
                               children: [
-                                _buildCircleBtn(onTap: _showMusicPanel, icon: const Icon(Icons.music_note, color: Colors.white, size: 20), borderColor: Colors.purpleAccent, label: "点歌"),
-                                const SizedBox(height: 10),
-                                _buildCircleBtn(onTap: _toggleBackgroundMode, icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20), borderColor: Colors.cyanAccent, label: "背景"),
+                                // 🟢 核心分屏组件 (代码已抽离)
+                                PKBattleView(
+                                  leftVideoController:
+                                      (_isVideoBackground && _isBgInitialized)
+                                      ? _bgController
+                                      : null,
+                                  leftBgImage: _isVideoBackground
+                                      ? null
+                                      : _currentBgImage,
+                                  rightBgImage: _opponentBgImage,
+                                  rightVideoController: _aiVideoController,
+                                  currentBoss: _currentBoss,
+                                  isAiRaging: _isAiRaging,
+                                ),
+
+                                // 挂断按钮
+                                if (_pkStatus == PKStatus.coHost)
+                                  Positioned(
+                                    top: 10,
+                                    right: 10,
+                                    child: GestureDetector(
+                                      onTap: _disconnectCoHost,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.call_end,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                // 右下角控制按钮
+                                Positioned(
+                                  right: 10,
+                                  bottom: 10,
+                                  child: Column(
+                                    children: [
+                                      _buildCircleBtn(
+                                        onTap: _showMusicPanel,
+                                        icon: const Icon(
+                                          Icons.music_note,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        borderColor: Colors.purpleAccent,
+                                        label: "点歌",
+                                      ),
+                                      const SizedBox(height: 10),
+                                      _buildCircleBtn(
+                                        onTap: _toggleBackgroundMode,
+                                        icon: Icon(
+                                          _isVideoBackground
+                                              ? Icons.videocam
+                                              : Icons.image,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                        borderColor: Colors.cyanAccent,
+                                        label: "背景",
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                         ],
                       ),
                     ),
+                    Expanded(
+                      child: Container(
+                        color: Colors.black,
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: BuildChatList(
+                                bottomInset: 0,
+                                messages: _messages,
+                              ),
+                            ),
+                            BuildInputBar(
+                              textController: _textController,
+                              onTapGift: _showGiftPanel,
+                              onSend: (text) => setState(
+                                () => _messages.insert(
+                                  0,
+                                  ChatMessage(
+                                    name: "我",
+                                    content: text,
+                                    level: 99,
+                                    levelColor: Colors.amber,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              height: padding.bottom > 0 ? padding.bottom : 10,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              Expanded(
-                child: Container(
-                  color: Colors.black,
-                  child: Column(
-                    children: [
-                      Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
-                      BuildInputBar(
-                        textController: _textController,
-                        onTapGift: _showGiftPanel,
-                        onSend: (text) => setState(() => _messages.insert(0, ChatMessage(name: "我", content: text, level: 99, levelColor: Colors.amber))),
-                      ),
-                      SizedBox(height: padding.bottom > 0 ? padding.bottom : 10),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
 
           // ==============================
           // 层级 2: 全屏 Alpha 特效
           // ==============================
           Positioned(
-            left: 0, right: 0, bottom: -2,
+            left: 0,
+            right: 0,
+            bottom: -2,
             child: IgnorePointer(
               ignoring: true,
               child: Opacity(
@@ -612,10 +781,18 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
           // 层级 3: 礼物横幅
           // ==============================
           Positioned(
-            left: 0, width: size.width,
-            top: _pkStatus == PKStatus.idle ? null : pkVideoBottomY - 160,
+            left: 0,
+            width: size.width,
+
+            // 🟢 修改点：统一使用 pkVideoBottomY 计算 Top 位置
+            // 这样无论单人还是PK，礼物都会出现在屏幕的同一个垂直高度
+            top: pkVideoBottomY - 160,
+
             height: 160,
-            bottom: _pkStatus == PKStatus.idle ? (220.0 + (bottomInset > 0 ? 0 : 0)) : null,
+
+            // 🟢 修改点：底部设为 null，不再依赖底部距离
+            bottom: null,
+
             child: Align(
               alignment: Alignment.bottomLeft,
               child: Padding(
@@ -623,11 +800,15 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
-                  children: _activeGifts.map((giftEvent) => AnimatedGiftItem(
-                    key: ValueKey(giftEvent.id),
-                    giftEvent: giftEvent,
-                    onFinished: () => _onGiftFinished(giftEvent.id),
-                  )).toList(),
+                  children: _activeGifts
+                      .map(
+                        (giftEvent) => AnimatedGiftItem(
+                          key: ValueKey(giftEvent.id),
+                          giftEvent: giftEvent,
+                          onFinished: () => _onGiftFinished(giftEvent.id),
+                        ),
+                      )
+                      .toList(),
                 ),
               ),
             ),
@@ -641,28 +822,78 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
               right: 16,
               bottom: bottomInset + 80,
               child: ScaleTransition(
-                scale: CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut),
+                scale: CurvedAnimation(
+                  parent: _comboScaleController,
+                  curve: Curves.elasticOut,
+                ),
                 child: GestureDetector(
                   onTap: () => _sendGift(_lastGiftSent!),
                   child: AnimatedBuilder(
                     animation: _countdownController,
                     builder: (context, child) {
                       return SizedBox(
-                        width: 76, height: 76,
+                        width: 76,
+                        height: 76,
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
-                            SizedBox(width: 76, height: 76, child: CircularProgressIndicator(value: 1.0 - _countdownController.value, strokeWidth: 4, backgroundColor: Colors.white24, valueColor: const AlwaysStoppedAnimation(Colors.amber))),
+                            SizedBox(
+                              width: 76,
+                              height: 76,
+                              child: CircularProgressIndicator(
+                                value: 1.0 - _countdownController.value,
+                                strokeWidth: 4,
+                                backgroundColor: Colors.white24,
+                                valueColor: const AlwaysStoppedAnimation(
+                                  Colors.amber,
+                                ),
+                              ),
+                            ),
                             Container(
-                              width: 64, height: 64,
+                              width: 64,
+                              height: 64,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                gradient: const LinearGradient(colors: [Color(0xFFFF0080), Color(0xFFFF8C00)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                                boxShadow: [BoxShadow(color: const Color(0xFFFF0080).withOpacity(0.6), blurRadius: 15, offset: const Offset(0, 4))],
-                                border: Border.all(color: Colors.white, width: 2),
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFFFF0080),
+                                    Color(0xFFFF8C00),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFFFF0080,
+                                    ).withOpacity(0.6),
+                                    blurRadius: 15,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
                               ),
                               alignment: const Alignment(0, -0.15),
-                              child: const Text("连击", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, shadows: [Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2)])),
+                              child: const Text(
+                                "连击",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  fontStyle: FontStyle.italic,
+                                  shadows: [
+                                    Shadow(
+                                      color: Colors.black26,
+                                      offset: Offset(1, 1),
+                                      blurRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -678,18 +909,41 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
   }
 
   // 小组件保留在这里比较方便
-  Widget _buildCircleBtn({required VoidCallback onTap, required Widget icon, required Color borderColor, String? label}) {
+  Widget _buildCircleBtn({
+    required VoidCallback onTap,
+    required Widget icon,
+    required Color borderColor,
+    String? label,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
         children: [
           Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), shape: BoxShape.circle, border: Border.all(color: borderColor.withOpacity(0.5), width: 1.5)),
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.4),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: borderColor.withOpacity(0.5),
+                width: 1.5,
+              ),
+            ),
             alignment: Alignment.center,
             child: icon,
           ),
-          if (label != null) ...[const SizedBox(height: 2), Text(label, style: const TextStyle(color: Colors.white, fontSize: 10, shadows: [Shadow(blurRadius: 2, color: Colors.black)]))]
+          if (label != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+              ),
+            ),
+          ],
         ],
       ),
     );

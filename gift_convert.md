@@ -1,4 +1,4 @@
-ffmpeg -i 黑金嘉年华.mov \
+ffmpeg -i 龙腾九天_good.mov \
 -filter_complex "
 [0:v]format=rgba,split=2[rgb][a];
 [a]alphaextract,format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2[a_gray];
@@ -12,4 +12,14 @@ ffmpeg -i 黑金嘉年华.mov \
 -crf 14 \
 -preset slow \
 -movflags +faststart \
-黑金嘉年华.mp4
+龙腾九天_good.mp4
+
+
+
+
+
+
+
+
+Administrator
+lygyun2009

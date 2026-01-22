@@ -3,7 +3,9 @@ import 'package:video_player/video_player.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_input_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_top_bar.dart';
+
 import '../models/live_models.dart';
+
 class SingleModeView extends StatelessWidget {
   final bool isVideoBackground;
   final bool isBgInitialized;
@@ -14,6 +16,9 @@ class SingleModeView extends StatelessWidget {
   final VoidCallback onTapGift;
   final VoidCallback onStartPK;
   final Function(String) onSendMessage;
+
+  // 🔴 1. 补上这一行 (定义变量)
+  final VoidCallback? onClose;
 
   const SingleModeView({
     super.key,
@@ -26,6 +31,8 @@ class SingleModeView extends StatelessWidget {
     required this.onTapGift,
     required this.onStartPK,
     required this.onSendMessage,
+    // 🔴 2. 构造函数里接收它 (你之前只写了这行，没写上面那行)
+    this.onClose,
   });
 
   @override
@@ -57,7 +64,16 @@ class SingleModeView extends StatelessWidget {
         ),
 
         // 顶部栏
-        const Positioned(top: 0, left: 0, right: 0, child: SafeArea(child: BuildTopBar(title: "直播间"))),
+        Positioned(
+          top: 0, left: 0, right: 0,
+          child: SafeArea(
+            // 🔴 3. 把 onClose 传给 BuildTopBar
+            child: BuildTopBar(
+              title: "直播间",
+              onClose: onClose,
+            ),
+          ),
+        ),
 
         // 聊天列表
         Column(
