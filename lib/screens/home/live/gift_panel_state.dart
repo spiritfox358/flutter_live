@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import './index.dart';
 import 'gift_panel.dart';
+import 'models/live_models.dart';
 
 class GiftPanelState extends State<GiftPanel>
     with SingleTickerProviderStateMixin {

@@ -2,6 +2,7 @@
 import 'package:flutter/cupertino.dart';
 import './index.dart';
 import 'gift_panel_state.dart';
+import 'models/live_models.dart';
 
 class GiftPanel extends StatefulWidget {
   final Function(GiftItemData) onSend;

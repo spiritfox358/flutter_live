@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import './index.dart';
 import 'animate_gift_item.dart';
+import 'models/live_models.dart';
 
 class AnimatedGiftItemState extends State<AnimatedGiftItem> with TickerProviderStateMixin {
   late AnimationController _entryController;

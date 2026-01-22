@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../index.dart';
+import '../models/live_models.dart';
 
 class BuildChatItem extends StatelessWidget {
   // 如果需要从外部传递数据，可以定义构造函数

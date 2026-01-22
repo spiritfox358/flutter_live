@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
-import './index.dart';
 import 'animate_gift_item_state.dart';
+import 'models/live_models.dart';
 
 class AnimatedGiftItem extends StatefulWidget {
   final GiftEvent giftEvent;
