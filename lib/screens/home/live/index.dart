@@ -9,13 +9,11 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:my_alpha_player/my_alpha_player.dart';
 
-// --- 🟢 引入你抽离的组件和模型 ---
+// --- 引入组件 ---
 import '../../../services/ai_service.dart';
 import 'models/live_models.dart';
 import 'widgets/pk_battle_view.dart';
 import 'widgets/single_mode_view.dart';
-
-// --- 引入原有的 Widget (保持不变) ---
 import 'package:flutter_live/screens/home/live/widgets/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_input_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_top_bar.dart';
@@ -24,13 +22,12 @@ import 'package:flutter_live/screens/home/live/widgets/pk_widgets.dart';
 import 'animate_gift_item.dart';
 import 'gift_panel.dart';
 
-// --- 静态数据配置 (如果不想放这里，也可以抽离到 data/config.dart) ---
+// --- 静态数据配置 ---
 final List<AIBoss> _bosses = [
   const AIBoss(
     name: "机械姬·零号",
     avatarUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712109.png",
-    videoUrl:
-        "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/ai_avatar_1.mp4",
+    videoUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/ai_avatar_1.mp4",
     difficulty: 3,
     tauntMessages: ["就这？手速太慢了", "由于分差过大，我已开启省电模式", "哔...检测到你在摆烂"],
   ),
@@ -50,12 +47,11 @@ class LiveStreamingPage extends StatefulWidget {
   State<LiveStreamingPage> createState() => _LiveStreamingPageState();
 }
 
-class _LiveStreamingPageState extends State<LiveStreamingPage>
-    with TickerProviderStateMixin {
+class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProviderStateMixin {
   // ==================== 状态变量区域 ====================
+  final int _pkEndWaitTime = 20;
 
-  // 背景控制
-  late VideoPlayerController _bgController;
+  VideoPlayerController? _bgController;
   bool _isBgInitialized = false;
   bool _isVideoBackground = false;
   String _currentBgImage = "";
@@ -64,7 +60,6 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_2.png",
   ];
 
-  // PK & AI 逻辑
   PKStatus _pkStatus = PKStatus.idle;
   int _myPKScore = 0;
   int _opponentPKScore = 0;
@@ -74,44 +69,33 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   AIBoss? _currentBoss;
   VideoPlayerController? _aiVideoController;
   String _opponentBgImage = "";
+  bool _isAIThinking = false;
 
-  // 🤖 AI 拟人化逻辑变量
-  int _lastMyScoreCheck = 0; // 上一次检测到的我的分数（用于判断我是否涨分）
-  int _aiNextActionTimestamp = 0; // AI 下一次行动的时间戳（用于模拟延迟）
-  int _aiComboCount = 0; // AI 当前连击剩余次数
-  bool _isAiInShock = false; // AI 是否处于“震惊僵直”状态
-
-  // 特效播放
   MyAlphaPlayerController? _alphaPlayerController;
   final Queue<String> _effectQueue = Queue();
   bool _isEffectPlaying = false;
   double? _videoAspectRatio;
 
-  // 聊天与礼物
   final TextEditingController _textController = TextEditingController();
   List<ChatMessage> _messages = [];
   static const int _maxActiveGifts = 2;
   final List<GiftEvent> _activeGifts = [];
   final Queue<GiftEvent> _waitingQueue = Queue();
 
-  // 连击逻辑
   bool _showComboButton = false;
   GiftItemData? _lastGiftSent;
   late AnimationController _comboScaleController;
   late AnimationController _countdownController;
 
-  // 模拟数据
-  final List<String> _dummyNames = [
-    "Luna",
-    "右岸",
-    "从此安静",
-    "梦醒时分",
-    "快乐小狗",
-    "榜一大哥",
-  ];
-  final List<String> _dummyContents = ["主播好美！", "这歌好听", "点赞点赞", "666", "关注了"];
+  // 🟢 恢复 PK 开场动画变量
+  bool _showPKStartAnimation = false;
+  late AnimationController _pkStartAnimationController;
+  late Animation<double> _pkLeftAnimation;
+  late Animation<double> _pkRightAnimation;
+  late Animation<double> _pkFadeAnimation;
 
-  // ==================== 生命周期 ====================
+  final List<String> _dummyNames = ["Luna", "右岸", "从此安静", "梦醒时分", "快乐小狗", "榜一大哥"];
+  final List<String> _dummyContents = ["主播好美！", "这歌好听", "点赞点赞", "666", "关注了"];
 
   @override
   void initState() {
@@ -120,380 +104,232 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     _pickRandomImage();
     _generateDummyMessages();
 
-    _comboScaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-      lowerBound: 0.0,
-      upperBound: 1.0,
-    );
-
-    _countdownController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    );
-
+    _comboScaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 150), lowerBound: 0.0, upperBound: 1.0);
+    _countdownController = AnimationController(vsync: this, duration: const Duration(seconds: 3));
     _countdownController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         _comboScaleController.reverse().then((_) {
-          setState(() {
-            _showComboButton = false;
-            _lastGiftSent = null;
-          });
+          setState(() { _showComboButton = false; _lastGiftSent = null; });
         });
       }
     });
+
+    // 🟢 初始化 PK 开场动画
+    _initPKStartAnimation();
+  }
+
+  // 🟢 PK 动画初始化逻辑
+  void _initPKStartAnimation() {
+    _pkStartAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800), // 快速进场
+    );
+
+    const Curve moveCurve = Curves.easeOutExpo;
+
+    // 左侧 P 飞入
+    _pkLeftAnimation = Tween<double>(begin: -300, end: 0).animate(
+      CurvedAnimation(parent: _pkStartAnimationController, curve: const Interval(0.0, 0.6, curve: moveCurve)),
+    );
+
+    // 右侧 K 飞入
+    _pkRightAnimation = Tween<double>(begin: 300, end: 0).animate(
+      CurvedAnimation(parent: _pkStartAnimationController, curve: const Interval(0.0, 0.6, curve: moveCurve)),
+    );
+
+    // 整体淡出
+    _pkFadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _pkStartAnimationController, curve: const Interval(0.8, 1.0, curve: Curves.easeIn)),
+    );
+
+    _pkStartAnimationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed && mounted) {
+        // 动画播完后隐藏层
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (mounted) setState(() => _showPKStartAnimation = false);
+        });
+      }
+    });
+  }
+
+  void _playPKStartAnimation() {
+    if (mounted) {
+      setState(() => _showPKStartAnimation = true);
+      _pkStartAnimationController.reset();
+      _pkStartAnimationController.forward();
+    }
   }
 
   @override
   void dispose() {
-    _bgController.dispose();
+    _bgController?.dispose();
     _aiVideoController?.dispose();
     _textController.dispose();
     _comboScaleController.dispose();
     _countdownController.dispose();
+    _pkStartAnimationController.dispose(); // 🟢 释放动画控制器
+    _pkTimer?.cancel();
     super.dispose();
   }
 
-  // 🧠 AI 思考锁，防止请求太频繁
-  bool _isAIThinking = false;
+  // 辅助方法：安全收起键盘
+  void _dismissKeyboard() {
+    FocusScope.of(context).unfocus();
+  }
+
+  void _handleCloseButton() {
+    _dismissKeyboard();
+
+    if (_pkStatus != PKStatus.idle) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.transparent,
+        builder: (BuildContext ctx) {
+          return Container(
+            decoration: const BoxDecoration(color: Color(0xFF1A1A1A), borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(child: Container(margin: const EdgeInsets.only(top: 12, bottom: 20), width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
+                ListTile(leading: const Icon(Icons.link_off, color: Colors.redAccent), title: const Text("断开连线/PK", style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(ctx); _disconnectCoHost(); }),
+                const Divider(color: Colors.white10, height: 1),
+                ListTile(leading: const Icon(Icons.exit_to_app, color: Colors.white70), title: const Text("退出直播间", style: TextStyle(color: Colors.white)), onTap: () { Navigator.pop(ctx); Navigator.of(context).pop(); }),
+                SizedBox(height: MediaQuery.of(context).padding.bottom + 20),
+              ],
+            ),
+          );
+        },
+      );
+    } else {
+      Navigator.of(context).pop();
+    }
+  }
 
   void _startAIBattle() {
+    _dismissKeyboard();
     if (_pkStatus != PKStatus.idle) return;
 
-    final boss = _bosses[Random().nextInt(_bosses.length)];
-    _currentBoss = boss;
-    _opponentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)];
+    // 🟢 1. 播放开场动画
+    _playPKStartAnimation();
 
-    setState(() {
-      _pkStatus = PKStatus.playing;
-      _myPKScore = 0;
-      _opponentPKScore = 0;
-      _pkTimeLeft = 90;
-    });
-
-    _addFakeMessage(boss.name, "系统连接成功...挑战开始！", Colors.redAccent);
-
-    // ... 视频播放逻辑保持不变 ...
-
-    // ⏱️ 核心循环：只负责倒计时和低频心跳
-    _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    // 🟢 2. 延迟 800ms 后正式开始逻辑（等待动画播放完）
+    Future.delayed(const Duration(milliseconds: 800), () {
       if (!mounted) return;
 
-      // 1. 倒计时
-      setState(() => _pkTimeLeft--);
-      if (_pkTimeLeft <= 0) {
-        _pkTimer?.cancel();
-        _enterPunishmentPhase();
-        return;
-      }
+      final boss = _bosses[Random().nextInt(_bosses.length)];
+      _currentBoss = boss;
+      _opponentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)]; // 恢复随机图逻辑
 
-      // 2. AI 心跳 (每 3 秒或者最后 10 秒每秒，让 AI 审视一次局势)
-      // 避免 AI 只有在玩家操作时才反应，它自己也要主动进攻
-      if (!_isAIThinking && (_pkTimeLeft % 3 == 0 || _pkTimeLeft <= 10)) {
-        _triggerAIResponse(context: "periodic_check");
-      }
-    });
+      setState(() {
+        _pkStatus = PKStatus.playing;
+        _myPKScore = 0;
+        _opponentPKScore = 0;
+        _pkTimeLeft = 90;
+      });
 
-    // 开局先打个招呼
-    Future.delayed(const Duration(seconds: 1), () {
-      _triggerAIResponse(context: "opening", customPrompt: "开场白");
-    });
-  }
-
-  Future<void> _triggerAIResponse({
-    required String context, // 触发场景 (gift, chat, check)
-    String? customPrompt, // 具体的动作 (如：送了火箭)
-  }) async {
-    if (_currentBoss == null || _pkStatus != PKStatus.playing) return;
-
-    // 简单的防抖，防止 AI 在一瞬间处理太多信息
-    // 真实场景可以用队列 (Queue) 来优化
-    if (_isAIThinking && context == "periodic_check") return;
-
-    _isAIThinking = true;
-
-    try {
-      // 🧠 呼叫大脑
-      final decision = await AIService.analyzeSituation(
-        bossName: _currentBoss!.name,
-        bossPersona: "难度等级${_currentBoss!.difficulty}，性格傲慢嘲讽",
-        // 可以把 boss.tauntMessages 放进去作为参考
-        myScore: _myPKScore,
-        opponentScore: _opponentPKScore,
-        timeLeft: _pkTimeLeft,
-        userAction: context == "gift" ? customPrompt : null,
-        userChat: context == "chat" ? customPrompt : null,
-      );
-
-      if (!mounted) return;
-
-      // 💪 执行 AI 的决策
-      if (decision.addScore > 0) {
-        setState(() {
-          _opponentPKScore += decision.addScore;
+      if (boss.videoUrl.isNotEmpty) {
+        _aiVideoController = VideoPlayerController.networkUrl(Uri.parse(boss.videoUrl));
+        _aiVideoController!.initialize().then((_) {
+          _aiVideoController!.setLooping(true);
+          _aiVideoController!.play();
+          if (mounted) setState(() {});
         });
-
-        // 如果加分很多，触发礼物特效提示
-        if (decision.addScore > 1000) {
-          _addFakeMessage(_currentBoss!.name, "🚀 反手就是一个大火箭！", Colors.orange);
-        }
       }
-
-      // 🗣️ AI 说话
-      if (decision.message.isNotEmpty) {
-        _addFakeMessage(
-          _currentBoss!.name,
-          decision.message,
-          Colors.cyanAccent,
-        );
-      }
-    } catch (e) {
-      debugPrint("AI 思考烧坏了脑子: $e");
-    } finally {
-      _isAIThinking = false;
-    }
+      _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) return;
+        setState(() => _pkTimeLeft--);
+        if (_pkTimeLeft <= 0) { _pkTimer?.cancel(); _enterPunishmentPhase(); return; }
+        if (!_isAIThinking && (_pkTimeLeft % 3 == 0 || _pkTimeLeft <= 10)) { _triggerAIResponse(context: "periodic_check"); }
+      });
+    });
   }
 
-  void _enterPunishmentPhase() {
-    setState(() {
-      _pkStatus = PKStatus.punishment;
-      _pkTimeLeft = 10;
-    });
+  void _enterPunishmentPhase() { setState(() { _pkStatus = PKStatus.punishment; _pkTimeLeft = _pkEndWaitTime; }); _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) { if (!mounted) return; setState(() => _pkTimeLeft--); if (_pkTimeLeft <= 0) _stopPK(); }); }
+  void _stopPK() { _pkTimer?.cancel(); setState(() { _pkStatus = PKStatus.coHost; _pkTimeLeft = 0; }); _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) { if (!mounted) return; setState(() => _pkTimeLeft++); }); }
+  void _disconnectCoHost() { _aiVideoController?.dispose(); _aiVideoController = null; _pkTimer?.cancel(); setState(() { _pkStatus = PKStatus.idle; _myPKScore = 0; _opponentPKScore = 0; }); }
 
-    _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+  Future<void> _triggerAIResponse({required String context, String? customPrompt}) async {
+    if (_currentBoss == null || _pkStatus != PKStatus.playing) return;
+    if (_isAIThinking && context == "periodic_check") return;
+    _isAIThinking = true;
+    try {
+      final decision = await AIService.analyzeSituation(bossName: _currentBoss!.name, bossPersona: "难度等级${_currentBoss!.difficulty}", myScore: _myPKScore, opponentScore: _opponentPKScore, timeLeft: _pkTimeLeft, userAction: context == "gift" ? customPrompt : null, userChat: context == "chat" ? customPrompt : null);
       if (!mounted) return;
-      setState(() => _pkTimeLeft--);
-      if (_pkTimeLeft <= 0) _stopPK();
+      if (decision.addScore > 0) { setState(() { _opponentPKScore += decision.addScore.toInt(); }); }
+      if (decision.message.isNotEmpty) { _addFakeMessage(_currentBoss!.name, decision.message, Colors.cyanAccent); }
+    } catch (e) { debugPrint("AI error: $e"); } finally { _isAIThinking = false; }
+  }
+
+  void _addGiftMessage(String senderName, String giftName, int count) {
+    setState(() {
+      _messages.insert(0, ChatMessage(name: senderName, content: '送出了 $giftName x$count', level: 99, levelColor: Colors.yellow, isGift: true));
     });
-  }
-
-  void _stopPK() {
-    _pkTimer?.cancel();
-    setState(() => _pkStatus = PKStatus.coHost);
-    _addFakeMessage("系统", "PK结束，进入连麦模式", Colors.greenAccent);
-  }
-
-  void _disconnectCoHost() {
-    _aiVideoController?.dispose();
-    _aiVideoController = null;
-    setState(() => _pkStatus = PKStatus.idle);
-    _addFakeMessage("系统", "连麦已断开", Colors.grey);
-  }
-
-  // --- 礼物与连击逻辑 ---
-  void _triggerComboMode() {
-    if (!_showComboButton) {
-      setState(() => _showComboButton = true);
-      _comboScaleController.forward();
-    }
-    _countdownController.reset();
-    _countdownController.forward();
   }
 
   void _sendGift(GiftItemData giftData) {
-    const senderName = "我";
-    final comboKey = "${senderName}_${giftData.name}";
-    _lastGiftSent = giftData;
+    _dismissKeyboard();
 
+    const senderName = "我"; final comboKey = "${senderName}_${giftData.name}"; _lastGiftSent = giftData;
     setState(() {
-      final existingIndex = _activeGifts.indexWhere(
-        (g) => g.comboKey == comboKey,
-      );
+      final existingIndex = _activeGifts.indexWhere((g) => g.comboKey == comboKey);
+      int giftCount = 1;
       if (existingIndex != -1) {
-        final oldGift = _activeGifts[existingIndex];
-        _activeGifts[existingIndex] = oldGift.copyWith(
-          count: oldGift.count + 1,
-        );
+        final updatedGift = _activeGifts[existingIndex];
+        giftCount = updatedGift.count + 1;
+        _activeGifts[existingIndex] = updatedGift.copyWith(count: giftCount);
       } else {
-        final newGift = GiftEvent(
-          senderName: senderName,
-          giftName: giftData.name,
-          giftIconUrl: giftData.iconUrl,
-        );
-        _processNewGift(newGift);
+        _processNewGift(GiftEvent(senderName: senderName, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: giftCount));
       }
-
-      if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) {
-        _myPKScore += giftData.price;
-      }
+      _addGiftMessage(senderName, giftData.name, giftCount);
+      if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) { _myPKScore += giftData.price; }
     });
 
-    if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
-      _addEffectToQueue(giftData.effectAsset!);
-    }
+    if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) { _addEffectToQueue(giftData.effectAsset!); }
     _triggerComboMode();
-    // 延迟 1 秒触发，模拟 AI "看到" 礼物后的反应时间
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      _triggerAIResponse(
-        context: "gift",
-        customPrompt: "送了${giftData.name}，价值${giftData.price}",
-      );
-    });
+    if (_pkStatus == PKStatus.playing) { Future.delayed(const Duration(milliseconds: 1000), () { _triggerAIResponse(context: "gift", customPrompt: "玩家送了${giftData.name}"); }); }
   }
 
-  void _processNewGift(GiftEvent gift) {
-    if (_activeGifts.length < _maxActiveGifts) {
-      _activeGifts.add(gift);
-    } else {
-      _waitingQueue.add(gift);
-    }
-  }
+  void _processNewGift(GiftEvent gift) { if (_activeGifts.length < _maxActiveGifts) { _activeGifts.add(gift); } else { _waitingQueue.add(gift); } }
+  void _onGiftFinished(String giftId) { setState(() { _activeGifts.removeWhere((element) => element.id == giftId); if (_waitingQueue.isNotEmpty) { _activeGifts.add(_waitingQueue.removeFirst()); } }); }
+  void _triggerComboMode() { if (!_showComboButton) { setState(() => _showComboButton = true); _comboScaleController.forward(); } _countdownController.reset(); _countdownController.forward(); }
 
-  void _onGiftFinished(String giftId) {
-    setState(() {
-      _activeGifts.removeWhere((element) => element.id == giftId);
-      if (_waitingQueue.isNotEmpty) {
-        _activeGifts.add(_waitingQueue.removeFirst());
-      }
-    });
-  }
+  void _onPlayerCreated(MyAlphaPlayerController controller) { _alphaPlayerController = controller; _alphaPlayerController?.onFinish = _onEffectComplete; _alphaPlayerController?.onVideoSize = (width, height) { if (width > 0 && height > 0 && mounted) { final newRatio = width / height; if (_videoAspectRatio == null || (_videoAspectRatio! - newRatio).abs() > 0.01) { setState(() => _videoAspectRatio = newRatio); } } }; }
+  void _onEffectComplete() { if (!mounted) return; _alphaPlayerController?.stop(); setState(() => _isEffectPlaying = false); Future.delayed(const Duration(milliseconds: 50), _playNextEffect); }
+  void _playNextEffect() async { if (_effectQueue.isEmpty || _alphaPlayerController == null) return; final url = _effectQueue.removeFirst(); setState(() => _isEffectPlaying = true); try { String? localPath = await _downloadGiftFile(url); if (localPath != null && mounted) { await _alphaPlayerController!.play(localPath); } else _onEffectComplete(); } catch (e) { _onEffectComplete(); } }
+  void _addEffectToQueue(String url) { _effectQueue.add(url); if (!_isEffectPlaying) _playNextEffect(); }
+  Future<String?> _downloadGiftFile(String url) async { try { final dir = await getApplicationDocumentsDirectory(); final fileName = url.split('/').last; final savePath = "${dir.path}/$fileName"; final file = File(savePath); if (await file.exists()) return savePath; await Dio().download(url, savePath); return savePath; } catch (e) { return null; } }
 
-  // --- 特效播放逻辑 ---
-  void _onPlayerCreated(MyAlphaPlayerController controller) {
-    _alphaPlayerController = controller;
-    _alphaPlayerController?.onFinish = _onEffectComplete;
-    _alphaPlayerController?.onVideoSize = (width, height) {
-      if (width > 0 && height > 0 && mounted) {
-        final newRatio = width / height;
-        if (_videoAspectRatio == null ||
-            (_videoAspectRatio! - newRatio).abs() > 0.01) {
-          setState(() => _videoAspectRatio = newRatio);
-        }
-      }
-    };
-  }
-
-  void _addEffectToQueue(String url) {
-    _effectQueue.add(url);
-    if (!_isEffectPlaying) _playNextEffect();
-  }
-
-  Future<void> _playNextEffect() async {
-    if (_effectQueue.isEmpty || _alphaPlayerController == null) return;
-    final url = _effectQueue.removeFirst();
-    setState(() => _isEffectPlaying = true);
-    try {
-      String? localPath = await _downloadGiftFile(url);
-      if (localPath != null && mounted) {
-        await _alphaPlayerController!.play(localPath);
-      } else {
-        _onEffectComplete();
-      }
-    } catch (e) {
-      _onEffectComplete();
-    }
-  }
-
-  Future<String?> _downloadGiftFile(String url) async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final fileName = url.split('/').last;
-      final savePath = "${dir.path}/$fileName";
-      final file = File(savePath);
-      if (await file.exists()) return savePath;
-      await Dio().download(url, savePath);
-      return savePath;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  void _onEffectComplete() {
-    if (!mounted) return;
-    _alphaPlayerController?.stop();
-    setState(() => _isEffectPlaying = false);
-    Future.delayed(const Duration(milliseconds: 50), _playNextEffect);
-  }
-
-  // --- 辅助功能 ---
   void _initializeBackground() async {
-    const String aliyunBgUrl =
-        'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4';
-    _bgController = VideoPlayerController.networkUrl(
-      Uri.parse(aliyunBgUrl),
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    );
-    try {
-      await _bgController.initialize();
-      _bgController.setLooping(true);
-      _bgController.setVolume(0.0);
-      if (_isVideoBackground) _bgController.play();
-      setState(() => _isBgInitialized = true);
-    } catch (e) {
-      print("背景加载失败: $e");
-    }
+    const String aliyunBgUrl = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4';
+    _bgController = VideoPlayerController.networkUrl(Uri.parse(aliyunBgUrl));
+    try { await _bgController!.initialize(); _bgController!.setLooping(true); _bgController!.setVolume(0.0); if (_isVideoBackground) _bgController!.play(); setState(() => _isBgInitialized = true); } catch (e) { print("背景失败: $e"); }
   }
+  void _toggleBackgroundMode() { setState(() { _isVideoBackground = !_isVideoBackground; if (_isVideoBackground) { if (_isBgInitialized) _bgController?.play(); } else { if (_isBgInitialized) _bgController?.pause(); _pickRandomImage(); } }); }
+  void _pickRandomImage() { setState(() => _currentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)]); }
+  void _addFakeMessage(String name, String content, Color color) { setState(() { _messages.insert(0, ChatMessage(name: name, content: content, level: 99, levelColor: color,isGift: false,)); }); }
+  void _generateDummyMessages() { final random = Random(); List<ChatMessage> temp = []; for (int i = 0; i < 20; i++) { temp.add(ChatMessage(name: _dummyNames[random.nextInt(_dummyNames.length)], content: _dummyContents[random.nextInt(_dummyContents.length)], level: random.nextInt(50) + 1, levelColor: Colors.primaries[random.nextInt(Colors.primaries.length)],isGift: false)); } setState(() => _messages = temp.reversed.toList()); }
 
-  void _toggleBackgroundMode() {
-    setState(() {
-      _isVideoBackground = !_isVideoBackground;
-      if (_isVideoBackground) {
-        if (_isBgInitialized) _bgController.play();
-      } else {
-        if (_isBgInitialized) _bgController.pause();
-        _pickRandomImage();
-      }
-    });
-  }
-
-  void _pickRandomImage() {
-    setState(
-      () =>
-          _currentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)],
-    );
-  }
-
-  void _addFakeMessage(String name, String content, Color color) {
-    setState(() {
-      _messages.insert(
-        0,
-        ChatMessage(name: name, content: content, level: 99, levelColor: color),
-      );
-    });
-  }
-
-  void _generateDummyMessages() {
-    final random = Random();
-    List<ChatMessage> temp = [];
-    for (int i = 0; i < 20; i++) {
-      temp.add(
-        ChatMessage(
-          name: _dummyNames[random.nextInt(_dummyNames.length)],
-          content: _dummyContents[random.nextInt(_dummyContents.length)],
-          level: random.nextInt(50) + 1,
-          levelColor: Colors.primaries[random.nextInt(Colors.primaries.length)],
-        ),
-      );
-    }
-    setState(() => _messages = temp.reversed.toList());
-  }
-
-  // --- 弹窗面板 ---
   void _showGiftPanel() {
+    _dismissKeyboard();
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => GiftPanel(
-        onSend: (gift) {
+        context: context,
+        backgroundColor: Colors.transparent,
+        barrierColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (_) => GiftPanel(onSend: (gift) {
           _sendGift(gift);
           Navigator.pop(context);
-        },
-      ),
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) _dismissKeyboard();
+          });
+        })
     );
   }
 
   void _showMusicPanel() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const MusicPanel(),
-    );
+    _dismissKeyboard();
+    showModalBottomSheet(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, builder: (_) => const MusicPanel());
   }
-
-  // ==================== UI 构建区域 ====================
 
   @override
   Widget build(BuildContext context) {
@@ -502,445 +338,221 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     const double topBarHeight = 50.0;
-    const double pkBarHeight = 80.0;
-    const double gap1 = 10.0;
-    const double gap2 = 5.0;
-
+    const double gap1 = 105.0;
     final double pkVideoHeight = size.width * 0.85;
-    final double pkVideoBottomY =
-        padding.top + topBarHeight + gap1 + pkBarHeight + gap2 + pkVideoHeight;
+    final double pkVideoBottomY = padding.top + topBarHeight + gap1 + pkVideoHeight + 18;
     final double videoRatio = _videoAspectRatio ?? (9 / 16);
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          // ==============================
-          // 层级 1: 页面主体逻辑 (根据状态切换视图)
-          // ==============================
-          _pkStatus == PKStatus.idle
-              // 🟢 场景 1: 单人直播模式 (代码已抽离)
-              ? SingleModeView(
-                  isVideoBackground: _isVideoBackground,
-                  isBgInitialized: _isBgInitialized,
-                  bgController: _bgController,
-                  currentBgImage: _currentBgImage,
-                  messages: _messages,
-                  textController: _textController,
-                  onTapGift: _showGiftPanel,
-                  onStartPK: _startAIBattle,
-                  onClose: () => Navigator.of(context).pop(),
-                  onSendMessage: (text) => setState(
-                    () => _messages.insert(
-                      0,
-                      ChatMessage(
-                        name: "我",
-                        content: text,
-                        level: 99,
-                        levelColor: Colors.amber,
-                      ),
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () {
+          _dismissKeyboard();
+        },
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // 🟢 PK模式下的渐变底色
+            if (_pkStatus != PKStatus.idle)
+              Positioned.fill(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF100101), // 黑色
+                        Color(0xFF141E28), // 浅蓝色
+                      ],
+                      stops: [0.0, 0.8],
                     ),
                   ),
-                )
-              // 🟢 场景 2: PK / 连麦模式
-              : Column(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      color: Colors.black,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            margin: EdgeInsets.only(top: padding.top),
-                            height: topBarHeight,
-                            child: BuildTopBar(
-                              title: "直播间",
-                              onClose: () {
-                                Navigator.of(context).pop();
-                              },
-                            ),
-                          ),
-                          SizedBox(height: gap1),
+                ),
+              ),
 
-                          // PK血条 or 连麦提示
-                          if (_pkStatus == PKStatus.playing ||
-                              _pkStatus == PKStatus.punishment)
-                            SizedBox(
-                              height: pkBarHeight,
-                              child: PKScoreBar(
-                                myScore: _myPKScore,
-                                opponentScore: _opponentPKScore,
-                                secondsLeft: _pkTimeLeft,
-                                status: _pkStatus,
-                              ),
-                            )
-                          else
-                            Container(
-                              height: pkBarHeight,
-                              alignment: Alignment.center,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white24,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.mic,
-                                      color: Colors.greenAccent,
-                                      size: 14,
-                                    ),
-                                    SizedBox(width: 4),
-                                    Text(
-                                      "连麦中",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-
-                          SizedBox(height: gap2),
-
-                          // PK 视频区域 (左右分屏)
-                          SizedBox(
-                            height: pkVideoHeight,
-                            width: size.width,
-                            child: Stack(
-                              children: [
-                                // 🟢 核心分屏组件 (代码已抽离)
-                                PKBattleView(
-                                  leftVideoController:
-                                      (_isVideoBackground && _isBgInitialized)
-                                      ? _bgController
-                                      : null,
-                                  leftBgImage: _isVideoBackground
-                                      ? null
-                                      : _currentBgImage,
-                                  rightBgImage: _opponentBgImage,
-                                  rightVideoController: _aiVideoController,
-                                  currentBoss: _currentBoss,
-                                  isAiRaging: _isAiRaging,
-                                ),
-
-                                // 挂断按钮
-                                if (_pkStatus == PKStatus.coHost)
-                                  Positioned(
-                                    top: 10,
-                                    right: 10,
-                                    child: GestureDetector(
-                                      onTap: _disconnectCoHost,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.white,
-                                            width: 2,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.call_end,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-
-                                // 右下角控制按钮
-                                Positioned(
-                                  right: 10,
-                                  bottom: 10,
-                                  child: Column(
-                                    children: [
-                                      _buildCircleBtn(
-                                        onTap: _showMusicPanel,
-                                        icon: const Icon(
-                                          Icons.music_note,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                        borderColor: Colors.purpleAccent,
-                                        label: "点歌",
-                                      ),
-                                      const SizedBox(height: 10),
-                                      _buildCircleBtn(
-                                        onTap: _toggleBackgroundMode,
-                                        icon: Icon(
-                                          _isVideoBackground
-                                              ? Icons.videocam
-                                              : Icons.image,
-                                          color: Colors.white,
-                                          size: 20,
-                                        ),
-                                        borderColor: Colors.cyanAccent,
-                                        label: "背景",
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        color: Colors.black,
-                        child: Column(
-                          children: [
-                            Expanded(
-                              child: BuildChatList(
-                                bottomInset: 0,
-                                messages: _messages,
-                              ),
-                            ),
-                            BuildInputBar(
-                              textController: _textController,
-                              onTapGift: _showGiftPanel,
-                              onSend: (text) => {
-                                setState(
-                                  () => _messages.insert(
-                                    0,
-                                    ChatMessage(
-                                      name: "我",
-                                      content: text,
-                                      level: 99,
-                                      levelColor: Colors.amber,
-                                    ),
-                                  ),
-                                ),
-                                if (_pkStatus == PKStatus.playing)
-                                  {
-                                    // 延迟一点点回复
-                                    Future.delayed(
-                                      const Duration(milliseconds: 1500),
-                                      () {
-                                        _triggerAIResponse(
-                                          context: "chat",
-                                          customPrompt: text,
-                                        );
-                                      },
-                                    ),
-                                  },
-                              },
-                            ),
-                            SizedBox(
-                              height: padding.bottom > 0 ? padding.bottom : 10,
-                            ),
-                          ],
+            // 1. 底层画面 (视频/单人模式)
+            _pkStatus == PKStatus.idle
+                ? SingleModeView(
+              isVideoBackground: _isVideoBackground, isBgInitialized: _isBgInitialized, bgController: _bgController, currentBgImage: _currentBgImage,
+              onClose: _handleCloseButton,
+            )
+                : Column(
+              children: [
+                Container(margin: EdgeInsets.only(top: padding.top), height: topBarHeight, child: BuildTopBar(title: "直播间", onClose: _handleCloseButton)),
+                SizedBox(height: gap1),
+                SizedBox(
+                  height: pkVideoHeight + 18,
+                  width: size.width,
+                  child: Stack(
+                    children: [
+                      Positioned(
+                        top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: PKBattleView(
+                            leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
+                            leftBgImage: _isVideoBackground ? null : _currentBgImage,
+                            rightBgImage: _opponentBgImage,
+                            rightVideoController: _aiVideoController,
+                            currentBoss: _currentBoss,
+                            isAiRaging: _isAiRaging,
+                            pkStatus: _pkStatus,
+                            myScore: _myPKScore,
+                            opponentScore: _opponentPKScore
                         ),
                       ),
+                      if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
+                        Positioned(top: 0, left: 0, right: 0, child: PKScoreBar(myScore: _myPKScore, opponentScore: _opponentPKScore, status: _pkStatus, secondsLeft: _pkTimeLeft)),
+                      Positioned(
+                        top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
+                        left: 0,
+                        right: 0,
+                        child: Center(child: PKTimer(secondsLeft: _pkTimeLeft, status: _pkStatus, myScore: _myPKScore, opponentScore: _opponentPKScore)),
+                      ),
+                      Positioned(right: 10, bottom: 10, child: Column(children: [_buildCircleBtn(onTap: _showMusicPanel, icon: const Icon(Icons.music_note, color: Colors.white, size: 20), borderColor: Colors.purpleAccent, label: "点歌"), const SizedBox(height: 10), _buildCircleBtn(onTap: _toggleBackgroundMode, icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20), borderColor: Colors.cyanAccent, label: "背景")])),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+
+            // 2. 统一悬浮 UI 层
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: bottomInset > 0 ? bottomInset : padding.bottom,
+              height: _pkStatus == PKStatus.idle ? 300 : (size.height - pkVideoBottomY),
+              child: Container(
+                color: bottomInset > 0 ? Colors.black87 : Colors.transparent,
+                child: Column(
+                  children: [
+                    Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
+                    BuildInputBar(
+                      textController: _textController,
+                      onTapGift: _showGiftPanel,
+                      onSend: (text) {
+                        setState(() => _messages.insert(0, ChatMessage(name: "我", content: text, level: 99, levelColor: Colors.amber,isGift: false,)));
+                        if (_pkStatus == PKStatus.playing) { Future.delayed(const Duration(milliseconds: 1500), () { _triggerAIResponse(context: "chat", customPrompt: text); }); }
+                      },
                     ),
                   ],
                 ),
+              ),
+            ),
 
-          // ==============================
-          // 层级 2: 全屏 Alpha 特效
-          // ==============================
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: -2,
-            child: IgnorePointer(
-              ignoring: true,
-              child: Opacity(
-                opacity: _isEffectPlaying ? 1.0 : 0.0,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SizedBox(
-                    width: size.width,
-                    height: size.width / videoRatio,
-                    child: MyAlphaPlayerView(onCreated: _onPlayerCreated),
+            // 3. 独立图层：发起 PK 按钮
+            if (_pkStatus == PKStatus.idle)
+              Positioned(
+                bottom: (bottomInset > 0 ? bottomInset : padding.bottom) + 150,
+                right: 20,
+                child: GestureDetector(
+                  onTap: _startAIBattle,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Colors.purple, Colors.deepPurple]),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white30),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.eighteen_mp, color: Colors.white, size: 16),
+                        SizedBox(width: 4),
+                        Text("发起PK", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
 
-          // ==============================
-          // 层级 3: 礼物横幅
-          // ==============================
-          Positioned(
-            left: 0,
-            width: size.width,
-
-            // 🟢 修改点：统一使用 pkVideoBottomY 计算 Top 位置
-            // 这样无论单人还是PK，礼物都会出现在屏幕的同一个垂直高度
-            top: pkVideoBottomY - 160,
-
-            height: 160,
-
-            // 🟢 修改点：底部设为 null，不再依赖底部距离
-            bottom: null,
-
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: _activeGifts
-                      .map(
-                        (giftEvent) => AnimatedGiftItem(
-                          key: ValueKey(giftEvent.id),
-                          giftEvent: giftEvent,
-                          onFinished: () => _onGiftFinished(giftEvent.id),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ),
-            ),
-          ),
-
-          // ==============================
-          // 层级 4: 连击按钮
-          // ==============================
-          if (_showComboButton && _lastGiftSent != null)
-            Positioned(
-              right: 16,
-              bottom: bottomInset + 80,
-              child: ScaleTransition(
-                scale: CurvedAnimation(
-                  parent: _comboScaleController,
-                  curve: Curves.elasticOut,
-                ),
-                child: GestureDetector(
-                  onTap: () => _sendGift(_lastGiftSent!),
+            // 4. 🟢 PK开场动画层 (放在顶层，遮盖一切)
+            if (_showPKStartAnimation)
+              Positioned.fill(
+                child: Container(
+                  color: Colors.black.withOpacity(0.7),
                   child: AnimatedBuilder(
-                    animation: _countdownController,
+                    animation: _pkStartAnimationController,
                     builder: (context, child) {
-                      return SizedBox(
-                        width: 76,
-                        height: 76,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            SizedBox(
-                              width: 76,
-                              height: 76,
-                              child: CircularProgressIndicator(
-                                value: 1.0 - _countdownController.value,
-                                strokeWidth: 4,
-                                backgroundColor: Colors.white24,
-                                valueColor: const AlwaysStoppedAnimation(
-                                  Colors.amber,
-                                ),
-                              ),
-                            ),
-                            Container(
-                              width: 64,
-                              height: 64,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFFFF0080),
-                                    Color(0xFFFF8C00),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: const Color(
-                                      0xFFFF0080,
-                                    ).withOpacity(0.6),
-                                    blurRadius: 15,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                              ),
-                              alignment: const Alignment(0, -0.15),
-                              child: const Text(
-                                "连击",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  fontStyle: FontStyle.italic,
-                                  shadows: [
-                                    Shadow(
-                                      color: Colors.black26,
-                                      offset: Offset(1, 1),
-                                      blurRadius: 2,
+                      return Opacity(
+                        opacity: _pkFadeAnimation.value,
+                        child: Center(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // 左侧 P
+                              Transform.translate(
+                                offset: Offset(_pkLeftAnimation.value, 0),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFFE4164), Color(0xFFFF7F7F)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
-                                  ],
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(12),
+                                      bottomLeft: Radius.circular(12),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2),
+                                    ],
+                                  ),
+                                  child: const Text("P", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(blurRadius: 5, color: Colors.red)])),
                                 ),
                               ),
-                            ),
-                          ],
+                              // 右侧 K
+                              Transform.translate(
+                                offset: Offset(_pkRightAnimation.value, 0),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF3A7BD5), Color(0xFF00D2FF)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: const BorderRadius.only(
+                                      topRight: Radius.circular(12),
+                                      bottomRight: Radius.circular(12),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(color: Colors.blue.withOpacity(0.5), blurRadius: 15, spreadRadius: 2),
+                                    ],
+                                  ),
+                                  child: const Text("K", style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white, shadows: [Shadow(blurRadius: 5, color: Colors.blue)])),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
                   ),
                 ),
               ),
-            ),
-        ],
+
+            // 5. 特效层
+            Positioned(left: 0, right: 0, bottom: -2, child: IgnorePointer(child: Opacity(opacity: _isEffectPlaying ? 1.0 : 0.0, child: Align(alignment: Alignment.bottomCenter, child: SizedBox(width: size.width, height: size.width / videoRatio, child: MyAlphaPlayerView(onCreated: _onPlayerCreated)))))),
+
+            // 6. 礼物层
+            Positioned(left: 0, width: size.width, top: pkVideoBottomY - 160, height: 160, bottom: null, child: IgnorePointer(child: Align(alignment: Alignment.bottomLeft, child: Padding(padding: const EdgeInsets.only(left: 10), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: _activeGifts.map((giftEvent) => AnimatedGiftItem(key: ValueKey(giftEvent.id), giftEvent: giftEvent, onFinished: () => _onGiftFinished(giftEvent.id))).toList()))))),
+
+            // 7. 连击按钮
+            if (_showComboButton && _lastGiftSent != null) Positioned(right: 16, bottom: bottomInset + 80, child: ScaleTransition(scale: CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut), child: GestureDetector(onTap: () => _sendGift(_lastGiftSent!), child: AnimatedBuilder(animation: _countdownController, builder: (context, child) { return SizedBox(width: 76, height: 76, child: Stack(alignment: Alignment.center, children: [SizedBox(width: 76, height: 76, child: CircularProgressIndicator(value: 1.0 - _countdownController.value, strokeWidth: 4, backgroundColor: Colors.white24, valueColor: const AlwaysStoppedAnimation(Colors.amber))), Container(width: 64, height: 64, decoration: BoxDecoration(shape: BoxShape.circle, gradient: const LinearGradient(colors: [Color(0xFFFF0080), Color(0xFFFF8C00)], begin: Alignment.topLeft, end: Alignment.bottomRight), border: Border.all(color: Colors.white, width: 2)), alignment: const Alignment(0, -0.15), child: const Text("连击", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)))])); }))))
+          ],
+        ),
       ),
     );
   }
 
-  // 小组件保留在这里比较方便
-  Widget _buildCircleBtn({
-    required VoidCallback onTap,
-    required Widget icon,
-    required Color borderColor,
-    String? label,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.4),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: borderColor.withOpacity(0.5),
-                width: 1.5,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: icon,
-          ),
-          if (label != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                shadows: [Shadow(blurRadius: 2, color: Colors.black)],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
+  Widget _buildCircleBtn({required VoidCallback onTap, required Widget icon, required Color borderColor, String? label}) {
+    return GestureDetector(onTap: onTap, child: Column(children: [Container(width: 36, height: 36, decoration: BoxDecoration(color: Colors.black.withOpacity(0.4), shape: BoxShape.circle, border: Border.all(color: borderColor.withOpacity(0.5), width: 1.5)), alignment: Alignment.center, child: icon), if (label != null) ...[const SizedBox(height: 2), Text(label, style: const TextStyle(color: Colors.white, fontSize: 10))]]));
   }
 }

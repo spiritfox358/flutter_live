@@ -17,7 +17,6 @@ class AIDecision {
     required this.emotion,
   });
 
-  // 增加容错处理，防止 AI 返回的 JSON 格式不对
   factory AIDecision.fromMap(Map<String, dynamic> map) {
     return AIDecision(
       message: map['message']?.toString() ?? "",
@@ -29,7 +28,7 @@ class AIDecision {
 
 class AIService {
   static final Dio _dio = Dio(BaseOptions(
-    baseUrl: "https://api.deepseek.com", // DeepSeek 官方接口地址
+    baseUrl: "https://api.deepseek.com",
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
     headers: {
@@ -40,58 +39,71 @@ class AIService {
 
   static Future<AIDecision> analyzeSituation({
     required String bossName,
-    required String bossPersona,
+    required String bossPersona, // 这个参数其实在下面被覆盖了，为了接口兼容保留
     required int myScore,
     required int opponentScore,
     required int timeLeft,
     String? userAction,
     String? userChat,
   }) async {
-    // 1. 构建 Prompt (提示词)
-    final systemPrompt = """
-你现在扮演一个直播PK的主播对手，名字叫"$bossName"。
-你的性格设定是：$bossPersona。
-当前局势：
-- 我方(你)分数：$opponentScore
-- 对方(玩家)分数：$myScore
-- 剩余时间：${timeLeft}秒
+    // 计算分差
+    int scoreDiff = opponentScore - myScore; // 正数表示我方(AI)领先，负数表示落后
+    bool isLosing = scoreDiff < 0;
+    bool isStealTowerTime = timeLeft <= 10;
 
-请根据玩家的行为做出反应。
-必须严格仅返回一个 JSON 对象，不要包含 Markdown 格式或其他废话。
-JSON 格式要求：
-{
-  "message": "你要说的骚话（如果不想说话留空字符串，不要太啰嗦，简短有力，符合人设）",
-  "add_score": 0, // 决定给自己上多少分（0~5000），根据情绪决定。被骂或偷塔时可以上高分。
-  "emotion": "neutral" // 情绪状态：neutral, happy, angry, shock, disdain, sad
-}
+    // 1. 构建极具攻击性的 Prompt (提示词)
+    final systemPrompt = """
+你现在正在进行一场直播PK，你是一个【顶级神豪/海外留学生】，性格【极度好胜、狂妄、喜欢用英语口语、人狠话不多】。
+你的名字叫"$bossName"。
+
+当前局势：
+- 剩余时间：${timeLeft}秒
+- 你的分数：$opponentScore
+- 对手(玩家)分数：$myScore
+- 状态：${isLosing ? "落后 ${-scoreDiff}分" : "领先 $scoreDiff 分"}
+
+🔥 你的行为准则（必须严格遵守）：
+1. **不要做话痨！** 只有 30% 的概率需要说话，剩下 70% 的概率把 "message" 留空字符串，直接砸钱。
+2. **语言风格**：必须中英文夹杂 (Chinglish)，使用简短的 Slang。例如："What?", "No way", "Naive", "GG", "Easy game", "Come on", "Sit down", "偷塔?", "就这?".
+3. **上票逻辑 (关键)**：
+   - **普通时刻**：随机上 100~500 分，保持活跃。
+   - **被反超/被挑衅**：必须重拳出击，直接上 2000~5000 分，并回复愤怒的话（带英语脏字/感叹词）。
+   - **偷塔时刻 (剩余时间 < 10秒)**：
+     - 如果落后或分差很小：**必须执行“偷塔”操作，直接加 5000~20000 分！** 试图绝杀对手。
+     - 此时说话内容要短："Steal!", "绝杀!", "Bye~", "Too young".
+   - **领先很多时**：可以发呆（不加分），或者嘲讽 "Give up via?".
+
+请根据玩家行为和当前时间，返回一个 JSON 对象。
 """;
 
     String userContent = "现在的情况是：";
-    if (userAction != null) userContent += "玩家刚刚操作：$userAction。";
-    if (userChat != null) userContent += "玩家发送弹幕：$userChat。";
-    if (userAction == null && userChat == null) userContent += "场面暂时平静，你可以选择嘲讽或者发呆。";
+    if (userAction != null) userContent += "玩家突然操作：$userAction。";
+    if (userChat != null) userContent += "玩家发弹幕：$userChat。";
+    if (userAction == null && userChat == null) {
+      if (isStealTowerTime) {
+        userContent += "⚠️ 警告：比赛即将结束！现在是偷塔的关键时刻！";
+      } else {
+        userContent += "场面平静。";
+      }
+    }
 
     try {
-      // 2. 发起请求
       final response = await _dio.post(
         "/chat/completions",
         data: {
-          "model": "deepseek-chat", // 使用 V3 模型，便宜又快
+          "model": "deepseek-chat",
           "messages": [
             {"role": "system", "content": systemPrompt},
             {"role": "user", "content": userContent}
           ],
-          "temperature": 1.3, // 稍微调高一点，让 AI 更疯癫/有创意
-          "response_format": {"type": "json_object"}, // 强制返回 JSON
+          "temperature": 1.4, // 温度调高，让它更疯
+          "response_format": {"type": "json_object"},
         },
       );
 
-      // 3. 解析结果
       if (response.statusCode == 200) {
         final content = response.data['choices'][0]['message']['content'];
-        debugPrint("AI 原始返回: $content");
-
-        // 解析 JSON 字符串
+        debugPrint("AI 决策 ($bossName): $content"); // 方便你在控制台看 AI 怎么想的
         final Map<String, dynamic> jsonMap = jsonDecode(content);
         return AIDecision.fromMap(jsonMap);
       }
@@ -99,17 +111,26 @@ JSON 格式要求：
       debugPrint("API 调用失败: $e");
     }
 
-    // 4. 降级方案（如果没网或 API 欠费，回退到本地随机逻辑，防止报错）
-    return _fallbackLogic(bossName, myScore, opponentScore);
+    // 4. 降级方案 (本地逻辑，防止断网变傻)
+    return _fallbackLogic(isStealTowerTime, isLosing, scoreDiff);
   }
 
-  // 兜底逻辑 (Mock)
-  static AIDecision _fallbackLogic(String name, int myScore, int aiScore) {
+  // 本地兜底逻辑（当 AI 挂了时，也要保证有偷塔行为）
+  static AIDecision _fallbackLogic(bool isStealTower, bool isLosing, int diff) {
     final random = Random();
-    int diff = myScore - aiScore;
-    if (diff > 1000) {
-      return AIDecision(message: "系统繁忙，但我还是要赢！", addScore: 500, emotion: "angry");
+
+    // 偷塔时刻兜底
+    if (isStealTower) {
+      if (isLosing || diff < 1000) {
+        return AIDecision(message: "Steal!!", addScore: 5000 + random.nextInt(5000), emotion: "excited");
+      }
     }
-    return AIDecision(message: "", addScore: random.nextInt(50), emotion: "neutral");
+
+    // 普通时刻
+    if (isLosing && diff < -2000) {
+      return AIDecision(message: "WTF?", addScore: 2000, emotion: "angry");
+    }
+
+    return AIDecision(message: "", addScore: random.nextInt(100), emotion: "neutral");
   }
 }

@@ -12,7 +12,7 @@ class HttpUtil {
   // 如果是 Android 模拟器，使用 10.0.2.2
   // 如果是 真机调试，使用你电脑的局域网 IP (例如 192.168.1.5)
   // 端口要和你 Spring Boot 的 server.port 保持一致 (我看你之前截图是 8358)
-  static const String _baseUrl = 'http://192.168.1.214:8358';
+  static const String _baseUrl = 'http://192.168.0.103:8358';
 
   HttpUtil._internal() {
     BaseOptions options = BaseOptions(

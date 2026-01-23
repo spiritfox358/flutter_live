@@ -65,15 +65,20 @@ class BuildChatItem extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       "${msg.name}: ",
+                      // 🟢 如果是礼物消息，使用黄色，否则使用原来的颜色
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: msg.isGift ? Colors.yellow : Colors.white.withOpacity(0.8),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     Text(
                       msg.content,
-                      style: const TextStyle(color: Colors.white, fontSize: 13),
+                      // 🟢 如果是礼物消息，使用黄色，否则使用白色
+                      style: TextStyle(
+                          color: msg.isGift ? Colors.yellow : Colors.white,
+                          fontSize: 13
+                      ),
                     ),
                   ],
                 ),

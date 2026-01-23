@@ -123,20 +123,20 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
               // 底层：网络图片
               Image.network(
                 "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/user_level/level_70.png",
-                height: 20,
+                height: 18,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) =>
                     const SizedBox(width: 38, height: 38),
               ),
               // 上层：文字 (盖在右半部分)
               Padding(
-                padding: const EdgeInsets.only(right: 3.0, top: 0),
+                padding: const EdgeInsets.only(right: 3.0, top: 1),
                 child: Text(
                   "73",
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.8),
                     fontWeight: FontWeight.w900,
-                    fontSize: 15,
+                    fontSize: 13,
                     shadows: [
                       Shadow(
                         offset: Offset(1, 1),
