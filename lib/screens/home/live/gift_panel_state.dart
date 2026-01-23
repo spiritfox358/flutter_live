@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../services/GiftApi.dart'; // ⚠️ 请确认路径
+import '../../../services/gift_api.dart'; // ⚠️ 请确认路径
 import 'gift_panel.dart';
 import 'models/live_models.dart';
 
