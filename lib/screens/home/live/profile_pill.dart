@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 class ProfilePill extends StatelessWidget {
-  const ProfilePill();
+  final String name;
+  final String avatar;
+
+  const ProfilePill({super.key, required this.name, required this.avatar});
 
   @override
   Widget build(BuildContext context) {
@@ -13,23 +16,20 @@ class ProfilePill extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 16,
-            backgroundImage: NetworkImage('https://picsum.photos/seed/555/200'),
-          ),
+          CircleAvatar(radius: 16, backgroundImage: NetworkImage(avatar)),
           const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                "糖🍬宝...",
-                style: TextStyle(
+                name,
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              Text(
+              const Text(
                 "0本场点赞",
                 style: TextStyle(color: Colors.white70, fontSize: 9),
               ),

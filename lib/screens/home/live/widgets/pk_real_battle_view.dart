@@ -3,55 +3,49 @@ import 'package:video_player/video_player.dart';
 import 'dart:math';
 
 import '../../../../services/ai_music_service.dart';
-import '../models/live_models.dart';
 import '../widgets/pk_widgets.dart';
 
-class PKBattleView extends StatefulWidget {
+class PKRealBattleView extends StatefulWidget {
   final VideoPlayerController? leftVideoController;
   final String? leftBgImage;
 
-  // 右侧配置
-  final bool isRightVideoMode;
-  final VideoPlayerController? rightVideoController;
+  // 右侧配置 (真人对手)
+  final String rightAvatarUrl;
+  final String rightName;
   final String rightBgImage;
 
   // PK 数据
-  final AIBoss? currentBoss;
   final PKStatus pkStatus;
   final int myScore;
   final int opponentScore;
-  final bool isAiRaging;
 
   // 点击回调
   final VoidCallback? onTapOpponent;
 
-  const PKBattleView({
+  const PKRealBattleView({
     super.key,
     required this.leftVideoController,
     required this.leftBgImage,
-    required this.isRightVideoMode,
-    this.rightVideoController,
+    required this.rightAvatarUrl,
+    required this.rightName,
     required this.rightBgImage,
-
-    required this.currentBoss,
     required this.pkStatus,
     required this.myScore,
     required this.opponentScore,
-    this.isAiRaging = false,
-
     this.onTapOpponent,
   });
 
   @override
-  State<PKBattleView> createState() => _PKBattleViewState();
+  State<PKRealBattleView> createState() => _PKRealBattleViewState();
 }
 
-class _PKBattleViewState extends State<PKBattleView> with SingleTickerProviderStateMixin {
+class _PKRealBattleViewState extends State<PKRealBattleView> with SingleTickerProviderStateMixin {
   late AnimationController _rotateController;
 
   @override
   void initState() {
     super.initState();
+    // 保留您原有的旋转动画逻辑
     _rotateController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
@@ -63,7 +57,7 @@ class _PKBattleViewState extends State<PKBattleView> with SingleTickerProviderSt
   }
 
   @override
-  void didUpdateWidget(covariant PKBattleView oldWidget) {
+  void didUpdateWidget(covariant PKRealBattleView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.pkStatus != widget.pkStatus) {
       if (widget.pkStatus == PKStatus.playing) {
@@ -110,7 +104,7 @@ class _PKBattleViewState extends State<PKBattleView> with SingleTickerProviderSt
 
     return Row(
       children: [
-        // --- 左侧：我方 ---
+        // --- 左侧：我方 (主视角) ---
         Expanded(
           flex: 1,
           child: Container(
@@ -132,7 +126,7 @@ class _PKBattleViewState extends State<PKBattleView> with SingleTickerProviderSt
         // 中割线
         Container(width: 2, color: Colors.black),
 
-        // --- 右侧：敌方 ---
+        // --- 右侧：真人对手 ---
         Expanded(
           flex: 1,
           child: GestureDetector(
@@ -147,46 +141,28 @@ class _PKBattleViewState extends State<PKBattleView> with SingleTickerProviderSt
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // 对手背景图
                   Image.network(
                     widget.rightBgImage,
                     fit: BoxFit.cover,
                     errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
                   ),
 
-                  if (widget.isRightVideoMode)
-                    _buildRightVideoContent()
-                  else
-                    Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Container(color: Colors.black.withOpacity(0.6)),
-                        _buildRightAvatarContent(),
-                      ],
-                    ),
+                  // 对手层级覆盖
+                  Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Container(color: Colors.black.withOpacity(0.6)),
+                      _buildRightAvatarContent(), // 构建对手旋转头像
+                    ],
+                  ),
 
+                  // 惩罚阶段的置灰滤镜逻辑
                   if (isPunishment && isLeftWin)
                     BackdropFilter(
                       filter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
                       child: Container(color: Colors.transparent),
                     ),
-
-                  if (widget.isAiRaging)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.red.withOpacity(0.6), width: 2),
-                            gradient: RadialGradient(
-                              colors: [Colors.transparent, Colors.red.withOpacity(0.3)],
-                              stops: const [0.7, 1.0],
-                              radius: 1.0,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  // 🟢 已删除：“点击去围观”的小提示被移除了
                 ],
               ),
             ),
@@ -196,28 +172,8 @@ class _PKBattleViewState extends State<PKBattleView> with SingleTickerProviderSt
     );
   }
 
-  // 构建右侧：视频模式
-  Widget _buildRightVideoContent() {
-    if (widget.rightVideoController != null && widget.rightVideoController!.value.isInitialized) {
-      return SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: widget.rightVideoController!.value.size.width,
-            height: widget.rightVideoController!.value.size.height,
-            child: VideoPlayer(widget.rightVideoController!),
-          ),
-        ),
-      );
-    } else {
-      return const SizedBox();
-    }
-  }
-
-  // 构建右侧：旋转头像模式
+  // 构建右侧：旋转头像模式 (适配真人)
   Widget _buildRightAvatarContent() {
-    if (widget.currentBoss == null) return const SizedBox();
-
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -243,7 +199,7 @@ class _PKBattleViewState extends State<PKBattleView> with SingleTickerProviderSt
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 2),
                   image: DecorationImage(
-                    image: NetworkImage(widget.currentBoss!.avatarUrl),
+                    image: NetworkImage(widget.rightAvatarUrl), // 使用真人对手头像
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -251,22 +207,15 @@ class _PKBattleViewState extends State<PKBattleView> with SingleTickerProviderSt
             ),
           ),
           const SizedBox(height: 12),
+          // 对手名字标签
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10)),
             child: Text(
-              widget.currentBoss!.name,
+              widget.rightName, // 使用真人对手名字
               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: List.generate(
-                min(5, widget.currentBoss!.difficulty),
-                    (index) => const Icon(Icons.star, color: Colors.amber, size: 10)
-            ),
-          )
         ],
       ),
     );

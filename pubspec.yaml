@@ -30,6 +30,9 @@ dependencies:
   video_player: ^2.8.6    # 官方接口
   just_audio: ^0.10.5
   cached_network_image: ^3.4.1
+  wakelock_plus: ^1.4.0
+  web_socket_channel: ^3.0.3
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

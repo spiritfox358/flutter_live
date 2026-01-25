@@ -15,10 +15,12 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../../services/gift_api.dart';
 import '../../../services/ai_music_service.dart';
-
 import '../../../tools/HttpUtil.dart';
+
 import 'models/live_models.dart';
-import 'widgets/pk_battle_view.dart';
+
+// 🟢 确保引入你复刻的真人PK视图
+import 'widgets/pk_real_battle_view.dart';
 import 'widgets/single_mode_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_input_bar.dart';
@@ -28,6 +30,7 @@ import 'package:flutter_live/screens/home/live/widgets/pk_widgets.dart';
 import 'animate_gift_item.dart';
 import 'gift_panel.dart';
 
+// 🟢 解决 image_06c8f4.png 报错：补全类定义
 class EntranceEvent {
   final String userName;
   final String level;
@@ -42,61 +45,52 @@ class EntranceEvent {
   });
 }
 
-final List<AIBoss> _bosses = [
-  const AIBoss(
-    name: "机械姬·零号",
-    avatarUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712109.png",
-    videoUrl:
-        "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/ai_avatar_1.mp4",
-    difficulty: 3,
-    tauntMessages: [],
-  ),
-  const AIBoss(
-    name: "赛博魔王",
-    avatarUrl: "https://cdn-icons-png.flaticon.com/512/6195/6195678.png",
-    videoUrl: "",
-    difficulty: 8,
-    tauntMessages: [],
-  ),
-];
-
-class LiveStreamingPage extends StatefulWidget {
+class RealLivePage extends StatefulWidget {
   final String userId;
   final String userName;
+  final String avatarUrl;
+  final String level;
   final bool isHost;
   final String roomId;
-
   final Map<String, dynamic>? initialRoomData;
 
-  const LiveStreamingPage({
+  const RealLivePage({
     super.key,
     required this.userId,
     required this.userName,
+    required this.avatarUrl,
+    required this.level,
     required this.isHost,
     required this.roomId,
     this.initialRoomData,
   });
 
   @override
-  State<LiveStreamingPage> createState() => _LiveStreamingPageState();
+  State<RealLivePage> createState() => _RealLivePageState();
 }
 
-class _LiveStreamingPageState extends State<LiveStreamingPage>
+class _RealLivePageState extends State<RealLivePage>
     with TickerProviderStateMixin {
-  int _punishmentDuration = 20;
+  final int _punishmentDuration = 20;
 
   WebSocketChannel? _channel;
   late String _myUserName;
   late String _myUserId;
+  late String _myAvatar;
   late String _roomId;
   late bool _isHost;
 
-  final String _wsUrl = "ws://192.168.0.104:8358/ws/live";
+  final String _wsUrl = "ws://${HttpUtil.getBaseIpPort}/ws/live";
 
+  // 🟢 解决 image_06cfdc.png 报错：定义变量
   VideoPlayerController? _bgController;
   bool _isBgInitialized = false;
   bool _isVideoBackground = false;
   String _currentBgImage = "";
+  String _currentName = "";
+  Timer? _heartbeatTimer; // 心跳定时器
+  bool _isDisposed = false; // 标记页面是否已销毁，防止退出后还在重连
+  String _currentAvatar = "";
   final List<String> _bgImageUrls = [
     "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.png",
     "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_2.png",
@@ -107,16 +101,11 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   int _opponentPKScore = 0;
   int _pkTimeLeft = 0;
   Timer? _pkTimer;
-  bool _isAiRaging = false;
-  AIBoss? _currentBoss;
 
-  final List<VideoPlayerController> _allBossControllers = [];
-  VideoPlayerController? _aiVideoController;
-  bool _isRightVideoMode = false;
+  // 🟢 真人 PK 参与者数据
+  List<dynamic> _participants = [];
 
-  String _opponentBgImage = "";
-  bool _isAIThinking = false;
-
+  // 🟢 解决 image_0886d7.png 报错：定义翻倍相关变量
   bool _isFirstGiftPromoActive = false;
   int _promoTimeLeft = 30;
   Timer? _promoTimer;
@@ -133,6 +122,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   final Queue<GiftEvent> _waitingQueue = Queue();
   List<GiftItemData> _giftList = [];
 
+  // 🟢 解决 image_0740b5.png 报错：定义连击动画
   bool _showComboButton = false;
   GiftItemData? _lastGiftSent;
   late AnimationController _comboScaleController;
@@ -157,15 +147,14 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
 
     _myUserId = widget.userId;
     _myUserName = widget.userName;
+    _myAvatar = widget.avatarUrl;
     _isHost = widget.isHost;
     _roomId = widget.roomId;
 
     _fetchGiftList();
-    _connectWebSocket();
     _initializeBackground();
     _pickRandomImage();
 
-    // 🟢 初始化动画控制器 (必须在 _checkInitialRoomState 之前)
     _initPKStartAnimation();
 
     _comboScaleController = AnimationController(
@@ -198,8 +187,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
       end: const Offset(0, 0),
     ).animate(_welcomeBannerController);
 
-    // 🟢 最后检查进场状态
-    _checkInitialRoomState();
+    // 🟢 进场检查
+    _startEnterRoomSequence();
   }
 
   int _parseInt(dynamic value, {int defaultValue = 0}) {
@@ -209,133 +198,59 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     return defaultValue;
   }
 
-  // 🟢 进场状态同步
-  void _checkInitialRoomState() {
-    final data = widget.initialRoomData;
-    if (data == null) return;
-
-    final int roomMode = _parseInt(data['roomMode']);
-    debugPrint("📡 进场同步检查: roomMode=$roomMode");
-
-    if (data['punishmentDuration'] != null) {
-      _punishmentDuration = _parseInt(
-        data['punishmentDuration'],
-        defaultValue: 20,
-      );
-    }
-
-    if (data['pkStartTime'] == null) return;
-    final String startTimeStr = data['pkStartTime'].toString();
-    DateTime startTime;
+  // 🟢 状态同步 (接入新接口)
+  void _checkInitialRoomState() async {
     try {
-      startTime = DateTime.parse(startTimeStr);
-    } catch (e) {
-      debugPrint("❌ 时间解析失败: $e");
-      return;
-    }
+      final res = await HttpUtil().get(
+        "/api/pk/detail",
+        params: {
+          "roomId": int.parse(_roomId),
+          "userId": _myUserId,
+          "userName": _myUserName,
+        },
+      );
+      final pkInfo = res['pkInfo'];
+      final int status = _parseInt(pkInfo['status']);
+      final String startTimeStr = pkInfo['startTime'];
+      _participants = pkInfo['participants'] as List;
 
-    final int pkDuration = _parseInt(data['pkDuration'], defaultValue: 90);
-    final DateTime now = DateTime.now();
+      DateTime startTime = DateTime.parse(startTimeStr);
+      final int elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
 
-    // 🟢 Mode 1: PK 中
-    if (roomMode == 1) {
-      final int elapsedSeconds = now.difference(startTime).inSeconds;
-      final int remaining = pkDuration - elapsedSeconds;
+      if (status == 1) {
+        // PK进行中
+        final int remaining = 90 - elapsedSeconds;
+        if (remaining > 0) {
+          _startPKRound(initialTimeLeft: remaining);
+          // 2. 🟢 新增：检查是否还在首翻 30秒 保护期内
+          // 假设首翻时间是 30 秒
+          const int promoDuration = 30;
 
-      if (remaining > 0) {
-        debugPrint("✅ PK 进行中，剩余 $remaining 秒");
-
-        // 🟢 修复首送翻倍时间同步：如果已过 30 秒，直接关闭翻倍
-        const int promoTotalDuration = 30;
-        final int promoRemaining = promoTotalDuration - elapsedSeconds;
-
-        Future.delayed(const Duration(milliseconds: 200), () {
-          if (!mounted) return;
-
-          // 根据剩余时间设置翻倍状态
-          if (promoRemaining > 0) {
-            _isFirstGiftPromoActive = true;
-            _promoTimeLeft = promoRemaining;
+          if (elapsedSeconds < promoDuration) {
+            // 还在首翻时间内，恢复状态
+            setState(() {
+              _isFirstGiftPromoActive = true;
+              _promoTimeLeft = promoDuration - elapsedSeconds; // 算出剩下的首翻时间
+            });
+            // 启动首翻倒计时器
             _startPromoTimer();
           } else {
-            _isFirstGiftPromoActive = false;
-            _promoTimer?.cancel();
+            // 超过30秒了，确保关闭
+            setState(() {
+              _isFirstGiftPromoActive = false;
+              _promoTimeLeft = 0;
+            });
           }
-
-          _startPKRound(
-            _parseInt(data['bossIndex']),
-            _parseInt(data['bgIndex']),
-            initialTimeLeft: remaining,
-            initMyScore: _parseInt(data['myScore']),
-            initOpScore: _parseInt(data['opScore']),
-            pkTotalDuration: _parseInt(data['pkDuration'], defaultValue: 90),
-            punishmentDuration: _punishmentDuration,
-          );
-        });
+        } else {
+          _enterPunishmentPhase();
+        }
+      } else if (status == 2) {
+        // 惩罚中
+        _enterPunishmentPhase(timeLeft: 20 - (elapsedSeconds - 90));
       }
+    } catch (e) {
+      debugPrint("❌ 同步失败: $e");
     }
-    // 🟢 Mode 2: 惩罚 中
-    else if (roomMode == 2) {
-      final DateTime punishmentStartTime = startTime.add(
-        Duration(seconds: pkDuration),
-      );
-      final int elapsedInPunishment = now
-          .difference(punishmentStartTime)
-          .inSeconds;
-      int remainingPunishment = _punishmentDuration - elapsedInPunishment;
-
-      if (remainingPunishment < 0) remainingPunishment = 0;
-
-      debugPrint("🔥 惩罚模式，剩余 $remainingPunishment 秒");
-      Future.delayed(const Duration(milliseconds: 200), () {
-        if (!mounted) return;
-        _restoreSceneData(data);
-        _enterPunishmentPhase(timeLeft: remainingPunishment);
-      });
-    }
-    // 🟢 Mode 3: 连麦中
-    else if (roomMode == 3) {
-      final int elapsedCoHost = now.difference(startTime).inSeconds;
-      debugPrint("✅ 连麦中，已进行 $elapsedCoHost 秒");
-      Future.delayed(const Duration(milliseconds: 200), () {
-        if (!mounted) return;
-        _restoreSceneData(data);
-        _enterCoHostPhase(initialElapsedTime: elapsedCoHost);
-      });
-    }
-  }
-
-  void _restoreSceneData(Map<String, dynamic> data) {
-    setState(() {
-      _myPKScore = _parseInt(data['myScore']);
-      _opponentPKScore = _parseInt(data['opScore']);
-      final int bossIdx = _parseInt(data['bossIndex']);
-      final int bgIdx = _parseInt(data['bgIndex']);
-      _currentBoss = _bosses[bossIdx % _bosses.length];
-      _opponentBgImage = _bgImageUrls[bgIdx % _bgImageUrls.length];
-
-      if (_currentBoss?.videoUrl.isNotEmpty == true) {
-        _isRightVideoMode = true;
-        _setupBossVideo(_currentBoss!.videoUrl);
-      }
-    });
-  }
-
-  void _setupBossVideo(String url) {
-    _killAllBossVideos();
-    final newController = VideoPlayerController.networkUrl(Uri.parse(url));
-    _allBossControllers.add(newController);
-    _aiVideoController = newController;
-    newController.initialize().then((_) {
-      if (!mounted || !_allBossControllers.contains(newController)) {
-        newController.dispose();
-        return;
-      }
-      newController.setLooping(true);
-      newController.setVolume(1.0);
-      newController.play();
-      setState(() {});
-    });
   }
 
   Future<void> _fetchGiftList() async {
@@ -343,17 +258,191 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
       final gifts = await GiftApi.getGiftList();
       if (mounted && gifts.isNotEmpty) setState(() => _giftList = gifts);
     } catch (e) {
-      debugPrint("❌ 礼物加载异常: $e");
+      debugPrint("❌ 加载礼物列表失败");
     }
   }
 
   void _connectWebSocket() {
     try {
+      _channel?.sink.close();
+
       _channel = WebSocketChannel.connect(Uri.parse(_wsUrl));
-      _channel!.stream.listen((message) => _handleSocketMessage(message));
-      _sendSocketMessage("ENTER", content: "进入了直播间");
+      _channel!.stream.listen(
+        (message) => _handleSocketMessage(message),
+        // 🟢 监听连接错误
+        onError: (error) {
+          debugPrint("❌ WebSocket 报错: $error");
+          _reconnect();
+        },
+        // 🟢 监听连接断开 (服务器主动断开或网络中断)
+        onDone: () {
+          debugPrint("🔌 WebSocket 连接断开");
+          _reconnect();
+        },
+      );
+      _sendSocketMessage(
+        "ENTER",
+        content: "进入了直播间",
+        userName: _myUserName,
+        avatar: _myAvatar,
+        level: "10",
+      );
+      _startHeartbeat();
     } catch (e) {
-      debugPrint("WebSocket 连接异常: $e");
+      debugPrint("❌ WS连接失败");
+      _reconnect();
+    }
+  }
+// 🟢 心跳机制：每 30 秒发送一次 "HEARTBEAT"
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (_isDisposed) {
+        timer.cancel();
+        return;
+      }
+      // 发送一个轻量级的心跳包
+      // 注意：不要用 _sendSocketMessage，因为那个会带一堆 userId 用户名，浪费流量
+      // 直接发最简单的 JSON
+      try {
+        _channel?.sink.add(jsonEncode({"type": "HEARTBEAT", "roomId": _roomId}));
+        // debugPrint("💓 发送心跳");
+      } catch (e) {
+        // 发送失败说明断了，触发重连
+        _reconnect();
+      }
+    });
+  }
+
+// 🟢 重连机制：延迟 3 秒后重试，防止死循环刷爆服务器
+  void _reconnect() {
+    if (_isDisposed) return;
+
+    _heartbeatTimer?.cancel(); // 重连期间停止发心跳
+
+    debugPrint("⏳ 3秒后尝试重连...");
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!_isDisposed) {
+        _connectWebSocket();
+      }
+    });
+  }
+  // 🟢 统一的进场启动器
+  void _startEnterRoomSequence() async {
+    try {
+      // 第一步：调用加入接口（数据库 online_count +1）
+      await HttpUtil().post(
+        "/api/room/join",
+        data: {"roomId": int.parse(_roomId)},
+      );
+
+      // 第二步：连接 WebSocket（建立实时监听）
+      _connectWebSocket();
+
+      // 第三步：拉取房间详情（同步当前的 PK 画面和头像）
+      _fetchRoomDetailAndSyncState();
+    } catch (e) {
+      debugPrint("进房初始化失败: $e");
+    }
+  }
+
+  void _fetchRoomDetailAndSyncState() async {
+    try {
+      // 1. 调用你后端的 PkController.getRoomDetail 接口
+      final res = await HttpUtil().get(
+        "/api/pk/detail",
+        params: {
+          "roomId": int.parse(_roomId),
+          "userId": _myUserId,
+          "userName": _myUserName,
+        },
+      );
+      final data = res;
+      // 更新在线人数等基础信息
+      setState(() {
+        // 如果后端返回了最新的 onlineCount，在这里更新
+        // _onlineCount = _parseInt(data['onlineCount']);
+      });
+
+      // 2. 检查 PK 信息并同步
+      if (data['pkInfo'] != null) {
+        final pkInfo = data['pkInfo'];
+        final int status = _parseInt(pkInfo['status']);
+        final String startTimeStr = pkInfo['startTime'];
+
+        setState(() {
+          _participants = pkInfo['participants'] as List; // 同步参与者头像和名字
+          // 🟢 核心补全：进入房间时，立即从 API 返回的数据中恢复当前分数
+          if (_participants.isNotEmpty) {
+            // 在房间 B 中，_participants[0] 永远是房间 B 的主播
+            // 将左侧背景图更新为当前房间主播的个人 PK 背景
+            _currentName = _participants[0]['name'] ?? _currentName;
+            _currentAvatar = _participants[0]['avatar'] ?? _currentAvatar;
+            _currentBgImage = _participants[0]['pkBg'] ?? _currentBgImage;
+            // 如果正在 PK，同步双方分数
+            if (_participants.length >= 2) {
+              _myPKScore = _parseInt(_participants[0]['score']);
+              _opponentPKScore = _parseInt(_participants[1]['score']);
+            }
+          }
+        });
+
+        DateTime startTime = DateTime.parse(startTimeStr);
+        final int elapsedSeconds = DateTime.now()
+            .difference(startTime)
+            .inSeconds;
+
+        if (status == 1) {
+          // 🟢 同步 PK 状态
+          final int remaining = 90 - elapsedSeconds;
+          if (remaining > 0) {
+            _startPKRound(initialTimeLeft: remaining);
+            // 2. 🟢 新增：检查是否还在首翻 30秒 保护期内
+            // 假设首翻时间是 30 秒
+            const int promoDuration = 30;
+
+            if (elapsedSeconds < promoDuration) {
+              // 还在首翻时间内，恢复状态
+              setState(() {
+                _isFirstGiftPromoActive = true;
+                _promoTimeLeft = promoDuration - elapsedSeconds; // 算出剩下的首翻时间
+              });
+              // 启动首翻倒计时器
+              _startPromoTimer();
+            } else {
+              // 超过30秒了，确保关闭
+              setState(() {
+                _isFirstGiftPromoActive = false;
+                _promoTimeLeft = 0;
+              });
+            }
+          } else {
+            _enterPunishmentPhase();
+          }
+        } else if (status == 2) {
+          // 🟡 同步惩罚状态
+          final int remainingPunishment = 20 - (elapsedSeconds - 90);
+          if (remainingPunishment > 0) {
+            _enterPunishmentPhase(timeLeft: remainingPunishment);
+          }
+        } else if (status == 3) {
+          // 🔵 补全：同步连麦状态
+          // 连麦通常是持续进行的，计算从开始到现在已过去的时间
+          DateTime startTime = DateTime.parse(startTimeStr);
+          int totalElapsed = DateTime.now().difference(startTime).inSeconds;
+          int coHostElapsed = totalElapsed - 90 - 20;
+          _enterCoHostPhase(
+            initialElapsedTime: coHostElapsed > 0 ? coHostElapsed : 0,
+            serverStartTime: startTime,
+          );
+        }
+      } else {
+        _currentName = data['title'] ?? _currentName;
+        _currentAvatar = data['coverImg'] ?? _currentAvatar;
+        _currentBgImage = data['personalPkBg'] ?? _currentBgImage;
+      }
+    } catch (e) {
+      debugPrint("❌ 同步房间详情失败: $e");
     }
   }
 
@@ -362,16 +451,30 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     try {
       final Map<String, dynamic> data = jsonDecode(message);
       final String type = data['type'];
-      final String userId = data['userId'] ?? "";
       final String roomId = data['roomId']?.toString() ?? "";
-
       if (roomId.isNotEmpty && roomId != _roomId) return;
-      final bool isMe = (userId == _myUserId);
+      final String msgUserId = data['userId']?.toString() ?? "";
+      final bool isMe = (msgUserId == _myUserId);
 
       switch (type) {
+        case "ENTER":
+          // data 是后端 LiveSocketHandler 广播出来的 JSON
+          final String joinerId = data['userId']?.toString() ?? "";
+          final String joinerName = data['userName'] ?? "神秘人";
+          final String joinerAvatar = data['avatar'] ?? "";
+          final String joinerLevel = data['level']?.toString() ?? "1";
+          // 1. 在聊天列表显示进入消息
+          // _addSocketChatMessage("系统", "$joinerName 进入了直播间", Colors.grey);
+          // 2. 触发进场座驾/横幅动画
+          _simulateVipEnter(
+            overrideName: joinerName,
+            overrideAvatar: joinerAvatar,
+            overrideLevel: joinerLevel,
+          );
+          break;
         case "CHAT":
           _addSocketChatMessage(
-            data['username'] ?? "神秘人",
+            data['userName'] ?? "神秘人",
             data['content'] ?? "",
             isMe ? Colors.amber : Colors.white,
           );
@@ -390,40 +493,53 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
             id: giftId,
             name: "未知礼物",
             price: 0,
-            iconUrl:
-                "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/1_%E5%B0%8F%E5%BF%83%E5%BF%83.png",
+            iconUrl: "...",
           );
           _processGiftEvent(
             targetGift,
-            data['username'] ?? "神秘人",
+            data['userName'] ?? "神秘人",
             data['avatar'] ?? "神秘人",
             isMe,
             count: data['giftCount'] ?? 1,
           );
           break;
-        case "ENTER":
-          if (!isMe) _simulateVipEnter(overrideName: data['username']);
-          break;
         case "PK_START":
-          _startPKRound(
-            _parseInt(data['bossIndex']),
-            _parseInt(data['bgIndex']),
-            pkTotalDuration: _parseInt(data['pkDuration'], defaultValue: 90),
-            punishmentDuration: _parseInt(
-              data['punishmentDuration'],
-              defaultValue: 20,
-            ),
-          );
+          _isFirstGiftPromoActive = true;
+          _promoTimeLeft = 30;
+          _startPromoTimer();
+          _startPKRound();
+          // 重新拉取一次详情以更新参与者头像
+          _checkInitialRoomState();
+          break;
+        // 🟢 新增：监听到进入惩罚阶段广播
+        case "PK_PUNISHMENT":
+          if (!isMe) _enterPunishmentPhase();
+          break;
+
+        // 🟢 新增：监听到进入连线阶段广播
+        case "PK_COHOST":
+          if (!isMe) _enterCoHostPhase(initialElapsedTime: 0);
           break;
         case "PK_UPDATE":
-          setState(() => _opponentPKScore = _parseInt(data['opponentScore']));
+          final List<dynamic> scoreList = data['data'] as List<dynamic>;
+          setState(() {
+            for (var item in scoreList) {
+              String roomId = item['roomId'].toString();
+              int score = item['score'];
+              if (roomId == _roomId) {
+                _myPKScore = score;
+              } else {
+                _opponentPKScore = score;
+              }
+            }
+          });
           break;
         case "PK_END":
           _disconnectCoHost();
           break;
       }
     } catch (e) {
-      debugPrint("解析失败: $e");
+      debugPrint("❌ 解析消息失败: $e");
     }
   }
 
@@ -432,26 +548,21 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     String? content,
     String? giftId,
     int giftCount = 1,
-    int? bossIndex,
-    int? bgIndex,
-    int? opponentScore,
+    String? userName,
+    String? avatar,
+    String? level,
   }) {
     if (_channel == null) return;
     final Map<String, dynamic> msg = {
       "type": type,
       "roomId": _roomId,
       "userId": _myUserId,
-      "username": _myUserName,
+      "userName": userName,
+      "avatar": avatar,
+      "level": level,
       "content": content,
       "giftId": giftId,
       "giftCount": giftCount,
-      if (bossIndex != null) "bossIndex": bossIndex,
-      if (bgIndex != null) "bgIndex": bgIndex,
-      if (opponentScore != null) "opponentScore": opponentScore,
-      if (type == "PK_START") ...{
-        "pkDuration": 90,
-        "punishmentDuration": _punishmentDuration,
-      },
     };
     try {
       _channel!.sink.add(jsonEncode(msg));
@@ -461,25 +572,10 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   void _onTapStartPK() async {
     _dismissKeyboard();
     if (_pkStatus != PKStatus.idle || !_isHost) return;
-
-    final int randomBossIndex = Random().nextInt(_bosses.length);
-    final int randomBgIndex = Random().nextInt(_bgImageUrls.length);
-
     try {
       await HttpUtil().post(
-        "/api/room/start_pk",
-        data: {
-          "roomId": int.parse(_roomId),
-          "bossIndex": randomBossIndex,
-          "bgIndex": randomBgIndex,
-          "duration": 90,
-          "punishmentDuration": _punishmentDuration,
-        },
-      );
-      _sendSocketMessage(
-        "PK_START",
-        bossIndex: randomBossIndex,
-        bgIndex: randomBgIndex,
+        "/api/pk/start",
+        data: {"roomId": int.parse(_roomId), "duration": 90},
       );
     } catch (e) {
       ScaffoldMessenger.of(
@@ -488,84 +584,56 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     }
   }
 
-  void _startPKRound(
-    int bossIndex,
-    int bgIndex, {
-    int? initialTimeLeft,
-    int? initMyScore,
-    int? initOpScore,
-    int? pkTotalDuration,
-    int? punishmentDuration,
-  }) {
+  void _startPKRound({int? initialTimeLeft}) {
+    _pkTimer?.cancel();
+    _pkTimer = null;
     if (_pkStatus == PKStatus.playing && initialTimeLeft == null) return;
     if (initialTimeLeft == null) _playPKStartAnimation();
-    if (punishmentDuration != null) _punishmentDuration = punishmentDuration;
-
-    Future.delayed(
-      Duration(milliseconds: initialTimeLeft == null ? 800 : 0),
-      () {
-        if (!mounted) return;
-        if (initialTimeLeft == null && _pkStatus != PKStatus.idle) return;
-
-        final boss = _bosses[bossIndex % _bosses.length];
-        _currentBoss = boss;
-        _opponentBgImage = _bgImageUrls[bgIndex % _bgImageUrls.length];
-
-        setState(() {
-          _pkStatus = PKStatus.playing;
-          _myPKScore = initMyScore ?? 0;
-          _opponentPKScore = initOpScore ?? 0;
-          _pkTimeLeft = initialTimeLeft ?? (pkTotalDuration ?? 90);
-
-          // 🟢 只有新开启的 PK (非进场同步) 才重置翻倍倒计时
-          if (initialTimeLeft == null) {
-            _isFirstGiftPromoActive = true;
-            _promoTimeLeft = 30;
-            _startPromoTimer();
-          }
-        });
-
-        if (boss.videoUrl.isNotEmpty) {
-          _isRightVideoMode = true;
-          _setupBossVideo(boss.videoUrl);
-        } else {
-          _isRightVideoMode = false;
-          _killAllBossVideos();
-        }
-
+    setState(() {
+      _pkStatus = PKStatus.playing;
+      _pkTimeLeft = initialTimeLeft ?? 90;
+      if (initialTimeLeft == null) {
+        _myPKScore = 0;
+        _opponentPKScore = 0;
+        _isFirstGiftPromoActive = true;
+        _promoTimeLeft = 30;
+        _startPromoTimer();
+      }
+    });
+    _pkTimer?.cancel();
+    _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() => _pkTimeLeft--);
+      if (_pkTimeLeft <= 0) {
         _pkTimer?.cancel();
-        _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          if (!mounted) return;
-          setState(() => _pkTimeLeft--);
-          if (_pkTimeLeft <= 0) {
-            _pkTimer?.cancel();
-            _enterPunishmentPhase();
-            return;
-          }
-          if (!_isAIThinking && (_pkTimeLeft % 4 == 0 || _pkTimeLeft <= 10))
-            _triggerBossBehavior(context: "periodic_check");
-        });
-      },
-    );
+        _enterPunishmentPhase();
+      }
+    });
   }
 
   void _enterPunishmentPhase({int? timeLeft}) async {
     setState(() {
       _pkStatus = PKStatus.punishment;
-      _pkTimeLeft = timeLeft ?? _punishmentDuration;
+      _pkTimeLeft = (timeLeft != null && timeLeft > 0)
+          ? timeLeft
+          : _punishmentDuration;
       _isFirstGiftPromoActive = false;
       _promoTimer?.cancel();
     });
-
+    // 🟢 房主逻辑：当自然进入惩罚期（非进场同步）时，通知后端并广播
     if (_isHost && timeLeft == null) {
       try {
+        // 1. 提交后端接口更新房间模式为 2 (惩罚中)
         await HttpUtil().post(
           "/api/room/enter_punishment",
           data: {"roomId": int.parse(_roomId)},
         );
-      } catch (e) {}
+        // 2. 发布 WebSocket 广播
+        _sendSocketMessage("PK_PUNISHMENT");
+      } catch (e) {
+        debugPrint("进入惩罚阶段同步失败: $e");
+      }
     }
-
     _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       setState(() => _pkTimeLeft--);
@@ -576,17 +644,27 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   void _stopPK() async {
     _pkTimer?.cancel();
     _enterCoHostPhase(initialElapsedTime: 0);
-    if (_isHost) {
-      try {
-        await HttpUtil().post(
-          "/api/room/enter_co_host",
-          data: {"roomId": int.parse(_roomId)},
-        );
-      } catch (e) {}
+    try {
+      // 1. 提交后端接口更新房间模式为 3 (连麦/连线中)
+      await HttpUtil().post(
+        "/api/pk/to_cohost",
+        data: {"roomId": int.parse(_roomId)},
+      );
+      // 2. 发布 WebSocket 广播
+      // _sendSocketMessage("PK_COHOST");
+    } catch (e) {
+      debugPrint("进入连线阶段同步失败: $e");
     }
   }
 
-  void _enterCoHostPhase({required int initialElapsedTime}) {
+  void _enterCoHostPhase({
+    required int initialElapsedTime,
+    DateTime? serverStartTime,
+  }) {
+    // 1. 彻底取消并清理旧计时器，防止多个计时器叠加导致数字乱跳
+    _pkTimer?.cancel();
+    _pkTimer = null;
+
     setState(() {
       _pkStatus = PKStatus.coHost;
       _pkTimeLeft = initialElapsedTime;
@@ -594,29 +672,38 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
       _promoTimer?.cancel();
     });
 
-    _pkTimer?.cancel();
+    // 2. 🟢 核心逻辑：确定“连线开始”的那个绝对时间点（anchorTime）
+    DateTime anchorTime;
+    if (serverStartTime != null) {
+      // 粉丝进场：连线开始时间 = PK开始时间 + 90s(PK) + 20s(惩罚)
+      anchorTime = serverStartTime.add(const Duration(seconds: 90 + 20));
+    } else {
+      // 主播切换：连线开始时间 = 现在 - 已经流逝的时间
+      anchorTime = DateTime.now().subtract(
+        Duration(seconds: initialElapsedTime),
+      );
+    }
+
+    // 3. 开启计时器，每秒计算一次差值
     _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      setState(() => _pkTimeLeft++);
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
+      if (_pkStatus == PKStatus.coHost) {
+        setState(() {
+          // 🟢 绝对计算：当前时间 - 锚点时间
+          // difference 返回的是 Duration，.inSeconds 拿到总秒数
+          _pkTimeLeft = DateTime.now().difference(anchorTime).inSeconds;
+        });
+      } else {
+        timer.cancel(); // 如果状态变了，停止这个计时器
+      }
     });
   }
 
-  // 🟢 修复：断开连接时，通知后端并发送 Socket 消息
   void _disconnectCoHost() async {
-    if (_isHost) {
-      try {
-        await HttpUtil().post(
-          "/api/room/end_pk",
-          data: {"roomId": int.parse(_roomId)},
-        );
-      } catch (e) {}
-      // 🟢 关键：房主必须发送 Socket 消息，粉丝才能同步断开
-      _sendSocketMessage("PK_END");
-    }
-    _killAllBossVideos();
-    try {
-      AIMusicService().stopMusic();
-    } catch (e) {}
     _pkTimer?.cancel();
     _promoTimer?.cancel();
     setState(() {
@@ -624,41 +711,32 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
       _myPKScore = 0;
       _opponentPKScore = 0;
       _isFirstGiftPromoActive = false;
+      _participants = [];
+    });
+    HttpUtil().post("/api/pk/pk_end", data: {"roomId": int.parse(_roomId)});
+  }
+
+  // 🟢 解决 image_091d54.png 报错：补全键盘和倒计时逻辑
+  void _dismissKeyboard() {
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  void _startPromoTimer() {
+    _promoTimer?.cancel();
+    _promoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) return;
+      setState(() {
+        if (_promoTimeLeft > 0) {
+          _promoTimeLeft--;
+        } else {
+          _isFirstGiftPromoActive = false;
+          timer.cancel();
+        }
+      });
     });
   }
 
-  Future<void> _triggerBossBehavior({
-    required String context,
-    String? customPrompt,
-  }) async {
-    if (_currentBoss == null || _pkStatus != PKStatus.playing || !_isHost)
-      return;
-    if (_isAIThinking && context == "periodic_check") return;
-    _isAIThinking = true;
-    try {
-      await Future.delayed(const Duration(milliseconds: 200));
-      int scoreToAdd = Random().nextBool() ? Random().nextInt(800) + 200 : 0;
-      if (scoreToAdd > 0) {
-        setState(() => _opponentPKScore += scoreToAdd);
-        _sendSocketMessage("PK_UPDATE", opponentScore: _opponentPKScore);
-        try {
-          await HttpUtil().post(
-            "/api/room/update_score",
-            data: {
-              "roomId": int.parse(_roomId),
-              "myScore": _myPKScore,
-              "opponentScore": _opponentPKScore,
-            },
-          );
-        } catch (e) {}
-      }
-    } catch (e) {
-    } finally {
-      _isAIThinking = false;
-    }
-  }
-
-  // 🟢 补全：初始化动画控制器
   void _initPKStartAnimation() {
     _pkStartAnimationController = AnimationController(
       vsync: this,
@@ -691,46 +769,12 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     });
   }
 
-  // 🟢 补全：播放动画
   void _playPKStartAnimation() {
     if (mounted) {
       setState(() => _showPKStartAnimation = true);
       _pkStartAnimationController.reset();
       _pkStartAnimationController.forward();
     }
-  }
-
-  void _startPromoTimer() {
-    _promoTimer?.cancel();
-    _promoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      setState(() {
-        if (_promoTimeLeft > 0) {
-          _promoTimeLeft--;
-        } else {
-          _isFirstGiftPromoActive = false;
-          timer.cancel();
-        }
-      });
-    });
-  }
-
-  void _killAllBossVideos() {
-    final listCopy = List<VideoPlayerController>.from(_allBossControllers);
-    _allBossControllers.clear();
-    _aiVideoController = null;
-    for (var controller in listCopy) {
-      try {
-        controller.setVolume(0.0);
-        controller.pause();
-        controller.dispose();
-      } catch (e) {}
-    }
-  }
-
-  void _dismissKeyboard() {
-    SystemChannels.textInput.invokeMethod('TextInput.hide');
-    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   void _handleCloseButton() {
@@ -796,40 +840,18 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   }
 
   void _switchToOpponentRoom() {
-    if (_currentBoss == null) return;
-    if (widget.isHost) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("房主不能离开直播间哦~")));
-      return;
-    }
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("前往对方直播间？"),
-        content: const Text("确定要离开当前房间，去围观对方吗？"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("取消"),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => LiveStreamingPage(
-                    userId: widget.userId,
-                    userName: widget.userName,
-                    isHost: false,
-                    roomId: "1002",
-                  ),
-                ),
-              );
-            },
-            child: const Text("确定"),
-          ),
-        ],
+    if (_participants.length < 2) return;
+    final opponent = _participants[1];
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => RealLivePage(
+          userId: widget.userId,
+          userName: widget.userName,
+          avatarUrl: widget.avatarUrl,
+          level: widget.level,
+          isHost: false,
+          roomId: opponent['roomId'].toString(),
+        ),
       ),
     );
   }
@@ -879,9 +901,9 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
       );
       int finalCount = count;
       if (existingIndex != -1) {
-        final updatedGift = _activeGifts[existingIndex];
-        finalCount = updatedGift.count + count;
-        _activeGifts[existingIndex] = updatedGift.copyWith(count: finalCount);
+        _activeGifts[existingIndex] = _activeGifts[existingIndex].copyWith(
+          count: _activeGifts[existingIndex].count + count,
+        );
       } else {
         _processNewGift(
           GiftEvent(
@@ -894,11 +916,16 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
         );
       }
       _addGiftMessage(senderName, giftData.name, finalCount);
-      if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
-        _myPKScore += (giftData.price * finalCount);
+      if (isMe && _pkStatus == PKStatus.playing) {
+        HttpUtil().post(
+          "/api/pk/update_score",
+          data: {"roomId": int.parse(_roomId), "score": giftData.price * count},
+        );
+      }
     });
-    if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty)
+    if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
       _addEffectToQueue(giftData.effectAsset!);
+    }
     if (isMe) _triggerComboMode();
   }
 
@@ -990,9 +1017,11 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   }
 
   void _initializeBackground() async {
-    const String aliyunBgUrl =
-        'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4';
-    _bgController = VideoPlayerController.networkUrl(Uri.parse(aliyunBgUrl));
+    _bgController = VideoPlayerController.networkUrl(
+      Uri.parse(
+        'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4',
+      ),
+    );
     try {
       await _bgController!.initialize();
       _bgController!.setLooping(true);
@@ -1052,20 +1081,25 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     );
   }
 
-  void _simulateVipEnter({String? overrideName}) {
+  void _simulateVipEnter({
+    String? overrideName,
+    String? overrideAvatar,
+    String? overrideLevel,
+  }) {
     final names = ["顾北", "王校长", "阿特", "小柠檬", "榜一大哥", "神秘土豪"];
     final randomIdx = Random().nextInt(names.length);
     final name = overrideName ?? names[randomIdx];
-    final level = ["玫瑰公爵", "帝皇", "君王", "公爵"][Random().nextInt(4)];
+    final level = overrideLevel;
     final event = EntranceEvent(
-      userName: name,
-      level: level,
-      avatarUrl: "https://picsum.photos/seed/${888 + randomIdx}/200",
+      userName: overrideName ?? "安静呀",
+      level: level ?? "41",
+      avatarUrl:
+          overrideAvatar ?? "https://picsum.photos/seed/${888 + randomIdx}/200",
       frameUrl: "https://cdn-icons-png.flaticon.com/512/8313/8313626.png",
     );
     _entranceQueue.add(event);
     if (!_isEntranceBannerShowing) _playNextEntrance();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _messages.insert(
           0,
@@ -1077,13 +1111,14 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
           ),
         );
       });
+    }
   }
 
   void _playNextEntrance() async {
     if (_entranceQueue.isEmpty) return;
     _isEntranceBannerShowing = true;
     final event = _entranceQueue.removeFirst();
-    if (mounted)
+    if (mounted) {
       setState(() {
         _currentEntranceEvent = event;
         _welcomeBannerAnimation =
@@ -1097,10 +1132,11 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
               ),
             );
       });
+    }
     _welcomeBannerController.reset();
     await _welcomeBannerController.forward();
     await Future.delayed(const Duration(milliseconds: 2000));
-    if (mounted)
+    if (mounted) {
       setState(() {
         _welcomeBannerAnimation =
             Tween<Offset>(
@@ -1113,6 +1149,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
               ),
             );
       });
+    }
     _welcomeBannerController.reset();
     await _welcomeBannerController.forward();
     _isEntranceBannerShowing = false;
@@ -1166,7 +1203,10 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                           isBgInitialized: _isBgInitialized,
                           bgController: _bgController,
                           currentBgImage: _currentBgImage,
-                          onClose: _handleCloseButton, title: '', name: '', avatar: '',
+                          title: "直播间",
+                          name: _currentName,
+                          avatar: _currentAvatar,
+                          onClose: _handleCloseButton,
                         )
                       : Column(
                           children: [
@@ -1174,9 +1214,9 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                               margin: EdgeInsets.only(top: padding.top),
                               height: topBarHeight,
                               child: BuildTopBar(
-                                title: "房间:${widget.roomId}",
-                                name: "房间:${widget.roomId}",
-                                avatar: "${widget.roomId}",
+                                title: "直播间",
+                                name: _currentName,
+                                avatar: _currentAvatar,
                                 onClose: _handleCloseButton,
                               ),
                             ),
@@ -1195,7 +1235,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                     left: 0,
                                     right: 0,
                                     bottom: 0,
-                                    child: PKBattleView(
+                                    child: PKRealBattleView(
                                       leftVideoController:
                                           (_isVideoBackground &&
                                               _isBgInitialized)
@@ -1204,10 +1244,15 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                       leftBgImage: _isVideoBackground
                                           ? null
                                           : _currentBgImage,
-                                      rightBgImage: _opponentBgImage,
-                                      isRightVideoMode: _isRightVideoMode,
-                                      rightVideoController: _aiVideoController,
-                                      currentBoss: _currentBoss,
+                                      rightAvatarUrl: _participants.length > 1
+                                          ? _participants[1]['avatar']
+                                          : "https://picsum.photos/200",
+                                      rightName: _participants.length > 1
+                                          ? _participants[1]['name']
+                                          : "对手主播",
+                                      rightBgImage: _participants.length > 1
+                                          ? (_participants[1]['pkBg'] ?? "")
+                                          : "",
                                       pkStatus: _pkStatus,
                                       myScore: _myPKScore,
                                       opponentScore: _opponentPKScore,
@@ -1751,5 +1796,25 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true; // 🟢 必须加这行，彻底终止重连死循环
+    WakelockPlus.disable();
+    _channel?.sink.close();
+    _heartbeatTimer?.cancel(); // 🟢 销毁心跳
+    _bgController?.dispose();
+    try {
+      AIMusicService().stopMusic();
+    } catch (e) {}
+    _textController.dispose();
+    _comboScaleController.dispose();
+    _countdownController.dispose();
+    _pkStartAnimationController.dispose();
+    _welcomeBannerController.dispose();
+    _pkTimer?.cancel();
+    _promoTimer?.cancel();
+    super.dispose();
   }
 }

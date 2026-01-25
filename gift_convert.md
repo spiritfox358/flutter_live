@@ -1,4 +1,4 @@
-ffmpeg -i 龙腾九天_good.mov \
+ffmpeg -i 绮梦晶履.mov \
 -filter_complex "
 [0:v]format=rgba,split=2[rgb][a];
 [a]alphaextract,format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2[a_gray];
@@ -12,7 +12,7 @@ ffmpeg -i 龙腾九天_good.mov \
 -crf 14 \
 -preset slow \
 -movflags +faststart \
-龙腾九天_good.mp4
+绮梦晶履.mp4
 
 
 

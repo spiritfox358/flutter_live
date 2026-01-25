@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/course_screen.dart';
 import 'package:flutter_live/screens/dashboard/active_user_screen.dart';
 import 'package:flutter_live/screens/dashboard/active_user_top_screen.dart';
 import 'package:flutter_live/screens/dashboard/school_board_screen.dart';
@@ -8,7 +9,7 @@ import 'package:flutter_live/screens/dashboard/student_leaderboard_screen.dart';
 import 'package:flutter_live/screens/dashboard/student_personal_dashboard_screen.dart';
 import 'package:flutter_live/screens/dashboard/teacher_stats_screen.dart';
 import 'package:flutter_live/screens/dashboard/grade_report_screen.dart';
-import 'package:flutter_live/screens/home/live_list_page.dart';
+import 'package:flutter_live/screens/home/live_list_page1.dart';
 
 class DashboardTabPage extends StatelessWidget {
   const DashboardTabPage({super.key});
@@ -62,7 +63,7 @@ class DashboardTabPage extends StatelessWidget {
         body: const TabBarView(
           physics: NeverScrollableScrollPhysics(),
           children: [
-            LiveListPage(),
+            CourseScreen(),
             StatsScreen(),
             ActiveUserScreen(),
             ActiveUserTopScreen()

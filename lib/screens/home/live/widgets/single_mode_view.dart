@@ -3,6 +3,9 @@ import 'package:video_player/video_player.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_top_bar.dart';
 
 class SingleModeView extends StatelessWidget {
+  final String title;
+  final String name;
+  final String avatar;
   final bool isVideoBackground;
   final bool isBgInitialized;
   final VideoPlayerController? bgController;
@@ -12,6 +15,9 @@ class SingleModeView extends StatelessWidget {
   const SingleModeView({
     super.key,
     required this.isVideoBackground,
+    required this.title,
+    required this.name,
+    required this.avatar,
     required this.isBgInitialized,
     required this.bgController,
     required this.currentBgImage,
@@ -23,35 +29,42 @@ class SingleModeView extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. 背景层 (视频或图片)
+        // 1. 背景层
         isVideoBackground
             ? (isBgInitialized && bgController != null
-            ? FittedBox(
-            fit: BoxFit.cover,
-            child: SizedBox(
-                width: bgController!.value.size.width,
-                height: bgController!.value.size.height,
-                child: VideoPlayer(bgController!)))
-            : Container(color: Colors.black))
+                  ? FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: bgController!.value.size.width,
+                        height: bgController!.value.size.height,
+                        child: VideoPlayer(bgController!),
+                      ),
+                    )
+                  : Container(color: Colors.black))
             : Image.network(currentBgImage, fit: BoxFit.cover),
 
-        // 2. 黑色渐变遮罩 (让顶部文字更清晰)
+        // 2. 遮罩层
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: [Colors.black.withOpacity(0.6), Colors.transparent],
               stops: const [0.0, 0.2],
             ),
           ),
         ),
 
-        // 3. 顶部栏 (只保留这个，其他 UI 全部移交 index.dart)
+        // 3. 顶部栏
         Positioned(
-          top: 0, left: 0, right: 0,
+          top: 0,
+          left: 0,
+          right: 0,
           child: SafeArea(
             child: BuildTopBar(
-              title: "直播间",
+              title: title,
+              name: name,
+              avatar: avatar,
               onClose: onClose,
             ),
           ),

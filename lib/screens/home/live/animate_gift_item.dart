@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
-import 'animate_gift_item_state.dart';
+import 'animate_gift_banner_widget.dart';
 import 'models/live_models.dart';
 
 class AnimatedGiftItem extends StatefulWidget {
@@ -14,5 +14,5 @@ class AnimatedGiftItem extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<AnimatedGiftItem> createState() => AnimatedGiftItemState();
+  State<AnimatedGiftItem> createState() => AnimatedGiftBannerWidget();
 }

@@ -19,6 +19,25 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
   }
 
   void _initData() async {
+    // 🟢 优先使用外部传入的数据，避免重复请求
+    if (widget.initialGiftList != null && widget.initialGiftList!.isNotEmpty) {
+      _allGifts = widget.initialGiftList!;
+      // 只要礼物数据，Tab 还是需要去查一下
+      try {
+        final tabs = await GiftApi.getTabs();
+        if (mounted) {
+          setState(() {
+            _tabs = tabs.isEmpty ? [GiftTab(id: "0", name: "全部", code: "all")] : tabs;
+            _tabController = TabController(length: _tabs.length, vsync: this);
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        _handleError(e);
+      }
+    }
+
+    // 如果外部没传数据，则走原来的逻辑
     try {
       final results = await Future.wait([
         GiftApi.getTabs(),
@@ -29,7 +48,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
         setState(() {
           final fetchedTabs = results[0] as List<GiftTab>;
           _tabs = fetchedTabs.isEmpty
-              ? [GiftTab(id: 0, name: "全部", code: "all")]
+              ? [GiftTab(id: "0", name: "全部", code: "all")]
               : fetchedTabs;
 
           _allGifts = results[1] as List<GiftItemData>;
@@ -38,14 +57,18 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
         });
       }
     } catch (e) {
-      debugPrint("初始化数据失败: $e");
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _tabs = [GiftTab(id: 0, name: "默认", code: "default")];
-          _tabController = TabController(length: 1, vsync: this);
-        });
-      }
+      _handleError(e);
+    }
+  }
+
+  void _handleError(dynamic e) {
+    debugPrint("初始化数据失败: $e");
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _tabs = [GiftTab(id: "0", name: "默认", code: "default")];
+        _tabController = TabController(length: 1, vsync: this);
+      });
     }
   }
 
@@ -58,10 +81,10 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 440, // 🟢稍微调高一点高度，因为加了等级条
+      height: 440,
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
       decoration: BoxDecoration(
-        color: const Color(0xFF161823).withOpacity(0.98), // 背景稍微深一点，更有质感
+        color: const Color(0xFF161823).withOpacity(0.98),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(16),
           topRight: Radius.circular(16),
@@ -69,42 +92,39 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
       ),
       child: Column(
         children: [
-          // 🟢 1. 新增：等级进度区域 (还原设计图)
           _buildLevelHeader(),
-
-          // 2. Tab 栏 + 余额 (保持在第二行)
           _buildTopBar(),
-
           const Divider(height: 1, color: Colors.white10),
-
-          // 3. 礼物列表区域
           Expanded(
             child: _isLoading
                 ? const Center(
-                    child: CircularProgressIndicator(color: Color(0xFFFF0050)),
-                  )
+              child: CircularProgressIndicator(color: Color(0xFFFF0050)),
+            )
                 : _tabController == null
                 ? const SizedBox()
                 : TabBarView(
-                    controller: _tabController,
-                    children: _tabs.map((tab) {
-                      final tabGifts = _allGifts
-                          .where((g) => g.tabId == tab.id)
-                          .toList();
-                      if (tabGifts.isEmpty) {
-                        return const Center(
-                          child: Text(
-                            "该分类暂无礼物",
-                            style: TextStyle(
-                              color: Colors.white24,
-                              fontSize: 12,
-                            ),
-                          ),
-                        );
-                      }
-                      return _buildGiftGrid(tabGifts);
-                    }).toList(),
-                  ),
+              controller: _tabController,
+              children: _tabs.map((tab) {
+                // 简单的筛选逻辑：如果 tabCode 是 'all' 或者 'default'，显示所有，否则按 tabId 筛选
+                final isAll = tab.code == 'all' || tab.code == 'default';
+                final tabGifts = isAll
+                    ? _allGifts
+                    : _allGifts.where((g) => g.tabId == tab.id).toList();
+
+                if (tabGifts.isEmpty) {
+                  return const Center(
+                    child: Text(
+                      "该分类暂无礼物",
+                      style: TextStyle(
+                        color: Colors.white24,
+                        fontSize: 12,
+                      ),
+                    ),
+                  );
+                }
+                return _buildGiftGrid(tabGifts);
+              }).toList(),
+            ),
           ),
         ],
       ),
@@ -116,19 +136,16 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
       padding: const EdgeInsets.fromLTRB(16, 16, 11.5, 8),
       child: Row(
         children: [
-          // 1. 等级图标区域 (Stack 叠加结构)
           Stack(
             alignment: Alignment.centerRight,
             children: [
-              // 底层：网络图片
               Image.network(
                 "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/user_level/level_70.png",
                 height: 18,
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) =>
-                    const SizedBox(width: 38, height: 38),
+                const SizedBox(width: 38, height: 38),
               ),
-              // 上层：文字 (盖在右半部分)
               Padding(
                 padding: const EdgeInsets.only(right: 3.0, top: 1),
                 child: Text(
@@ -149,10 +166,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
               ),
             ],
           ),
-
           const SizedBox(width: 12),
-
-          // 2. 进度条和文字 (之前丢掉的就是这一段 👇)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,7 +174,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
-                    value: 0.35, // 进度 35%
+                    value: 0.35,
                     minHeight: 6,
                     backgroundColor: Colors.white.withOpacity(0.1),
                     valueColor: const AlwaysStoppedAnimation(Color(0xFFEC407A)),
@@ -174,10 +188,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
               ],
             ),
           ),
-
           const SizedBox(width: 12),
-
-          // 3. 个人中心按钮 (黑底 + 3px圆角)
           GestureDetector(
             onTap: () => debugPrint("点击个人中心"),
             child: Container(
@@ -214,7 +225,6 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
     }
 
     return Padding(
-      // ⚠️ 重点修改 1：bottom 设为 0，消除 Tab 和横线的缝隙
       padding: const EdgeInsets.only(left: 10, right: 10, top: 0, bottom: 0),
       child: Row(
         children: [
@@ -246,13 +256,11 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
               ),
             ),
           ),
-
-          // ⚠️ 重点修改 2：余额样式改为 黑底 + 3px直角
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.3), // 🟢 改为黑色半透明
-              borderRadius: BorderRadius.circular(3), // 🟢 改为 3px 小圆角
+              color: Colors.black.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(3),
             ),
             child: Row(
               children: [
@@ -317,7 +325,6 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
   }
 }
 
-// Item Widget 保持不变
 class _GiftItemWidget extends StatefulWidget {
   final GiftItemData gift;
   final bool isSelected;
@@ -423,10 +430,10 @@ class _GiftItemWidgetState extends State<_GiftItemWidget>
                                     fit: BoxFit.contain,
                                     errorBuilder:
                                         (context, error, stackTrace) =>
-                                            const Icon(
-                                              Icons.broken_image,
-                                              color: Colors.white24,
-                                            ),
+                                    const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.white24,
+                                    ),
                                   ),
                                 ),
                                 if (widget.gift.expireTime != null)

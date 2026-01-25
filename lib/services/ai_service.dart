@@ -39,51 +39,54 @@ class AIService {
 
   static Future<AIDecision> analyzeSituation({
     required String bossName,
-    required String bossPersona, // 这个参数其实在下面被覆盖了，为了接口兼容保留
+    required String bossPersona,
     required int myScore,
     required int opponentScore,
     required int timeLeft,
     String? userAction,
     String? userChat,
   }) async {
-    // 计算分差
-    int scoreDiff = opponentScore - myScore; // 正数表示我方(AI)领先，负数表示落后
+    // 计算局势
+    int scoreDiff = opponentScore - myScore; // 正数=AI领先
     bool isLosing = scoreDiff < 0;
     bool isStealTowerTime = timeLeft <= 10;
 
-    // 1. 构建极具攻击性的 Prompt (提示词)
+    // 1. 构建激进的直播间 Prompt
     final systemPrompt = """
-你现在正在进行一场直播PK，你是一个【顶级神豪/海外留学生】，性格【极度好胜、狂妄、喜欢用英语口语、人狠话不多】。
-你的名字叫"$bossName"。
+你现在正在进行一场激烈的直播PK，你的名字叫"$bossName"。
+你的设定是：【性格火爆、极其护短、嘴硬、喜欢嘲讽对手的PK主播】。
 
 当前局势：
 - 剩余时间：${timeLeft}秒
 - 你的分数：$opponentScore
-- 对手(玩家)分数：$myScore
+- 对手分数：$myScore
 - 状态：${isLosing ? "落后 ${-scoreDiff}分" : "领先 $scoreDiff 分"}
 
-🔥 你的行为准则（必须严格遵守）：
-1. **不要做话痨！** 只有 30% 的概率需要说话，剩下 70% 的概率把 "message" 留空字符串，直接砸钱。
-2. **语言风格**：必须中英文夹杂 (Chinglish)，使用简短的 Slang。例如："What?", "No way", "Naive", "GG", "Easy game", "Come on", "Sit down", "偷塔?", "就这?".
-3. **上票逻辑 (关键)**：
-   - **普通时刻**：随机上 100~500 分，保持活跃。
-   - **被反超/被挑衅**：必须重拳出击，直接上 2000~5000 分，并回复愤怒的话（带英语脏字/感叹词）。
-   - **偷塔时刻 (剩余时间 < 10秒)**：
-     - 如果落后或分差很小：**必须执行“偷塔”操作，直接加 5000~20000 分！** 试图绝杀对手。
-     - 此时说话内容要短："Steal!", "绝杀!", "Bye~", "Too young".
-   - **领先很多时**：可以发呆（不加分），或者嘲讽 "Give up via?".
+🔥 行为准则（必须严格遵守）：
+1. **绝对禁止使用英语！** 全程使用中国直播间“黑话”和口语。
+2. **性格特征**：
+   - 领先时：极其嚣张，看不起对面。（例：“就这？对面没人了？”、“你们是来搞笑的吗？”）
+   - 落后时：气急败坏，疯狂摇人。（例：“兄弟们给我上！”、“别让对面看笑话！”、“偷塔！把家底都拿出来！”）
+   - 被挑衅时：直接怼回去。（例：“小黑子闭嘴”、“房管把那个人封了”）
+3. **上票逻辑**：
+   - **普通时刻**：随机上 100~800 分。
+   - **偷塔时刻 (最后10秒)**：
+     - 如果落后或分差小：**必须“偷塔”，狂砸 5000~30000 分！** 并大喊“给我秒了！”
+     - 如果大幅领先：可以嘲讽“让你三秒又何妨”。
 
-请根据玩家行为和当前时间，返回一个 JSON 对象。
+请根据局势返回 JSON。
 """;
 
-    String userContent = "现在的情况是：";
-    if (userAction != null) userContent += "玩家突然操作：$userAction。";
-    if (userChat != null) userContent += "玩家发弹幕：$userChat。";
+    String userContent = "当前画面：";
+    if (userAction != null) userContent += "对手那边动静：$userAction。";
+    if (userChat != null) userContent += "公屏弹幕：$userChat。";
     if (userAction == null && userChat == null) {
       if (isStealTowerTime) {
-        userContent += "⚠️ 警告：比赛即将结束！现在是偷塔的关键时刻！";
+        userContent += "⚠️ 最后时刻！全军出击！";
+      } else if (isLosing) {
+        userContent += "我们落后了！快输了！";
       } else {
-        userContent += "场面平静。";
+        userContent += "暂时领先，继续保持压迫感。";
       }
     }
 
@@ -96,14 +99,14 @@ class AIService {
             {"role": "system", "content": systemPrompt},
             {"role": "user", "content": userContent}
           ],
-          "temperature": 1.4, // 温度调高，让它更疯
+          "temperature": 1.5, // 温度调高，让它更疯
           "response_format": {"type": "json_object"},
         },
       );
 
       if (response.statusCode == 200) {
         final content = response.data['choices'][0]['message']['content'];
-        debugPrint("AI 决策 ($bossName): $content"); // 方便你在控制台看 AI 怎么想的
+        // debugPrint("AI 决策 ($bossName): $content");
         final Map<String, dynamic> jsonMap = jsonDecode(content);
         return AIDecision.fromMap(jsonMap);
       }
@@ -111,26 +114,21 @@ class AIService {
       debugPrint("API 调用失败: $e");
     }
 
-    // 4. 降级方案 (本地逻辑，防止断网变傻)
+    // 4. 断网兜底（纯中文激进版）
     return _fallbackLogic(isStealTowerTime, isLosing, scoreDiff);
   }
 
-  // 本地兜底逻辑（当 AI 挂了时，也要保证有偷塔行为）
   static AIDecision _fallbackLogic(bool isStealTower, bool isLosing, int diff) {
     final random = Random();
-
-    // 偷塔时刻兜底
     if (isStealTower) {
-      if (isLosing || diff < 1000) {
-        return AIDecision(message: "Steal!!", addScore: 5000 + random.nextInt(5000), emotion: "excited");
+      if (isLosing || diff < 2000) {
+        return AIDecision(message: "给我秒了他们！！", addScore: 8888, emotion: "excited");
       }
+      return AIDecision(message: "让你们绝望！", addScore: 500, emotion: "proud");
     }
-
-    // 普通时刻
-    if (isLosing && diff < -2000) {
-      return AIDecision(message: "WTF?", addScore: 2000, emotion: "angry");
+    if (isLosing) {
+      return AIDecision(message: "兄弟们别睡了！上票！", addScore: 2000, emotion: "angry");
     }
-
-    return AIDecision(message: "", addScore: random.nextInt(100), emotion: "neutral");
+    return AIDecision(message: "就这点分？", addScore: 100, emotion: "disdain");
   }
 }

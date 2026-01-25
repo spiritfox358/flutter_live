@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'animate_gift_item.dart';
 import 'models/live_models.dart';
 
-class AnimatedGiftItemState extends State<AnimatedGiftItem> with TickerProviderStateMixin {
+class AnimatedGiftBannerWidget extends State<AnimatedGiftItem>
+    with TickerProviderStateMixin {
   late AnimationController _entryController;
   late AnimationController _comboController;
   late Animation<Offset> _slideAnimation;
@@ -18,12 +19,26 @@ class AnimatedGiftItemState extends State<AnimatedGiftItem> with TickerProviderS
   @override
   void initState() {
     super.initState();
-    _entryController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _slideAnimation = Tween<Offset>(begin: const Offset(-1.2, 0.0), end: Offset.zero).animate(CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic));
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_entryController);
+    _entryController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(-1.2, 0.0), end: Offset.zero).animate(
+          CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
+        );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(_entryController);
 
-    _comboController = AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
-    _scaleAnimation = Tween<double>(begin: 1.3, end: 1.0).animate(CurvedAnimation(parent: _comboController, curve: Curves.elasticOut));
+    _comboController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.3, end: 1.0).animate(
+      CurvedAnimation(parent: _comboController, curve: Curves.elasticOut),
+    );
 
     _entryController.forward();
     _comboController.forward(from: 0.0);
@@ -93,7 +108,10 @@ class AnimatedGiftItemState extends State<AnimatedGiftItem> with TickerProviderS
               ),
               borderRadius: BorderRadius.circular(18),
               // 边框稍微亮一点，增加质感
-              border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.3),
+                width: 0.5,
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -102,7 +120,9 @@ class AnimatedGiftItemState extends State<AnimatedGiftItem> with TickerProviderS
                 const CircleAvatar(
                   radius: 15,
                   backgroundColor: Colors.white24, // 头像加载前的底色
-                  backgroundImage: NetworkImage('https://picsum.photos/seed/myAvatar/200'),
+                  backgroundImage: NetworkImage(
+                    'https://picsum.photos/seed/myAvatar/200',
+                  ),
                 ),
 
                 const SizedBox(width: 4),
@@ -115,16 +135,16 @@ class AnimatedGiftItemState extends State<AnimatedGiftItem> with TickerProviderS
                     Text(
                       gift.senderName,
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     Text(
                       "送出 ${gift.giftName}",
                       style: TextStyle(
-                          color: Colors.white.withOpacity(0.95), // 提高亮度
-                          fontSize: 9
+                        color: Colors.white.withOpacity(0.95), // 提高亮度
+                        fontSize: 9,
                       ),
                     ),
                   ],

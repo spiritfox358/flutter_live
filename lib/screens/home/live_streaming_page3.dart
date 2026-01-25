@@ -671,10 +671,10 @@ class _AnimatedGiftItem extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<_AnimatedGiftItem> createState() => _AnimatedGiftItemState();
+  State<_AnimatedGiftItem> createState() => _AnimatedGiftBannerWidget();
 }
 
-class _AnimatedGiftItemState extends State<_AnimatedGiftItem> with TickerProviderStateMixin {
+class _AnimatedGiftBannerWidget extends State<_AnimatedGiftItem> with TickerProviderStateMixin {
   late AnimationController _entryController;
   late AnimationController _comboController;
   late Animation<Offset> _slideAnimation;

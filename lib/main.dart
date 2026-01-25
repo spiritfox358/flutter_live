@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/dashboard_tabs.dart';
 import 'package:flutter_live/screens/home/live_list_page.dart';
+import 'package:flutter_live/screens/home/live_list_page1.dart';
 import 'package:flutter_live/screens/home/live/index.dart';
-import 'package:flutter_live/screens/questions/exam_list_screen.dart';
+import 'package:flutter_live/screens/login/login_page.dart';
 import 'screens/course_screen.dart';
 import 'screens/doc_screen.dart';
 import 'screens/me_screen.dart';
@@ -69,7 +70,7 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      home: const MainContainer(),
+      home: const LoginPage(),
     );
   }
 }
@@ -86,7 +87,7 @@ class _MainContainerState extends State<MainContainer> {
 
 
   final List<Widget> _screens = [
-    const LiveListPage(),
+    const LiveListPage(userId: '123123', userName: '123123',avatarUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/6e738b58d65d8b3685efffc4cdb9c2cd.png",level: "73",),
     // const CourseScreen(),
     // const DocScreen(),
     // const ExamListScreen(),

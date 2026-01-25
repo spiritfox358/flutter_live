@@ -5,12 +5,16 @@ import '../viewer_list.dart';
 
 class BuildTopBar extends StatelessWidget {
   final String title;
+  final String name;
+  final String avatar;
   // 🟢 1. 新增：定义点击回调
   final VoidCallback? onClose;
 
   const BuildTopBar({
     super.key,
     required this.title,
+    required this.name,
+    required this.avatar,
     this.onClose, // 🟢 2. 加入构造函数
   });
 
@@ -22,7 +26,7 @@ class BuildTopBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Row(
           children: [
-            const ProfilePill(),
+            ProfilePill(name: name,avatar: avatar,),
             const Spacer(),
             const ViewerList(),
             const SizedBox(width: 8),

@@ -17,7 +17,7 @@ class ChatMessage {
 
 // 🟢 新增：礼物分类 Tab 模型
 class GiftTab {
-  final int id;
+  final String id;
   final String name;
   final String code;
 
@@ -29,7 +29,7 @@ class GiftTab {
 
   factory GiftTab.fromJson(Map<String, dynamic> json) {
     return GiftTab(
-      id: json['id'] ?? 0,
+      id: json['id'].toString() ?? "0",
       name: json['name'] ?? '',
       code: json['code'] ?? '',
     );
@@ -39,6 +39,7 @@ class GiftTab {
 class GiftEvent {
   final String id;
   final String senderName;
+  final String senderAvatar;
   final String giftName;
   final String giftIconUrl;
   final String comboKey;
@@ -46,6 +47,7 @@ class GiftEvent {
 
   GiftEvent({
     required this.senderName,
+    required this.senderAvatar,
     required this.giftName,
     required this.giftIconUrl,
     this.count = 1,
@@ -57,6 +59,7 @@ class GiftEvent {
     return GiftEvent(
       id: id,
       senderName: senderName,
+      senderAvatar: senderAvatar,
       giftName: giftName,
       giftIconUrl: giftIconUrl,
       count: count ?? this.count,
@@ -65,15 +68,17 @@ class GiftEvent {
 }
 
 class GiftItemData {
+  final String id;
   final String name;
   final int price;
   final String iconUrl;
   final String? effectAsset; // 🟢 修改：改为可空，防止后端没配特效报错
   final String? tag;
   final String? expireTime;
-  final int? tabId;          // 🟢 新增：关联的 Tab ID
+  final String? tabId;          // 🟢 新增：关联的 Tab ID
 
   const GiftItemData({
+    required this.id,
     required this.name,
     required this.price,
     required this.iconUrl,
@@ -85,13 +90,14 @@ class GiftItemData {
 
   factory GiftItemData.fromJson(Map<String, dynamic> json) {
     return GiftItemData(
+      id: json['id']?.toString() ?? "",
       name: json['name'] ?? '',
       price: json['price'] ?? 0,
       iconUrl: json['iconUrl'] ?? '',
       effectAsset: json['effectUrl'], // 后端叫 effectUrl
       tag: json['tagName'],           // 后端叫 tagName
       // expireTime: json['expireTime'] // 如果后续有过期时间逻辑可开启
-      tabId: json['tabId'],           // 🟢 映射后端字段
+      tabId: json['tabId']?.toString() ?? "",
     );
   }
 }
