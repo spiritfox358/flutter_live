@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/real_live_page.dart';
+import 'package:flutter_live/store/user_store.dart';
 import '../../tools/HttpUtil.dart';
 
 class AnchorInfo {
@@ -61,12 +62,7 @@ class AnchorInfo {
 }
 
 class LiveListPage extends StatefulWidget {
-  final String userId;
-  final String userName;
-  final String avatarUrl;
-  final String level;
-
-  const LiveListPage({super.key, required this.userId, required this.userName, required this.avatarUrl,required this.level});
+  const LiveListPage({super.key});
 
   @override
   State<LiveListPage> createState() => _LiveListPageState();
@@ -87,9 +83,7 @@ class _LiveListPageState extends State<LiveListPage> {
       var responseData = await HttpUtil().get("/api/room/list");
       if (mounted) {
         setState(() {
-          _anchors = (responseData as List)
-              .map((json) => AnchorInfo.fromJson(json))
-              .toList();
+          _anchors = (responseData as List).map((json) => AnchorInfo.fromJson(json)).toList();
           _isLoading = false;
         });
       }
@@ -113,21 +107,21 @@ class _LiveListPageState extends State<LiveListPage> {
               setState(() => _isLoading = true);
               _fetchRoomList();
             },
-          )
+          ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView.separated(
-        itemCount: _anchors.length,
-        separatorBuilder: (ctx, i) => const Divider(height: 1, indent: 70),
-        itemBuilder: (context, index) => _buildListItem(_anchors[index]),
-      ),
+              itemCount: _anchors.length,
+              separatorBuilder: (ctx, i) => const Divider(height: 1, indent: 70),
+              itemBuilder: (context, index) => _buildListItem(_anchors[index]),
+            ),
     );
   }
 
   Widget _buildListItem(AnchorInfo anchor) {
-    final bool isMyRoom = (widget.userId == "2039" && anchor.roomId == "1001");
+    final bool isMyRoom = (UserStore.to.userId == "2039" && anchor.roomId == "1001");
 
     // 🟢 1. 状态文本与图标逻辑
     String modeText = "直播中";
@@ -166,35 +160,23 @@ class _LiveListPageState extends State<LiveListPage> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0xFFFF0050), width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFFFF0050).withOpacity(0.6),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
-                ],
+                boxShadow: [BoxShadow(color: const Color(0xFFFF0050).withOpacity(0.6), blurRadius: 10, spreadRadius: 2)],
               ),
             ),
-          CircleAvatar(
-            radius: 20,
-            backgroundImage: NetworkImage(anchor.avatarUrl),
-          ),
+          CircleAvatar(radius: 20, backgroundImage: NetworkImage(anchor.avatarUrl)),
         ],
       ),
       title: Text(anchor.name, style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(anchor.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: anchor.isLive
           ? Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(modeIcon, color: const Color(0xFFFF0050), size: 20),
-          const SizedBox(height: 2),
-          Text(
-            modeText,
-            style: const TextStyle(color: Color(0xFFFF0050), fontSize: 10),
-          )
-        ],
-      )
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(modeIcon, color: const Color(0xFFFF0050), size: 20),
+                const SizedBox(height: 2),
+                Text(modeText, style: const TextStyle(color: Color(0xFFFF0050), fontSize: 10)),
+              ],
+            )
           : const Text("离线", style: TextStyle(color: Colors.grey, fontSize: 12)),
       onTap: () => _enterRoom(anchor, isHost: isMyRoom),
     );
@@ -204,10 +186,10 @@ class _LiveListPageState extends State<LiveListPage> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => RealLivePage(
-          userId: widget.userId,
-          userName: widget.userName,
-          avatarUrl: widget.avatarUrl,
-          level: widget.level,
+          userId: UserStore.to.userId,
+          userName: UserStore.to.userName,
+          avatarUrl: UserStore.to.avatar,
+          level: UserStore.to.userLevel,
           isHost: isHost,
           roomId: anchor.roomId,
           initialRoomData: {

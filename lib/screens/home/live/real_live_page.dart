@@ -6,6 +6,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 import 'package:video_player/video_player.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -37,19 +38,14 @@ class EntranceEvent {
   final String avatarUrl;
   final String? frameUrl;
 
-  EntranceEvent({
-    required this.userName,
-    required this.level,
-    required this.avatarUrl,
-    this.frameUrl,
-  });
+  EntranceEvent({required this.userName, required this.level, required this.avatarUrl, this.frameUrl});
 }
 
 class RealLivePage extends StatefulWidget {
   final String userId;
   final String userName;
   final String avatarUrl;
-  final String level;
+  final int level;
   final bool isHost;
   final String roomId;
   final Map<String, dynamic>? initialRoomData;
@@ -69,8 +65,7 @@ class RealLivePage extends StatefulWidget {
   State<RealLivePage> createState() => _RealLivePageState();
 }
 
-class _RealLivePageState extends State<RealLivePage>
-    with TickerProviderStateMixin {
+class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMixin {
   final int _punishmentDuration = 20;
 
   WebSocketChannel? _channel;
@@ -78,6 +73,7 @@ class _RealLivePageState extends State<RealLivePage>
   late String _myUserId;
   late String _myAvatar;
   late String _roomId;
+  late int _onlineCount = 0;
   late bool _isHost;
 
   final String _wsUrl = "ws://${HttpUtil.getBaseIpPort}/ws/live";
@@ -116,7 +112,7 @@ class _RealLivePageState extends State<RealLivePage>
   double? _videoAspectRatio;
 
   final TextEditingController _textController = TextEditingController();
-  List<ChatMessage> _messages = [];
+  final List<ChatMessage> _messages = [];
   static const int _maxActiveGifts = 2;
   final List<GiftEvent> _activeGifts = [];
   final Queue<GiftEvent> _waitingQueue = Queue();
@@ -157,16 +153,8 @@ class _RealLivePageState extends State<RealLivePage>
 
     _initPKStartAnimation();
 
-    _comboScaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-      lowerBound: 0.0,
-      upperBound: 1.0,
-    );
-    _countdownController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    );
+    _comboScaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 150), lowerBound: 0.0, upperBound: 1.0);
+    _countdownController = AnimationController(vsync: this, duration: const Duration(seconds: 3));
     _countdownController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         _comboScaleController.reverse().then((_) {
@@ -178,14 +166,8 @@ class _RealLivePageState extends State<RealLivePage>
       }
     });
 
-    _welcomeBannerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _welcomeBannerAnimation = Tween<Offset>(
-      begin: const Offset(1.5, 0),
-      end: const Offset(0, 0),
-    ).animate(_welcomeBannerController);
+    _welcomeBannerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _welcomeBannerAnimation = Tween<Offset>(begin: const Offset(1.5, 0), end: const Offset(0, 0)).animate(_welcomeBannerController);
 
     // 🟢 进场检查
     _startEnterRoomSequence();
@@ -196,61 +178,6 @@ class _RealLivePageState extends State<RealLivePage>
     if (value is int) return value;
     if (value is String) return int.tryParse(value) ?? defaultValue;
     return defaultValue;
-  }
-
-  // 🟢 状态同步 (接入新接口)
-  void _checkInitialRoomState() async {
-    try {
-      final res = await HttpUtil().get(
-        "/api/pk/detail",
-        params: {
-          "roomId": int.parse(_roomId),
-          "userId": _myUserId,
-          "userName": _myUserName,
-        },
-      );
-      final pkInfo = res['pkInfo'];
-      final int status = _parseInt(pkInfo['status']);
-      final String startTimeStr = pkInfo['startTime'];
-      _participants = pkInfo['participants'] as List;
-
-      DateTime startTime = DateTime.parse(startTimeStr);
-      final int elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
-
-      if (status == 1) {
-        // PK进行中
-        final int remaining = 90 - elapsedSeconds;
-        if (remaining > 0) {
-          _startPKRound(initialTimeLeft: remaining);
-          // 2. 🟢 新增：检查是否还在首翻 30秒 保护期内
-          // 假设首翻时间是 30 秒
-          const int promoDuration = 30;
-
-          if (elapsedSeconds < promoDuration) {
-            // 还在首翻时间内，恢复状态
-            setState(() {
-              _isFirstGiftPromoActive = true;
-              _promoTimeLeft = promoDuration - elapsedSeconds; // 算出剩下的首翻时间
-            });
-            // 启动首翻倒计时器
-            _startPromoTimer();
-          } else {
-            // 超过30秒了，确保关闭
-            setState(() {
-              _isFirstGiftPromoActive = false;
-              _promoTimeLeft = 0;
-            });
-          }
-        } else {
-          _enterPunishmentPhase();
-        }
-      } else if (status == 2) {
-        // 惩罚中
-        _enterPunishmentPhase(timeLeft: 20 - (elapsedSeconds - 90));
-      }
-    } catch (e) {
-      debugPrint("❌ 同步失败: $e");
-    }
   }
 
   Future<void> _fetchGiftList() async {
@@ -280,20 +207,15 @@ class _RealLivePageState extends State<RealLivePage>
           _reconnect();
         },
       );
-      _sendSocketMessage(
-        "ENTER",
-        content: "进入了直播间",
-        userName: _myUserName,
-        avatar: _myAvatar,
-        level: "10",
-      );
+      _sendSocketMessage("ENTER", content: "进入了直播间", userName: _myUserName, avatar: _myAvatar, level: "10");
       _startHeartbeat();
     } catch (e) {
       debugPrint("❌ WS连接失败");
       _reconnect();
     }
   }
-// 🟢 心跳机制：每 30 秒发送一次 "HEARTBEAT"
+
+  // 🟢 心跳机制：每 30 秒发送一次 "HEARTBEAT"
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
@@ -314,7 +236,7 @@ class _RealLivePageState extends State<RealLivePage>
     });
   }
 
-// 🟢 重连机制：延迟 3 秒后重试，防止死循环刷爆服务器
+  // 🟢 重连机制：延迟 3 秒后重试，防止死循环刷爆服务器
   void _reconnect() {
     if (_isDisposed) return;
 
@@ -327,14 +249,12 @@ class _RealLivePageState extends State<RealLivePage>
       }
     });
   }
+
   // 🟢 统一的进场启动器
   void _startEnterRoomSequence() async {
     try {
       // 第一步：调用加入接口（数据库 online_count +1）
-      await HttpUtil().post(
-        "/api/room/join",
-        data: {"roomId": int.parse(_roomId)},
-      );
+      await HttpUtil().post("/api/room/join", data: {"roomId": int.parse(_roomId)});
 
       // 第二步：连接 WebSocket（建立实时监听）
       _connectWebSocket();
@@ -349,14 +269,7 @@ class _RealLivePageState extends State<RealLivePage>
   void _fetchRoomDetailAndSyncState() async {
     try {
       // 1. 调用你后端的 PkController.getRoomDetail 接口
-      final res = await HttpUtil().get(
-        "/api/pk/detail",
-        params: {
-          "roomId": int.parse(_roomId),
-          "userId": _myUserId,
-          "userName": _myUserName,
-        },
-      );
+      final res = await HttpUtil().get("/api/pk/detail", params: {"roomId": int.parse(_roomId), "userId": _myUserId, "userName": _myUserName});
       final data = res;
       // 更新在线人数等基础信息
       setState(() {
@@ -388,9 +301,7 @@ class _RealLivePageState extends State<RealLivePage>
         });
 
         DateTime startTime = DateTime.parse(startTimeStr);
-        final int elapsedSeconds = DateTime.now()
-            .difference(startTime)
-            .inSeconds;
+        final int elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
 
         if (status == 1) {
           // 🟢 同步 PK 状态
@@ -431,10 +342,7 @@ class _RealLivePageState extends State<RealLivePage>
           DateTime startTime = DateTime.parse(startTimeStr);
           int totalElapsed = DateTime.now().difference(startTime).inSeconds;
           int coHostElapsed = totalElapsed - 90 - 20;
-          _enterCoHostPhase(
-            initialElapsedTime: coHostElapsed > 0 ? coHostElapsed : 0,
-            serverStartTime: startTime,
-          );
+          _enterCoHostPhase(initialElapsedTime: coHostElapsed > 0 ? coHostElapsed : 0, serverStartTime: startTime);
         }
       } else {
         _currentName = data['title'] ?? _currentName;
@@ -466,42 +374,30 @@ class _RealLivePageState extends State<RealLivePage>
           // 1. 在聊天列表显示进入消息
           // _addSocketChatMessage("系统", "$joinerName 进入了直播间", Colors.grey);
           // 2. 触发进场座驾/横幅动画
-          _simulateVipEnter(
-            overrideName: joinerName,
-            overrideAvatar: joinerAvatar,
-            overrideLevel: joinerLevel,
-          );
+          _simulateVipEnter(overrideName: joinerName, overrideAvatar: joinerAvatar, overrideLevel: joinerLevel);
           break;
         case "CHAT":
-          _addSocketChatMessage(
-            data['userName'] ?? "神秘人",
-            data['content'] ?? "",
-            isMe ? Colors.amber : Colors.white,
-          );
+          _addSocketChatMessage(data['userName'] ?? "神秘人", data['content'] ?? "", isMe ? Colors.amber : Colors.white);
+          break;
+        case "ONLINE_COUNT":
+          final int newCount = data['onlineCount'] ?? 0;
+          if (mounted) {
+            setState(() {
+              _onlineCount = newCount;
+            });
+          }
+          break;
           break;
         case "GIFT":
           final String giftId = data['giftId']?.toString() ?? "";
           GiftItemData? targetGift;
           try {
             if (_giftList.isNotEmpty) {
-              targetGift = _giftList.firstWhere(
-                (g) => g.id.toString() == giftId,
-              );
+              targetGift = _giftList.firstWhere((g) => g.id.toString() == giftId);
             }
           } catch (e) {}
-          targetGift ??= GiftItemData(
-            id: giftId,
-            name: "未知礼物",
-            price: 0,
-            iconUrl: "...",
-          );
-          _processGiftEvent(
-            targetGift,
-            data['userName'] ?? "神秘人",
-            data['avatar'] ?? "神秘人",
-            isMe,
-            count: data['giftCount'] ?? 1,
-          );
+          targetGift ??= GiftItemData(id: giftId, name: "未知礼物", price: 0, iconUrl: "...");
+          _processGiftEvent(targetGift, data['userName'] ?? "神秘人", data['avatar'] ?? "神秘人", isMe, count: data['giftCount'] ?? 1);
           break;
         case "PK_START":
           _isFirstGiftPromoActive = true;
@@ -509,7 +405,7 @@ class _RealLivePageState extends State<RealLivePage>
           _startPromoTimer();
           _startPKRound();
           // 重新拉取一次详情以更新参与者头像
-          _checkInitialRoomState();
+          _fetchRoomDetailAndSyncState();
           break;
         // 🟢 新增：监听到进入惩罚阶段广播
         case "PK_PUNISHMENT":
@@ -543,15 +439,7 @@ class _RealLivePageState extends State<RealLivePage>
     }
   }
 
-  void _sendSocketMessage(
-    String type, {
-    String? content,
-    String? giftId,
-    int giftCount = 1,
-    String? userName,
-    String? avatar,
-    String? level,
-  }) {
+  void _sendSocketMessage(String type, {String? content, String? giftId, int giftCount = 1, String? userName, String? avatar, String? level}) {
     if (_channel == null) return;
     final Map<String, dynamic> msg = {
       "type": type,
@@ -573,14 +461,9 @@ class _RealLivePageState extends State<RealLivePage>
     _dismissKeyboard();
     if (_pkStatus != PKStatus.idle || !_isHost) return;
     try {
-      await HttpUtil().post(
-        "/api/pk/start",
-        data: {"roomId": int.parse(_roomId), "duration": 90},
-      );
+      await HttpUtil().post("/api/pk/start", data: {"roomId": int.parse(_roomId), "duration": 90});
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("开启失败: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开启失败: $e")));
     }
   }
 
@@ -614,9 +497,7 @@ class _RealLivePageState extends State<RealLivePage>
   void _enterPunishmentPhase({int? timeLeft}) async {
     setState(() {
       _pkStatus = PKStatus.punishment;
-      _pkTimeLeft = (timeLeft != null && timeLeft > 0)
-          ? timeLeft
-          : _punishmentDuration;
+      _pkTimeLeft = (timeLeft != null && timeLeft > 0) ? timeLeft : _punishmentDuration;
       _isFirstGiftPromoActive = false;
       _promoTimer?.cancel();
     });
@@ -624,10 +505,7 @@ class _RealLivePageState extends State<RealLivePage>
     if (_isHost && timeLeft == null) {
       try {
         // 1. 提交后端接口更新房间模式为 2 (惩罚中)
-        await HttpUtil().post(
-          "/api/room/enter_punishment",
-          data: {"roomId": int.parse(_roomId)},
-        );
+        await HttpUtil().post("/api/room/enter_punishment", data: {"roomId": int.parse(_roomId)});
         // 2. 发布 WebSocket 广播
         _sendSocketMessage("PK_PUNISHMENT");
       } catch (e) {
@@ -646,10 +524,7 @@ class _RealLivePageState extends State<RealLivePage>
     _enterCoHostPhase(initialElapsedTime: 0);
     try {
       // 1. 提交后端接口更新房间模式为 3 (连麦/连线中)
-      await HttpUtil().post(
-        "/api/pk/to_cohost",
-        data: {"roomId": int.parse(_roomId)},
-      );
+      await HttpUtil().post("/api/pk/to_cohost", data: {"roomId": int.parse(_roomId)});
       // 2. 发布 WebSocket 广播
       // _sendSocketMessage("PK_COHOST");
     } catch (e) {
@@ -657,10 +532,7 @@ class _RealLivePageState extends State<RealLivePage>
     }
   }
 
-  void _enterCoHostPhase({
-    required int initialElapsedTime,
-    DateTime? serverStartTime,
-  }) {
+  void _enterCoHostPhase({required int initialElapsedTime, DateTime? serverStartTime}) {
     // 1. 彻底取消并清理旧计时器，防止多个计时器叠加导致数字乱跳
     _pkTimer?.cancel();
     _pkTimer = null;
@@ -679,9 +551,7 @@ class _RealLivePageState extends State<RealLivePage>
       anchorTime = serverStartTime.add(const Duration(seconds: 90 + 20));
     } else {
       // 主播切换：连线开始时间 = 现在 - 已经流逝的时间
-      anchorTime = DateTime.now().subtract(
-        Duration(seconds: initialElapsedTime),
-      );
+      anchorTime = DateTime.now().subtract(Duration(seconds: initialElapsedTime));
     }
 
     // 3. 开启计时器，每秒计算一次差值
@@ -738,22 +608,9 @@ class _RealLivePageState extends State<RealLivePage>
   }
 
   void _initPKStartAnimation() {
-    _pkStartAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _pkLeftAnimation = Tween<double>(begin: -300, end: 0).animate(
-      CurvedAnimation(
-        parent: _pkStartAnimationController,
-        curve: Curves.easeOutExpo,
-      ),
-    );
-    _pkRightAnimation = Tween<double>(begin: 300, end: 0).animate(
-      CurvedAnimation(
-        parent: _pkStartAnimationController,
-        curve: Curves.easeOutExpo,
-      ),
-    );
+    _pkStartAnimationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _pkLeftAnimation = Tween<double>(begin: -300, end: 0).animate(CurvedAnimation(parent: _pkStartAnimationController, curve: Curves.easeOutExpo));
+    _pkRightAnimation = Tween<double>(begin: 300, end: 0).animate(CurvedAnimation(parent: _pkStartAnimationController, curve: Curves.easeOutExpo));
     _pkFadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _pkStartAnimationController,
@@ -800,18 +657,12 @@ class _RealLivePageState extends State<RealLivePage>
                   margin: const EdgeInsets.only(top: 12, bottom: 20),
                   width: 40,
                   height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               ListTile(
                 leading: const Icon(Icons.link_off, color: Colors.redAccent),
-                title: const Text(
-                  "断开连线/PK",
-                  style: TextStyle(color: Colors.white),
-                ),
+                title: const Text("断开连线/PK", style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _disconnectCoHost();
@@ -820,10 +671,7 @@ class _RealLivePageState extends State<RealLivePage>
               const Divider(color: Colors.white10, height: 1),
               ListTile(
                 leading: const Icon(Icons.exit_to_app, color: Colors.white70),
-                title: const Text(
-                  "退出直播间",
-                  style: TextStyle(color: Colors.white),
-                ),
+                title: const Text("退出直播间", style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).pop();
@@ -858,69 +706,32 @@ class _RealLivePageState extends State<RealLivePage>
 
   void _addSocketChatMessage(String name, String content, Color color) {
     setState(() {
-      _messages.insert(
-        0,
-        ChatMessage(
-          name: name,
-          content: content,
-          level: 99,
-          levelColor: color,
-          isGift: false,
-        ),
-      );
+      _messages.insert(0, ChatMessage(name: name, content: content, level: 99, levelColor: color, isGift: false));
     });
   }
 
   void _addGiftMessage(String senderName, String giftName, int count) {
     setState(
-      () => _messages.insert(
-        0,
-        ChatMessage(
-          name: senderName,
-          content: '送出了 $giftName x$count',
-          level: 99,
-          levelColor: Colors.yellow,
-          isGift: true,
-        ),
-      ),
+      () => _messages.insert(0, ChatMessage(name: senderName, content: '送出了 $giftName x$count', level: 99, levelColor: Colors.yellow, isGift: true)),
     );
   }
 
-  void _processGiftEvent(
-    GiftItemData giftData,
-    String senderName,
-    String senderAvatar,
-    bool isMe, {
-    int count = 1,
-  }) {
+  void _processGiftEvent(GiftItemData giftData, String senderName, String senderAvatar, bool isMe, {int count = 1}) {
     final comboKey = "${senderName}_${giftData.name}";
     if (isMe) _lastGiftSent = giftData;
     setState(() {
-      final existingIndex = _activeGifts.indexWhere(
-        (g) => g.comboKey == comboKey,
-      );
+      final existingIndex = _activeGifts.indexWhere((g) => g.comboKey == comboKey);
       int finalCount = count;
       if (existingIndex != -1) {
-        _activeGifts[existingIndex] = _activeGifts[existingIndex].copyWith(
-          count: _activeGifts[existingIndex].count + count,
-        );
+        _activeGifts[existingIndex] = _activeGifts[existingIndex].copyWith(count: _activeGifts[existingIndex].count + count);
       } else {
         _processNewGift(
-          GiftEvent(
-            senderName: senderName,
-            senderAvatar: senderAvatar,
-            giftName: giftData.name,
-            giftIconUrl: giftData.iconUrl,
-            count: finalCount,
-          ),
+          GiftEvent(senderName: senderName, senderAvatar: senderAvatar, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: finalCount),
         );
       }
       _addGiftMessage(senderName, giftData.name, finalCount);
       if (isMe && _pkStatus == PKStatus.playing) {
-        HttpUtil().post(
-          "/api/pk/update_score",
-          data: {"roomId": int.parse(_roomId), "score": giftData.price * count},
-        );
+        HttpUtil().post("/api/pk/update_score", data: {"roomId": int.parse(_roomId), "score": giftData.price * count});
       }
     });
     if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
@@ -952,8 +763,7 @@ class _RealLivePageState extends State<RealLivePage>
   void _onGiftFinished(String giftId) {
     setState(() {
       _activeGifts.removeWhere((element) => element.id == giftId);
-      if (_waitingQueue.isNotEmpty)
-        _activeGifts.add(_waitingQueue.removeFirst());
+      if (_waitingQueue.isNotEmpty) _activeGifts.add(_waitingQueue.removeFirst());
     });
   }
 
@@ -970,8 +780,7 @@ class _RealLivePageState extends State<RealLivePage>
     _alphaPlayerController = controller;
     _alphaPlayerController?.onFinish = _onEffectComplete;
     _alphaPlayerController?.onVideoSize = (width, height) {
-      if (width > 0 && height > 0 && mounted)
-        setState(() => _videoAspectRatio = width / height);
+      if (width > 0 && height > 0 && mounted) setState(() => _videoAspectRatio = width / height);
     };
   }
 
@@ -1017,11 +826,7 @@ class _RealLivePageState extends State<RealLivePage>
   }
 
   void _initializeBackground() async {
-    _bgController = VideoPlayerController.networkUrl(
-      Uri.parse(
-        'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4',
-      ),
-    );
+    _bgController = VideoPlayerController.networkUrl(Uri.parse('https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4'));
     try {
       await _bgController!.initialize();
       _bgController!.setLooping(true);
@@ -1044,10 +849,7 @@ class _RealLivePageState extends State<RealLivePage>
   }
 
   void _pickRandomImage() {
-    setState(
-      () =>
-          _currentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)],
-    );
+    setState(() => _currentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)]);
   }
 
   void _showGiftPanel() {
@@ -1073,19 +875,10 @@ class _RealLivePageState extends State<RealLivePage>
 
   void _showMusicPanel() {
     _dismissKeyboard();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const MusicPanel(),
-    );
+    showModalBottomSheet(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, builder: (_) => const MusicPanel());
   }
 
-  void _simulateVipEnter({
-    String? overrideName,
-    String? overrideAvatar,
-    String? overrideLevel,
-  }) {
+  void _simulateVipEnter({String? overrideName, String? overrideAvatar, String? overrideLevel}) {
     final names = ["顾北", "王校长", "阿特", "小柠檬", "榜一大哥", "神秘土豪"];
     final randomIdx = Random().nextInt(names.length);
     final name = overrideName ?? names[randomIdx];
@@ -1093,23 +886,14 @@ class _RealLivePageState extends State<RealLivePage>
     final event = EntranceEvent(
       userName: overrideName ?? "安静呀",
       level: level ?? "41",
-      avatarUrl:
-          overrideAvatar ?? "https://picsum.photos/seed/${888 + randomIdx}/200",
+      avatarUrl: overrideAvatar ?? "https://picsum.photos/seed/${888 + randomIdx}/200",
       frameUrl: "https://cdn-icons-png.flaticon.com/512/8313/8313626.png",
     );
     _entranceQueue.add(event);
     if (!_isEntranceBannerShowing) _playNextEntrance();
     if (mounted) {
       setState(() {
-        _messages.insert(
-          0,
-          ChatMessage(
-            name: "系统",
-            content: "$level $name 降临直播间！",
-            level: 100,
-            levelColor: const Color(0xFFFFD700),
-          ),
-        );
+        _messages.insert(0, ChatMessage(name: "", content: "$name 加入直播间！", level: 100, levelColor: const Color(0xFFFFD700)));
       });
     }
   }
@@ -1121,16 +905,10 @@ class _RealLivePageState extends State<RealLivePage>
     if (mounted) {
       setState(() {
         _currentEntranceEvent = event;
-        _welcomeBannerAnimation =
-            Tween<Offset>(
-              begin: const Offset(1.5, 0),
-              end: const Offset(0, 0),
-            ).animate(
-              CurvedAnimation(
-                parent: _welcomeBannerController,
-                curve: Curves.easeOutQuart,
-              ),
-            );
+        _welcomeBannerAnimation = Tween<Offset>(
+          begin: const Offset(1.5, 0),
+          end: const Offset(0, 0),
+        ).animate(CurvedAnimation(parent: _welcomeBannerController, curve: Curves.easeOutQuart));
       });
     }
     _welcomeBannerController.reset();
@@ -1138,16 +916,10 @@ class _RealLivePageState extends State<RealLivePage>
     await Future.delayed(const Duration(milliseconds: 2000));
     if (mounted) {
       setState(() {
-        _welcomeBannerAnimation =
-            Tween<Offset>(
-              begin: const Offset(0, 0),
-              end: const Offset(-1.5, 0),
-            ).animate(
-              CurvedAnimation(
-                parent: _welcomeBannerController,
-                curve: Curves.easeInQuart,
-              ),
-            );
+        _welcomeBannerAnimation = Tween<Offset>(
+          begin: const Offset(0, 0),
+          end: const Offset(-1.5, 0),
+        ).animate(CurvedAnimation(parent: _welcomeBannerController, curve: Curves.easeInQuart));
       });
     }
     _welcomeBannerController.reset();
@@ -1165,12 +937,10 @@ class _RealLivePageState extends State<RealLivePage>
     const double topBarHeight = 50.0;
     const double gap1 = 105.0;
     final double pkVideoHeight = size.width * 0.85;
-    final double pkVideoBottomY =
-        padding.top + topBarHeight + gap1 + pkVideoHeight + 18;
+    final double pkVideoBottomY = padding.top + topBarHeight + gap1 + pkVideoHeight + 18;
     final double videoRatio = _videoAspectRatio ?? (9 / 16);
     double entranceTop = pkVideoBottomY + 4;
-    final bool showPromo =
-        _isFirstGiftPromoActive && _pkStatus == PKStatus.playing;
+    final bool showPromo = _isFirstGiftPromoActive && _pkStatus == PKStatus.playing;
     if (showPromo) entranceTop += 22 + 4;
 
     return Scaffold(
@@ -1199,6 +969,8 @@ class _RealLivePageState extends State<RealLivePage>
                     ),
                   _pkStatus == PKStatus.idle
                       ? SingleModeView(
+                          roomId: _roomId,
+                          onlineCount: _onlineCount,
                           isVideoBackground: _isVideoBackground,
                           isBgInitialized: _isBgInitialized,
                           bgController: _bgController,
@@ -1214,6 +986,8 @@ class _RealLivePageState extends State<RealLivePage>
                               margin: EdgeInsets.only(top: padding.top),
                               height: topBarHeight,
                               child: BuildTopBar(
+                                roomId: _roomId,
+                                onlineCount: _onlineCount,
                                 title: "直播间",
                                 name: _currentName,
                                 avatar: _currentAvatar,
@@ -1227,40 +1001,23 @@ class _RealLivePageState extends State<RealLivePage>
                               child: Stack(
                                 children: [
                                   Positioned(
-                                    top:
-                                        (_pkStatus == PKStatus.playing ||
-                                            _pkStatus == PKStatus.punishment)
-                                        ? 18
-                                        : 0,
+                                    top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
                                     left: 0,
                                     right: 0,
                                     bottom: 0,
                                     child: PKRealBattleView(
-                                      leftVideoController:
-                                          (_isVideoBackground &&
-                                              _isBgInitialized)
-                                          ? _bgController
-                                          : null,
-                                      leftBgImage: _isVideoBackground
-                                          ? null
-                                          : _currentBgImage,
-                                      rightAvatarUrl: _participants.length > 1
-                                          ? _participants[1]['avatar']
-                                          : "https://picsum.photos/200",
-                                      rightName: _participants.length > 1
-                                          ? _participants[1]['name']
-                                          : "对手主播",
-                                      rightBgImage: _participants.length > 1
-                                          ? (_participants[1]['pkBg'] ?? "")
-                                          : "",
+                                      leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
+                                      leftBgImage: _isVideoBackground ? null : _currentBgImage,
+                                      rightAvatarUrl: _participants.length > 1 ? _participants[1]['avatar'] : "https://picsum.photos/200",
+                                      rightName: _participants.length > 1 ? _participants[1]['name'] : "对手主播",
+                                      rightBgImage: _participants.length > 1 ? (_participants[1]['pkBg'] ?? "") : "",
                                       pkStatus: _pkStatus,
                                       myScore: _myPKScore,
                                       opponentScore: _opponentPKScore,
                                       onTapOpponent: _switchToOpponentRoom,
                                     ),
                                   ),
-                                  if (_pkStatus == PKStatus.playing ||
-                                      _pkStatus == PKStatus.punishment)
+                                  if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
                                     Positioned(
                                       top: 0,
                                       left: 0,
@@ -1273,11 +1030,7 @@ class _RealLivePageState extends State<RealLivePage>
                                       ),
                                     ),
                                   Positioned(
-                                    top:
-                                        (_pkStatus == PKStatus.playing ||
-                                            _pkStatus == PKStatus.punishment)
-                                        ? 18
-                                        : 0,
+                                    top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
                                     left: 0,
                                     right: 0,
                                     child: Center(
@@ -1296,24 +1049,14 @@ class _RealLivePageState extends State<RealLivePage>
                                       children: [
                                         _buildCircleBtn(
                                           onTap: _showMusicPanel,
-                                          icon: const Icon(
-                                            Icons.music_note,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
+                                          icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
                                           borderColor: Colors.purpleAccent,
                                           label: "点歌",
                                         ),
                                         const SizedBox(height: 10),
                                         _buildCircleBtn(
                                           onTap: _toggleBackgroundMode,
-                                          icon: Icon(
-                                            _isVideoBackground
-                                                ? Icons.videocam
-                                                : Icons.image,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
+                                          icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20),
                                           borderColor: Colors.cyanAccent,
                                           label: "背景",
                                         ),
@@ -1329,27 +1072,17 @@ class _RealLivePageState extends State<RealLivePage>
                     left: 0,
                     right: 0,
                     bottom: bottomInset > 0 ? bottomInset : padding.bottom,
-                    height: _pkStatus == PKStatus.idle
-                        ? 300
-                        : (size.height - pkVideoBottomY),
+                    height: _pkStatus == PKStatus.idle ? 300 : (size.height - pkVideoBottomY),
                     child: RepaintBoundary(
                       child: Container(
-                        color: bottomInset > 0
-                            ? Colors.black87
-                            : Colors.transparent,
+                        color: bottomInset > 0 ? Colors.black87 : Colors.transparent,
                         child: Column(
                           children: [
-                            Expanded(
-                              child: BuildChatList(
-                                bottomInset: 0,
-                                messages: _messages,
-                              ),
-                            ),
+                            Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
                             BuildInputBar(
                               textController: _textController,
                               onTapGift: _showGiftPanel,
-                              onSend: (text) =>
-                                  _sendSocketMessage("CHAT", content: text),
+                              onSend: (text) => _sendSocketMessage("CHAT", content: text),
                             ),
                           ],
                         ),
@@ -1367,10 +1100,7 @@ class _RealLivePageState extends State<RealLivePage>
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withOpacity(0.15),
-                                Colors.pinkAccent.withOpacity(0.15),
-                              ],
+                              colors: [Colors.white.withOpacity(0.15), Colors.pinkAccent.withOpacity(0.15)],
                               begin: Alignment.centerLeft,
                               end: Alignment.centerRight,
                             ),
@@ -1381,21 +1111,12 @@ class _RealLivePageState extends State<RealLivePage>
                             children: [
                               const Text(
                                 "首送翻倍",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 "00:${_promoTimeLeft.toString().padLeft(2, '0')}",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: "monospace",
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: const TextStyle(color: Colors.white, fontFamily: "monospace", fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -1409,57 +1130,26 @@ class _RealLivePageState extends State<RealLivePage>
                       position: _welcomeBannerAnimation,
                       child: _currentEntranceEvent != null
                           ? Container(
-                              margin: const EdgeInsets.only(left: 10),
+                              margin: const EdgeInsets.only(left: 5),
                               height: 25,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 5),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF0D47A1),
-                                    Color(0xFF42A5F5),
-                                  ],
+                                  colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)],
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                 ),
                                 borderRadius: BorderRadius.circular(12.5),
-                                border: Border.all(
-                                  color: Colors.cyanAccent.withOpacity(0.5),
-                                  width: 1,
-                                ),
+                                border: Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 1,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      _currentEntranceEvent!.level,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        height: 1.1,
-                                      ),
-                                    ),
-                                  ),
+                                  LevelBadge(level: 73),
                                   const SizedBox(width: 6),
                                   Text(
                                     "${_currentEntranceEvent!.userName} 加入了直播间",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.1,
-                                    ),
+                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500, height: 1.1),
                                   ),
                                   const SizedBox(width: 10),
                                 ],
@@ -1480,10 +1170,7 @@ class _RealLivePageState extends State<RealLivePage>
                           child: SizedBox(
                             width: size.width,
                             height: size.width / videoRatio,
-                            child: MyAlphaPlayerView(
-                              key: const ValueKey('AlphaPlayer'),
-                              onCreated: _onPlayerCreated,
-                            ),
+                            child: MyAlphaPlayerView(key: const ValueKey('AlphaPlayer'), onCreated: _onPlayerCreated),
                           ),
                         ),
                       ),
@@ -1509,8 +1196,7 @@ class _RealLivePageState extends State<RealLivePage>
                                     (giftEvent) => AnimatedGiftItem(
                                       key: ValueKey(giftEvent.id),
                                       giftEvent: giftEvent,
-                                      onFinished: () =>
-                                          _onGiftFinished(giftEvent.id),
+                                      onFinished: () => _onGiftFinished(giftEvent.id),
                                     ),
                                   )
                                   .toList(),
@@ -1521,45 +1207,26 @@ class _RealLivePageState extends State<RealLivePage>
                     ),
                   if (_pkStatus == PKStatus.idle && _isHost)
                     Positioned(
-                      bottom:
-                          (bottomInset > 0 ? bottomInset : padding.bottom) +
-                          150,
+                      bottom: (bottomInset > 0 ? bottomInset : padding.bottom) + 150,
                       right: 20,
                       child: GestureDetector(
                         onTap: _onTapStartPK,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Colors.purple, Colors.deepPurple],
-                            ),
+                            gradient: const LinearGradient(colors: [Colors.purple, Colors.deepPurple]),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: Colors.white30),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.5),
-                                blurRadius: 10,
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)],
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.eighteen_mp,
-                                color: Colors.white,
-                                size: 16,
-                              ),
+                              Icon(Icons.eighteen_mp, color: Colors.white, size: 16),
                               SizedBox(width: 4),
                               Text(
                                 "发起PK",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -1571,10 +1238,7 @@ class _RealLivePageState extends State<RealLivePage>
                       right: 16,
                       bottom: bottomInset + 80,
                       child: ScaleTransition(
-                        scale: CurvedAnimation(
-                          parent: _comboScaleController,
-                          curve: Curves.elasticOut,
-                        ),
+                        scale: CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut),
                         child: GestureDetector(
                           onTap: () => _sendGift(_lastGiftSent!),
                           child: AnimatedBuilder(
@@ -1593,10 +1257,7 @@ class _RealLivePageState extends State<RealLivePage>
                                         value: 1.0 - _countdownController.value,
                                         strokeWidth: 4,
                                         backgroundColor: Colors.white24,
-                                        valueColor:
-                                            const AlwaysStoppedAnimation(
-                                              Colors.amber,
-                                            ),
+                                        valueColor: const AlwaysStoppedAnimation(Colors.amber),
                                       ),
                                     ),
                                     Container(
@@ -1605,27 +1266,17 @@ class _RealLivePageState extends State<RealLivePage>
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         gradient: const LinearGradient(
-                                          colors: [
-                                            Color(0xFFFF0080),
-                                            Color(0xFFFF8C00),
-                                          ],
+                                          colors: [Color(0xFFFF0080), Color(0xFFFF8C00)],
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                         ),
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 2,
-                                        ),
+                                        border: Border.all(color: Colors.white, width: 2),
                                       ),
                                       alignment: const Alignment(0, -0.15),
                                       child: const Text(
                                         "连击",
                                         textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w900,
-                                        ),
+                                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
                                       ),
                                     ),
                                   ],
@@ -1653,32 +1304,15 @@ class _RealLivePageState extends State<RealLivePage>
                                     Transform.translate(
                                       offset: Offset(_pkLeftAnimation.value, 0),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         decoration: BoxDecoration(
                                           gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFFFE4164),
-                                              Color(0xFFFF7F7F),
-                                            ],
+                                            colors: [Color(0xFFFE4164), Color(0xFFFF7F7F)],
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                           ),
-                                          borderRadius: const BorderRadius.only(
-                                            topLeft: Radius.circular(12),
-                                            bottomLeft: Radius.circular(12),
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.red.withOpacity(
-                                                0.5,
-                                              ),
-                                              blurRadius: 15,
-                                              spreadRadius: 2,
-                                            ),
-                                          ],
+                                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
+                                          boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
                                         ),
                                         child: const Text(
                                           "P",
@@ -1686,48 +1320,23 @@ class _RealLivePageState extends State<RealLivePage>
                                             fontSize: 28,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.white,
-                                            shadows: [
-                                              Shadow(
-                                                blurRadius: 5,
-                                                color: Colors.red,
-                                              ),
-                                            ],
+                                            shadows: [Shadow(blurRadius: 5, color: Colors.red)],
                                           ),
                                         ),
                                       ),
                                     ),
                                     Transform.translate(
-                                      offset: Offset(
-                                        _pkRightAnimation.value,
-                                        0,
-                                      ),
+                                      offset: Offset(_pkRightAnimation.value, 0),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         decoration: BoxDecoration(
                                           gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFF3A7BD5),
-                                              Color(0xFF00D2FF),
-                                            ],
+                                            colors: [Color(0xFF3A7BD5), Color(0xFF00D2FF)],
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                           ),
-                                          borderRadius: const BorderRadius.only(
-                                            topRight: Radius.circular(12),
-                                            bottomRight: Radius.circular(12),
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.blue.withOpacity(
-                                                0.5,
-                                              ),
-                                              blurRadius: 15,
-                                              spreadRadius: 2,
-                                            ),
-                                          ],
+                                          borderRadius: const BorderRadius.only(topRight: Radius.circular(12), bottomRight: Radius.circular(12)),
+                                          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
                                         ),
                                         child: const Text(
                                           "K",
@@ -1735,12 +1344,7 @@ class _RealLivePageState extends State<RealLivePage>
                                             fontSize: 28,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.white,
-                                            shadows: [
-                                              Shadow(
-                                                blurRadius: 5,
-                                                color: Colors.blue,
-                                              ),
-                                            ],
+                                            shadows: [Shadow(blurRadius: 5, color: Colors.blue)],
                                           ),
                                         ),
                                       ),
@@ -1762,12 +1366,7 @@ class _RealLivePageState extends State<RealLivePage>
     );
   }
 
-  Widget _buildCircleBtn({
-    required VoidCallback onTap,
-    required Widget icon,
-    required Color borderColor,
-    String? label,
-  }) {
+  Widget _buildCircleBtn({required VoidCallback onTap, required Widget icon, required Color borderColor, String? label}) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -1778,21 +1377,12 @@ class _RealLivePageState extends State<RealLivePage>
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.4),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: borderColor.withOpacity(0.5),
-                width: 1.5,
-              ),
+              border: Border.all(color: borderColor.withOpacity(0.5), width: 1.5),
             ),
             alignment: Alignment.center,
             child: icon,
           ),
-          if (label != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
-            ),
-          ],
+          if (label != null) ...[const SizedBox(height: 2), Text(label, style: const TextStyle(color: Colors.white, fontSize: 10))],
         ],
       ),
     );

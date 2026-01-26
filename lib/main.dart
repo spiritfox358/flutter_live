@@ -4,12 +4,14 @@ import 'package:flutter_live/screens/home/live_list_page.dart';
 import 'package:flutter_live/screens/home/live_list_page1.dart';
 import 'package:flutter_live/screens/home/live/index.dart';
 import 'package:flutter_live/screens/login/login_page.dart';
+import 'package:flutter_live/store/user_store.dart';
 import 'screens/course_screen.dart';
 import 'screens/doc_screen.dart';
 import 'screens/me_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await UserStore.to.init();
   runApp(const MyApp());
 }
 
@@ -27,7 +29,8 @@ class MyApp extends StatelessWidget {
       // 2. 定义亮色主题 (Light Mode)
       theme: ThemeData(
         brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FB), // 浅灰背景
+        scaffoldBackgroundColor: const Color(0xFFF8F9FB),
+        // 浅灰背景
         cardColor: Colors.white,
         dividerColor: Colors.grey[300],
         appBarTheme: const AppBarTheme(
@@ -50,19 +53,17 @@ class MyApp extends StatelessWidget {
       // 3. 定义暗色主题 (Dark Mode)
       darkTheme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF1B2339), // 深蓝背景
-        cardColor: const Color(0xFF232D45), // 卡片深色
+        scaffoldBackgroundColor: const Color(0xFF1B2339),
+        // 深蓝背景
+        cardColor: const Color(0xFF232D45),
+        // 卡片深色
         dividerColor: Colors.white10,
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF232D45),
           foregroundColor: Colors.white, // 标题文字白色
           elevation: 0,
         ),
-        colorScheme: const ColorScheme.dark(
-          primary: Colors.blue,
-          onSurface: Colors.white,
-          onSurfaceVariant: Colors.white70,
-        ),
+        colorScheme: const ColorScheme.dark(primary: Colors.blue, onSurface: Colors.white, onSurfaceVariant: Colors.white70),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: Color(0xFF232D45),
           selectedItemColor: Colors.blue,
@@ -70,7 +71,7 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      home: const LoginPage(),
+      home: UserStore.to.isLogin ? const LiveListPage() : const LoginPage(),
     );
   }
 }
@@ -85,9 +86,8 @@ class MainContainer extends StatefulWidget {
 class _MainContainerState extends State<MainContainer> {
   int _currentIndex = 0;
 
-
   final List<Widget> _screens = [
-    const LiveListPage(userId: '123123', userName: '123123',avatarUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/6e738b58d65d8b3685efffc4cdb9c2cd.png",level: "73",),
+    const LiveListPage(),
     // const CourseScreen(),
     // const DocScreen(),
     // const ExamListScreen(),

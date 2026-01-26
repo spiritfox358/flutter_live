@@ -5,43 +5,28 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/codeStyles/codeStyleConfig.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_real_battle_view.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live_list_page1.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/login/login_page.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/services/ai_music_service.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/level_badge_widget.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/login/register_page.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/store/user_store.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/flutter_live.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/flutter_live.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gift_convert.md" beforeDir="false" afterPath="$PROJECT_DIR$/gift_convert.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard_tabs.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/dashboard_tabs.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_item.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_item.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_item_state.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_banner_widget.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/gift_panel.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_panel.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/index.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/index.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/profile_pill.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/profile_pill.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/viewer_list.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_list.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_item.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_item.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_top_bar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_top_bar.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_battle_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_battle_view.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/single_mode_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/single_mode_view.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_panel.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_panel.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_streaming_page3.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live_streaming_page3.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/questions/exam_list_screen.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/questions/question_bank_screen.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/services/ai_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/ai_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/login/login_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/login/login_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/macos/Podfile.lock" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Podfile.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/windows/flutter/generated_plugins.cmake" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -104,7 +89,7 @@
     "project.structure.last.edited": "Project",
     "project.structure.proportion": "0.0",
     "project.structure.side.proportion": "0.29564193",
-    "settings.editor.selected.configurable": "preferences.sourceCode.kotlin",
+    "settings.editor.selected.configurable": "preferences.sourceCode.Dart",
     "show.migrate.to.gradle.popup": "false"
   }
 }]]></component>
@@ -112,6 +97,9 @@
     <key name="CopyFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets" />
       <recent name="$PROJECT_DIR$" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets" />
     </key>
   </component>
   <component name="RunManager">
@@ -208,7 +196,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769180944613</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1769355658845</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1769355658845</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -234,11 +230,6 @@
           <url>file://$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart</url>
           <line>64</line>
           <option name="timeStamp" value="13" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="Dart">
-          <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>211</line>
-          <option name="timeStamp" value="62" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/tools/HttpUtil.dart</url>

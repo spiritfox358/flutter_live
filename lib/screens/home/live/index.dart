@@ -34,30 +34,18 @@ class EntranceEvent {
   final String avatarUrl;
   final String? frameUrl;
 
-  EntranceEvent({
-    required this.userName,
-    required this.level,
-    required this.avatarUrl,
-    this.frameUrl,
-  });
+  EntranceEvent({required this.userName, required this.level, required this.avatarUrl, this.frameUrl});
 }
 
 final List<AIBoss> _bosses = [
   const AIBoss(
     name: "机械姬·零号",
     avatarUrl: "https://cdn-icons-png.flaticon.com/512/4712/4712109.png",
-    videoUrl:
-        "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/ai_avatar_1.mp4",
+    videoUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/ai_avatar_1.mp4",
     difficulty: 3,
     tauntMessages: [],
   ),
-  const AIBoss(
-    name: "赛博魔王",
-    avatarUrl: "https://cdn-icons-png.flaticon.com/512/6195/6195678.png",
-    videoUrl: "",
-    difficulty: 8,
-    tauntMessages: [],
-  ),
+  const AIBoss(name: "赛博魔王", avatarUrl: "https://cdn-icons-png.flaticon.com/512/6195/6195678.png", videoUrl: "", difficulty: 8, tauntMessages: []),
 ];
 
 class LiveStreamingPage extends StatefulWidget {
@@ -81,8 +69,7 @@ class LiveStreamingPage extends StatefulWidget {
   State<LiveStreamingPage> createState() => _LiveStreamingPageState();
 }
 
-class _LiveStreamingPageState extends State<LiveStreamingPage>
-    with TickerProviderStateMixin {
+class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProviderStateMixin {
   int _punishmentDuration = 20;
 
   WebSocketChannel? _channel;
@@ -168,16 +155,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     // 🟢 初始化动画控制器 (必须在 _checkInitialRoomState 之前)
     _initPKStartAnimation();
 
-    _comboScaleController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-      lowerBound: 0.0,
-      upperBound: 1.0,
-    );
-    _countdownController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 3),
-    );
+    _comboScaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 150), lowerBound: 0.0, upperBound: 1.0);
+    _countdownController = AnimationController(vsync: this, duration: const Duration(seconds: 3));
     _countdownController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         _comboScaleController.reverse().then((_) {
@@ -189,14 +168,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
       }
     });
 
-    _welcomeBannerController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _welcomeBannerAnimation = Tween<Offset>(
-      begin: const Offset(1.5, 0),
-      end: const Offset(0, 0),
-    ).animate(_welcomeBannerController);
+    _welcomeBannerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _welcomeBannerAnimation = Tween<Offset>(begin: const Offset(1.5, 0), end: const Offset(0, 0)).animate(_welcomeBannerController);
 
     // 🟢 最后检查进场状态
     _checkInitialRoomState();
@@ -218,10 +191,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     debugPrint("📡 进场同步检查: roomMode=$roomMode");
 
     if (data['punishmentDuration'] != null) {
-      _punishmentDuration = _parseInt(
-        data['punishmentDuration'],
-        defaultValue: 20,
-      );
+      _punishmentDuration = _parseInt(data['punishmentDuration'], defaultValue: 20);
     }
 
     if (data['pkStartTime'] == null) return;
@@ -276,12 +246,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     }
     // 🟢 Mode 2: 惩罚 中
     else if (roomMode == 2) {
-      final DateTime punishmentStartTime = startTime.add(
-        Duration(seconds: pkDuration),
-      );
-      final int elapsedInPunishment = now
-          .difference(punishmentStartTime)
-          .inSeconds;
+      final DateTime punishmentStartTime = startTime.add(Duration(seconds: pkDuration));
+      final int elapsedInPunishment = now.difference(punishmentStartTime).inSeconds;
       int remainingPunishment = _punishmentDuration - elapsedInPunishment;
 
       if (remainingPunishment < 0) remainingPunishment = 0;
@@ -370,36 +336,23 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
 
       switch (type) {
         case "CHAT":
-          _addSocketChatMessage(
-            data['username'] ?? "神秘人",
-            data['content'] ?? "",
-            isMe ? Colors.amber : Colors.white,
-          );
+          _addSocketChatMessage(data['username'] ?? "神秘人", data['content'] ?? "", isMe ? Colors.amber : Colors.white);
           break;
         case "GIFT":
           final String giftId = data['giftId']?.toString() ?? "";
           GiftItemData? targetGift;
           try {
             if (_giftList.isNotEmpty) {
-              targetGift = _giftList.firstWhere(
-                (g) => g.id.toString() == giftId,
-              );
+              targetGift = _giftList.firstWhere((g) => g.id.toString() == giftId);
             }
           } catch (e) {}
           targetGift ??= GiftItemData(
             id: giftId,
             name: "未知礼物",
             price: 0,
-            iconUrl:
-                "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/1_%E5%B0%8F%E5%BF%83%E5%BF%83.png",
+            iconUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/1_%E5%B0%8F%E5%BF%83%E5%BF%83.png",
           );
-          _processGiftEvent(
-            targetGift,
-            data['username'] ?? "神秘人",
-            data['avatar'] ?? "神秘人",
-            isMe,
-            count: data['giftCount'] ?? 1,
-          );
+          _processGiftEvent(targetGift, data['username'] ?? "神秘人", data['avatar'] ?? "神秘人", isMe, count: data['giftCount'] ?? 1);
           break;
         case "ENTER":
           if (!isMe) _simulateVipEnter(overrideName: data['username']);
@@ -409,10 +362,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
             _parseInt(data['bossIndex']),
             _parseInt(data['bgIndex']),
             pkTotalDuration: _parseInt(data['pkDuration'], defaultValue: 90),
-            punishmentDuration: _parseInt(
-              data['punishmentDuration'],
-              defaultValue: 20,
-            ),
+            punishmentDuration: _parseInt(data['punishmentDuration'], defaultValue: 20),
           );
           break;
         case "PK_UPDATE":
@@ -427,15 +377,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     }
   }
 
-  void _sendSocketMessage(
-    String type, {
-    String? content,
-    String? giftId,
-    int giftCount = 1,
-    int? bossIndex,
-    int? bgIndex,
-    int? opponentScore,
-  }) {
+  void _sendSocketMessage(String type, {String? content, String? giftId, int giftCount = 1, int? bossIndex, int? bgIndex, int? opponentScore}) {
     if (_channel == null) return;
     final Map<String, dynamic> msg = {
       "type": type,
@@ -448,10 +390,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
       if (bossIndex != null) "bossIndex": bossIndex,
       if (bgIndex != null) "bgIndex": bgIndex,
       if (opponentScore != null) "opponentScore": opponentScore,
-      if (type == "PK_START") ...{
-        "pkDuration": 90,
-        "punishmentDuration": _punishmentDuration,
-      },
+      if (type == "PK_START") ...{"pkDuration": 90, "punishmentDuration": _punishmentDuration},
     };
     try {
       _channel!.sink.add(jsonEncode(msg));
@@ -476,15 +415,9 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
           "punishmentDuration": _punishmentDuration,
         },
       );
-      _sendSocketMessage(
-        "PK_START",
-        bossIndex: randomBossIndex,
-        bgIndex: randomBgIndex,
-      );
+      _sendSocketMessage("PK_START", bossIndex: randomBossIndex, bgIndex: randomBgIndex);
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("开启失败: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开启失败: $e")));
     }
   }
 
@@ -501,52 +434,48 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     if (initialTimeLeft == null) _playPKStartAnimation();
     if (punishmentDuration != null) _punishmentDuration = punishmentDuration;
 
-    Future.delayed(
-      Duration(milliseconds: initialTimeLeft == null ? 800 : 0),
-      () {
-        if (!mounted) return;
-        if (initialTimeLeft == null && _pkStatus != PKStatus.idle) return;
+    Future.delayed(Duration(milliseconds: initialTimeLeft == null ? 800 : 0), () {
+      if (!mounted) return;
+      if (initialTimeLeft == null && _pkStatus != PKStatus.idle) return;
 
-        final boss = _bosses[bossIndex % _bosses.length];
-        _currentBoss = boss;
-        _opponentBgImage = _bgImageUrls[bgIndex % _bgImageUrls.length];
+      final boss = _bosses[bossIndex % _bosses.length];
+      _currentBoss = boss;
+      _opponentBgImage = _bgImageUrls[bgIndex % _bgImageUrls.length];
 
-        setState(() {
-          _pkStatus = PKStatus.playing;
-          _myPKScore = initMyScore ?? 0;
-          _opponentPKScore = initOpScore ?? 0;
-          _pkTimeLeft = initialTimeLeft ?? (pkTotalDuration ?? 90);
+      setState(() {
+        _pkStatus = PKStatus.playing;
+        _myPKScore = initMyScore ?? 0;
+        _opponentPKScore = initOpScore ?? 0;
+        _pkTimeLeft = initialTimeLeft ?? (pkTotalDuration ?? 90);
 
-          // 🟢 只有新开启的 PK (非进场同步) 才重置翻倍倒计时
-          if (initialTimeLeft == null) {
-            _isFirstGiftPromoActive = true;
-            _promoTimeLeft = 30;
-            _startPromoTimer();
-          }
-        });
-
-        if (boss.videoUrl.isNotEmpty) {
-          _isRightVideoMode = true;
-          _setupBossVideo(boss.videoUrl);
-        } else {
-          _isRightVideoMode = false;
-          _killAllBossVideos();
+        // 🟢 只有新开启的 PK (非进场同步) 才重置翻倍倒计时
+        if (initialTimeLeft == null) {
+          _isFirstGiftPromoActive = true;
+          _promoTimeLeft = 30;
+          _startPromoTimer();
         }
+      });
 
-        _pkTimer?.cancel();
-        _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          if (!mounted) return;
-          setState(() => _pkTimeLeft--);
-          if (_pkTimeLeft <= 0) {
-            _pkTimer?.cancel();
-            _enterPunishmentPhase();
-            return;
-          }
-          if (!_isAIThinking && (_pkTimeLeft % 4 == 0 || _pkTimeLeft <= 10))
-            _triggerBossBehavior(context: "periodic_check");
-        });
-      },
-    );
+      if (boss.videoUrl.isNotEmpty) {
+        _isRightVideoMode = true;
+        _setupBossVideo(boss.videoUrl);
+      } else {
+        _isRightVideoMode = false;
+        _killAllBossVideos();
+      }
+
+      _pkTimer?.cancel();
+      _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) return;
+        setState(() => _pkTimeLeft--);
+        if (_pkTimeLeft <= 0) {
+          _pkTimer?.cancel();
+          _enterPunishmentPhase();
+          return;
+        }
+        if (!_isAIThinking && (_pkTimeLeft % 4 == 0 || _pkTimeLeft <= 10)) _triggerBossBehavior(context: "periodic_check");
+      });
+    });
   }
 
   void _enterPunishmentPhase({int? timeLeft}) async {
@@ -559,10 +488,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
 
     if (_isHost && timeLeft == null) {
       try {
-        await HttpUtil().post(
-          "/api/room/enter_punishment",
-          data: {"roomId": int.parse(_roomId)},
-        );
+        await HttpUtil().post("/api/room/enter_punishment", data: {"roomId": int.parse(_roomId)});
       } catch (e) {}
     }
 
@@ -578,10 +504,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     _enterCoHostPhase(initialElapsedTime: 0);
     if (_isHost) {
       try {
-        await HttpUtil().post(
-          "/api/room/enter_co_host",
-          data: {"roomId": int.parse(_roomId)},
-        );
+        await HttpUtil().post("/api/room/enter_co_host", data: {"roomId": int.parse(_roomId)});
       } catch (e) {}
     }
   }
@@ -605,10 +528,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   void _disconnectCoHost() async {
     if (_isHost) {
       try {
-        await HttpUtil().post(
-          "/api/room/end_pk",
-          data: {"roomId": int.parse(_roomId)},
-        );
+        await HttpUtil().post("/api/room/end_pk", data: {"roomId": int.parse(_roomId)});
       } catch (e) {}
       // 🟢 关键：房主必须发送 Socket 消息，粉丝才能同步断开
       _sendSocketMessage("PK_END");
@@ -627,12 +547,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     });
   }
 
-  Future<void> _triggerBossBehavior({
-    required String context,
-    String? customPrompt,
-  }) async {
-    if (_currentBoss == null || _pkStatus != PKStatus.playing || !_isHost)
-      return;
+  Future<void> _triggerBossBehavior({required String context, String? customPrompt}) async {
+    if (_currentBoss == null || _pkStatus != PKStatus.playing || !_isHost) return;
     if (_isAIThinking && context == "periodic_check") return;
     _isAIThinking = true;
     try {
@@ -644,11 +560,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
         try {
           await HttpUtil().post(
             "/api/room/update_score",
-            data: {
-              "roomId": int.parse(_roomId),
-              "myScore": _myPKScore,
-              "opponentScore": _opponentPKScore,
-            },
+            data: {"roomId": int.parse(_roomId), "myScore": _myPKScore, "opponentScore": _opponentPKScore},
           );
         } catch (e) {}
       }
@@ -660,22 +572,9 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
 
   // 🟢 补全：初始化动画控制器
   void _initPKStartAnimation() {
-    _pkStartAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-    _pkLeftAnimation = Tween<double>(begin: -300, end: 0).animate(
-      CurvedAnimation(
-        parent: _pkStartAnimationController,
-        curve: Curves.easeOutExpo,
-      ),
-    );
-    _pkRightAnimation = Tween<double>(begin: 300, end: 0).animate(
-      CurvedAnimation(
-        parent: _pkStartAnimationController,
-        curve: Curves.easeOutExpo,
-      ),
-    );
+    _pkStartAnimationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _pkLeftAnimation = Tween<double>(begin: -300, end: 0).animate(CurvedAnimation(parent: _pkStartAnimationController, curve: Curves.easeOutExpo));
+    _pkRightAnimation = Tween<double>(begin: 300, end: 0).animate(CurvedAnimation(parent: _pkStartAnimationController, curve: Curves.easeOutExpo));
     _pkFadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _pkStartAnimationController,
@@ -756,18 +655,12 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                   margin: const EdgeInsets.only(top: 12, bottom: 20),
                   width: 40,
                   height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               ListTile(
                 leading: const Icon(Icons.link_off, color: Colors.redAccent),
-                title: const Text(
-                  "断开连线/PK",
-                  style: TextStyle(color: Colors.white),
-                ),
+                title: const Text("断开连线/PK", style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
                   _disconnectCoHost();
@@ -776,10 +669,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
               const Divider(color: Colors.white10, height: 1),
               ListTile(
                 leading: const Icon(Icons.exit_to_app, color: Colors.white70),
-                title: const Text(
-                  "退出直播间",
-                  style: TextStyle(color: Colors.white),
-                ),
+                title: const Text("退出直播间", style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).pop();
@@ -798,9 +688,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   void _switchToOpponentRoom() {
     if (_currentBoss == null) return;
     if (widget.isHost) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("房主不能离开直播间哦~")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("房主不能离开直播间哦~")));
       return;
     }
     showDialog(
@@ -809,21 +697,13 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
         title: const Text("前往对方直播间？"),
         content: const Text("确定要离开当前房间，去围观对方吗？"),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("取消"),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("取消")),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
-                  builder: (context) => LiveStreamingPage(
-                    userId: widget.userId,
-                    userName: widget.userName,
-                    isHost: false,
-                    roomId: "1002",
-                  ),
+                  builder: (context) => LiveStreamingPage(userId: widget.userId, userName: widget.userName, isHost: false, roomId: "1002"),
                 ),
               );
             },
@@ -836,47 +716,21 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
 
   void _addSocketChatMessage(String name, String content, Color color) {
     setState(() {
-      _messages.insert(
-        0,
-        ChatMessage(
-          name: name,
-          content: content,
-          level: 99,
-          levelColor: color,
-          isGift: false,
-        ),
-      );
+      _messages.insert(0, ChatMessage(name: name, content: content, level: 99, levelColor: color, isGift: false));
     });
   }
 
   void _addGiftMessage(String senderName, String giftName, int count) {
     setState(
-      () => _messages.insert(
-        0,
-        ChatMessage(
-          name: senderName,
-          content: '送出了 $giftName x$count',
-          level: 99,
-          levelColor: Colors.yellow,
-          isGift: true,
-        ),
-      ),
+      () => _messages.insert(0, ChatMessage(name: senderName, content: '送出了 $giftName x$count', level: 99, levelColor: Colors.yellow, isGift: true)),
     );
   }
 
-  void _processGiftEvent(
-    GiftItemData giftData,
-    String senderName,
-    String senderAvatar,
-    bool isMe, {
-    int count = 1,
-  }) {
+  void _processGiftEvent(GiftItemData giftData, String senderName, String senderAvatar, bool isMe, {int count = 1}) {
     final comboKey = "${senderName}_${giftData.name}";
     if (isMe) _lastGiftSent = giftData;
     setState(() {
-      final existingIndex = _activeGifts.indexWhere(
-        (g) => g.comboKey == comboKey,
-      );
+      final existingIndex = _activeGifts.indexWhere((g) => g.comboKey == comboKey);
       int finalCount = count;
       if (existingIndex != -1) {
         final updatedGift = _activeGifts[existingIndex];
@@ -884,21 +738,13 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
         _activeGifts[existingIndex] = updatedGift.copyWith(count: finalCount);
       } else {
         _processNewGift(
-          GiftEvent(
-            senderName: senderName,
-            senderAvatar: senderAvatar,
-            giftName: giftData.name,
-            giftIconUrl: giftData.iconUrl,
-            count: finalCount,
-          ),
+          GiftEvent(senderName: senderName, senderAvatar: senderAvatar, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: finalCount),
         );
       }
       _addGiftMessage(senderName, giftData.name, finalCount);
-      if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
-        _myPKScore += (giftData.price * finalCount);
+      if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) _myPKScore += (giftData.price * finalCount);
     });
-    if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty)
-      _addEffectToQueue(giftData.effectAsset!);
+    if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) _addEffectToQueue(giftData.effectAsset!);
     if (isMe) _triggerComboMode();
   }
 
@@ -925,8 +771,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   void _onGiftFinished(String giftId) {
     setState(() {
       _activeGifts.removeWhere((element) => element.id == giftId);
-      if (_waitingQueue.isNotEmpty)
-        _activeGifts.add(_waitingQueue.removeFirst());
+      if (_waitingQueue.isNotEmpty) _activeGifts.add(_waitingQueue.removeFirst());
     });
   }
 
@@ -943,8 +788,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     _alphaPlayerController = controller;
     _alphaPlayerController?.onFinish = _onEffectComplete;
     _alphaPlayerController?.onVideoSize = (width, height) {
-      if (width > 0 && height > 0 && mounted)
-        setState(() => _videoAspectRatio = width / height);
+      if (width > 0 && height > 0 && mounted) setState(() => _videoAspectRatio = width / height);
     };
   }
 
@@ -990,8 +834,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   }
 
   void _initializeBackground() async {
-    const String aliyunBgUrl =
-        'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4';
+    const String aliyunBgUrl = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.mp4';
     _bgController = VideoPlayerController.networkUrl(Uri.parse(aliyunBgUrl));
     try {
       await _bgController!.initialize();
@@ -1015,10 +858,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
   }
 
   void _pickRandomImage() {
-    setState(
-      () =>
-          _currentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)],
-    );
+    setState(() => _currentBgImage = _bgImageUrls[Random().nextInt(_bgImageUrls.length)]);
   }
 
   void _showGiftPanel() {
@@ -1044,12 +884,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
 
   void _showMusicPanel() {
     _dismissKeyboard();
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const MusicPanel(),
-    );
+    showModalBottomSheet(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, builder: (_) => const MusicPanel());
   }
 
   void _simulateVipEnter({String? overrideName}) {
@@ -1067,15 +902,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     if (!_isEntranceBannerShowing) _playNextEntrance();
     if (mounted)
       setState(() {
-        _messages.insert(
-          0,
-          ChatMessage(
-            name: "系统",
-            content: "$level $name 降临直播间！",
-            level: 100,
-            levelColor: const Color(0xFFFFD700),
-          ),
-        );
+        _messages.insert(0, ChatMessage(name: "系统", content: "$level $name 降临直播间！", level: 100, levelColor: const Color(0xFFFFD700)));
       });
   }
 
@@ -1086,32 +913,20 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     if (mounted)
       setState(() {
         _currentEntranceEvent = event;
-        _welcomeBannerAnimation =
-            Tween<Offset>(
-              begin: const Offset(1.5, 0),
-              end: const Offset(0, 0),
-            ).animate(
-              CurvedAnimation(
-                parent: _welcomeBannerController,
-                curve: Curves.easeOutQuart,
-              ),
-            );
+        _welcomeBannerAnimation = Tween<Offset>(
+          begin: const Offset(1.5, 0),
+          end: const Offset(0, 0),
+        ).animate(CurvedAnimation(parent: _welcomeBannerController, curve: Curves.easeOutQuart));
       });
     _welcomeBannerController.reset();
     await _welcomeBannerController.forward();
     await Future.delayed(const Duration(milliseconds: 2000));
     if (mounted)
       setState(() {
-        _welcomeBannerAnimation =
-            Tween<Offset>(
-              begin: const Offset(0, 0),
-              end: const Offset(-1.5, 0),
-            ).animate(
-              CurvedAnimation(
-                parent: _welcomeBannerController,
-                curve: Curves.easeInQuart,
-              ),
-            );
+        _welcomeBannerAnimation = Tween<Offset>(
+          begin: const Offset(0, 0),
+          end: const Offset(-1.5, 0),
+        ).animate(CurvedAnimation(parent: _welcomeBannerController, curve: Curves.easeInQuart));
       });
     _welcomeBannerController.reset();
     await _welcomeBannerController.forward();
@@ -1128,12 +943,10 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     const double topBarHeight = 50.0;
     const double gap1 = 105.0;
     final double pkVideoHeight = size.width * 0.85;
-    final double pkVideoBottomY =
-        padding.top + topBarHeight + gap1 + pkVideoHeight + 18;
+    final double pkVideoBottomY = padding.top + topBarHeight + gap1 + pkVideoHeight + 18;
     final double videoRatio = _videoAspectRatio ?? (9 / 16);
     double entranceTop = pkVideoBottomY + 4;
-    final bool showPromo =
-        _isFirstGiftPromoActive && _pkStatus == PKStatus.playing;
+    final bool showPromo = _isFirstGiftPromoActive && _pkStatus == PKStatus.playing;
     if (showPromo) entranceTop += 22 + 4;
 
     return Scaffold(
@@ -1162,11 +975,16 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                     ),
                   _pkStatus == PKStatus.idle
                       ? SingleModeView(
+                          roomId: _roomId,
+                          onlineCount: 100,
                           isVideoBackground: _isVideoBackground,
                           isBgInitialized: _isBgInitialized,
                           bgController: _bgController,
                           currentBgImage: _currentBgImage,
-                          onClose: _handleCloseButton, title: '', name: '', avatar: '',
+                          onClose: _handleCloseButton,
+                          title: '',
+                          name: '',
+                          avatar: '',
                         )
                       : Column(
                           children: [
@@ -1174,6 +992,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                               margin: EdgeInsets.only(top: padding.top),
                               height: topBarHeight,
                               child: BuildTopBar(
+                                roomId: _roomId,
+                                onlineCount: 100,
                                 title: "房间:${widget.roomId}",
                                 name: "房间:${widget.roomId}",
                                 avatar: "${widget.roomId}",
@@ -1187,23 +1007,13 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                               child: Stack(
                                 children: [
                                   Positioned(
-                                    top:
-                                        (_pkStatus == PKStatus.playing ||
-                                            _pkStatus == PKStatus.punishment)
-                                        ? 18
-                                        : 0,
+                                    top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
                                     left: 0,
                                     right: 0,
                                     bottom: 0,
                                     child: PKBattleView(
-                                      leftVideoController:
-                                          (_isVideoBackground &&
-                                              _isBgInitialized)
-                                          ? _bgController
-                                          : null,
-                                      leftBgImage: _isVideoBackground
-                                          ? null
-                                          : _currentBgImage,
+                                      leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
+                                      leftBgImage: _isVideoBackground ? null : _currentBgImage,
                                       rightBgImage: _opponentBgImage,
                                       isRightVideoMode: _isRightVideoMode,
                                       rightVideoController: _aiVideoController,
@@ -1214,8 +1024,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                       onTapOpponent: _switchToOpponentRoom,
                                     ),
                                   ),
-                                  if (_pkStatus == PKStatus.playing ||
-                                      _pkStatus == PKStatus.punishment)
+                                  if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
                                     Positioned(
                                       top: 0,
                                       left: 0,
@@ -1228,11 +1037,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                       ),
                                     ),
                                   Positioned(
-                                    top:
-                                        (_pkStatus == PKStatus.playing ||
-                                            _pkStatus == PKStatus.punishment)
-                                        ? 18
-                                        : 0,
+                                    top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
                                     left: 0,
                                     right: 0,
                                     child: Center(
@@ -1251,24 +1056,14 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                       children: [
                                         _buildCircleBtn(
                                           onTap: _showMusicPanel,
-                                          icon: const Icon(
-                                            Icons.music_note,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
+                                          icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
                                           borderColor: Colors.purpleAccent,
                                           label: "点歌",
                                         ),
                                         const SizedBox(height: 10),
                                         _buildCircleBtn(
                                           onTap: _toggleBackgroundMode,
-                                          icon: Icon(
-                                            _isVideoBackground
-                                                ? Icons.videocam
-                                                : Icons.image,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
+                                          icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20),
                                           borderColor: Colors.cyanAccent,
                                           label: "背景",
                                         ),
@@ -1284,27 +1079,17 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                     left: 0,
                     right: 0,
                     bottom: bottomInset > 0 ? bottomInset : padding.bottom,
-                    height: _pkStatus == PKStatus.idle
-                        ? 300
-                        : (size.height - pkVideoBottomY),
+                    height: _pkStatus == PKStatus.idle ? 300 : (size.height - pkVideoBottomY),
                     child: RepaintBoundary(
                       child: Container(
-                        color: bottomInset > 0
-                            ? Colors.black87
-                            : Colors.transparent,
+                        color: bottomInset > 0 ? Colors.black87 : Colors.transparent,
                         child: Column(
                           children: [
-                            Expanded(
-                              child: BuildChatList(
-                                bottomInset: 0,
-                                messages: _messages,
-                              ),
-                            ),
+                            Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
                             BuildInputBar(
                               textController: _textController,
                               onTapGift: _showGiftPanel,
-                              onSend: (text) =>
-                                  _sendSocketMessage("CHAT", content: text),
+                              onSend: (text) => _sendSocketMessage("CHAT", content: text),
                             ),
                           ],
                         ),
@@ -1322,10 +1107,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [
-                                Colors.white.withOpacity(0.15),
-                                Colors.pinkAccent.withOpacity(0.15),
-                              ],
+                              colors: [Colors.white.withOpacity(0.15), Colors.pinkAccent.withOpacity(0.15)],
                               begin: Alignment.centerLeft,
                               end: Alignment.centerRight,
                             ),
@@ -1336,21 +1118,12 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                             children: [
                               const Text(
                                 "首送翻倍",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                ),
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                               ),
                               const SizedBox(width: 6),
                               Text(
                                 "00:${_promoTimeLeft.toString().padLeft(2, '0')}",
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontFamily: "monospace",
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: const TextStyle(color: Colors.white, fontFamily: "monospace", fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -1366,55 +1139,31 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                           ? Container(
                               margin: const EdgeInsets.only(left: 10),
                               height: 25,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0xFF0D47A1),
-                                    Color(0xFF42A5F5),
-                                  ],
+                                  colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)],
                                   begin: Alignment.centerLeft,
                                   end: Alignment.centerRight,
                                 ),
                                 borderRadius: BorderRadius.circular(12.5),
-                                border: Border.all(
-                                  color: Colors.cyanAccent.withOpacity(0.5),
-                                  width: 1,
-                                ),
+                                border: Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 1,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(4)),
                                     child: Text(
                                       _currentEntranceEvent!.level,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                        height: 1.1,
-                                      ),
+                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, height: 1.1),
                                     ),
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     "${_currentEntranceEvent!.userName} 加入了直播间",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.1,
-                                    ),
+                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500, height: 1.1),
                                   ),
                                   const SizedBox(width: 10),
                                 ],
@@ -1435,10 +1184,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                           child: SizedBox(
                             width: size.width,
                             height: size.width / videoRatio,
-                            child: MyAlphaPlayerView(
-                              key: const ValueKey('AlphaPlayer'),
-                              onCreated: _onPlayerCreated,
-                            ),
+                            child: MyAlphaPlayerView(key: const ValueKey('AlphaPlayer'), onCreated: _onPlayerCreated),
                           ),
                         ),
                       ),
@@ -1464,8 +1210,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                     (giftEvent) => AnimatedGiftItem(
                                       key: ValueKey(giftEvent.id),
                                       giftEvent: giftEvent,
-                                      onFinished: () =>
-                                          _onGiftFinished(giftEvent.id),
+                                      onFinished: () => _onGiftFinished(giftEvent.id),
                                     ),
                                   )
                                   .toList(),
@@ -1476,45 +1221,26 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                     ),
                   if (_pkStatus == PKStatus.idle && _isHost)
                     Positioned(
-                      bottom:
-                          (bottomInset > 0 ? bottomInset : padding.bottom) +
-                          150,
+                      bottom: (bottomInset > 0 ? bottomInset : padding.bottom) + 150,
                       right: 20,
                       child: GestureDetector(
                         onTap: _onTapStartPK,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Colors.purple, Colors.deepPurple],
-                            ),
+                            gradient: const LinearGradient(colors: [Colors.purple, Colors.deepPurple]),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(color: Colors.white30),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.5),
-                                blurRadius: 10,
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 10)],
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.eighteen_mp,
-                                color: Colors.white,
-                                size: 16,
-                              ),
+                              Icon(Icons.eighteen_mp, color: Colors.white, size: 16),
                               SizedBox(width: 4),
                               Text(
                                 "发起PK",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -1526,10 +1252,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                       right: 16,
                       bottom: bottomInset + 80,
                       child: ScaleTransition(
-                        scale: CurvedAnimation(
-                          parent: _comboScaleController,
-                          curve: Curves.elasticOut,
-                        ),
+                        scale: CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut),
                         child: GestureDetector(
                           onTap: () => _sendGift(_lastGiftSent!),
                           child: AnimatedBuilder(
@@ -1548,10 +1271,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                         value: 1.0 - _countdownController.value,
                                         strokeWidth: 4,
                                         backgroundColor: Colors.white24,
-                                        valueColor:
-                                            const AlwaysStoppedAnimation(
-                                              Colors.amber,
-                                            ),
+                                        valueColor: const AlwaysStoppedAnimation(Colors.amber),
                                       ),
                                     ),
                                     Container(
@@ -1560,27 +1280,17 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
                                         gradient: const LinearGradient(
-                                          colors: [
-                                            Color(0xFFFF0080),
-                                            Color(0xFFFF8C00),
-                                          ],
+                                          colors: [Color(0xFFFF0080), Color(0xFFFF8C00)],
                                           begin: Alignment.topLeft,
                                           end: Alignment.bottomRight,
                                         ),
-                                        border: Border.all(
-                                          color: Colors.white,
-                                          width: 2,
-                                        ),
+                                        border: Border.all(color: Colors.white, width: 2),
                                       ),
                                       alignment: const Alignment(0, -0.15),
                                       child: const Text(
                                         "连击",
                                         textAlign: TextAlign.center,
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w900,
-                                        ),
+                                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
                                       ),
                                     ),
                                   ],
@@ -1608,32 +1318,15 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                     Transform.translate(
                                       offset: Offset(_pkLeftAnimation.value, 0),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         decoration: BoxDecoration(
                                           gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFFFE4164),
-                                              Color(0xFFFF7F7F),
-                                            ],
+                                            colors: [Color(0xFFFE4164), Color(0xFFFF7F7F)],
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                           ),
-                                          borderRadius: const BorderRadius.only(
-                                            topLeft: Radius.circular(12),
-                                            bottomLeft: Radius.circular(12),
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.red.withOpacity(
-                                                0.5,
-                                              ),
-                                              blurRadius: 15,
-                                              spreadRadius: 2,
-                                            ),
-                                          ],
+                                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(12), bottomLeft: Radius.circular(12)),
+                                          boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
                                         ),
                                         child: const Text(
                                           "P",
@@ -1641,48 +1334,23 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                             fontSize: 28,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.white,
-                                            shadows: [
-                                              Shadow(
-                                                blurRadius: 5,
-                                                color: Colors.red,
-                                              ),
-                                            ],
+                                            shadows: [Shadow(blurRadius: 5, color: Colors.red)],
                                           ),
                                         ),
                                       ),
                                     ),
                                     Transform.translate(
-                                      offset: Offset(
-                                        _pkRightAnimation.value,
-                                        0,
-                                      ),
+                                      offset: Offset(_pkRightAnimation.value, 0),
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 6,
-                                        ),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         decoration: BoxDecoration(
                                           gradient: const LinearGradient(
-                                            colors: [
-                                              Color(0xFF3A7BD5),
-                                              Color(0xFF00D2FF),
-                                            ],
+                                            colors: [Color(0xFF3A7BD5), Color(0xFF00D2FF)],
                                             begin: Alignment.topLeft,
                                             end: Alignment.bottomRight,
                                           ),
-                                          borderRadius: const BorderRadius.only(
-                                            topRight: Radius.circular(12),
-                                            bottomRight: Radius.circular(12),
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.blue.withOpacity(
-                                                0.5,
-                                              ),
-                                              blurRadius: 15,
-                                              spreadRadius: 2,
-                                            ),
-                                          ],
+                                          borderRadius: const BorderRadius.only(topRight: Radius.circular(12), bottomRight: Radius.circular(12)),
+                                          boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
                                         ),
                                         child: const Text(
                                           "K",
@@ -1690,12 +1358,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
                                             fontSize: 28,
                                             fontWeight: FontWeight.bold,
                                             color: Colors.white,
-                                            shadows: [
-                                              Shadow(
-                                                blurRadius: 5,
-                                                color: Colors.blue,
-                                              ),
-                                            ],
+                                            shadows: [Shadow(blurRadius: 5, color: Colors.blue)],
                                           ),
                                         ),
                                       ),
@@ -1717,12 +1380,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
     );
   }
 
-  Widget _buildCircleBtn({
-    required VoidCallback onTap,
-    required Widget icon,
-    required Color borderColor,
-    String? label,
-  }) {
+  Widget _buildCircleBtn({required VoidCallback onTap, required Widget icon, required Color borderColor, String? label}) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -1733,21 +1391,12 @@ class _LiveStreamingPageState extends State<LiveStreamingPage>
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.4),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: borderColor.withOpacity(0.5),
-                width: 1.5,
-              ),
+              border: Border.all(color: borderColor.withOpacity(0.5), width: 1.5),
             ),
             alignment: Alignment.center,
             child: icon,
           ),
-          if (label != null) ...[
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: const TextStyle(color: Colors.white, fontSize: 10),
-            ),
-          ],
+          if (label != null) ...[const SizedBox(height: 2), Text(label, style: const TextStyle(color: Colors.white, fontSize: 10))],
         ],
       ),
     );

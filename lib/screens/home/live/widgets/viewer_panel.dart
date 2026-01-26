@@ -1,24 +1,59 @@
 import 'package:flutter/material.dart';
 
-class ViewerPanel extends StatelessWidget {
-  const ViewerPanel({super.key});
+import '../../../../tools/HttpUtil.dart';
+
+class ViewerPanel extends StatefulWidget {
+  final String roomId;
+  final int realTimeOnlineCount; // 从 WebSocket 传进来的实时数字
+
+  const ViewerPanel({
+    super.key,
+    required this.roomId,
+    required this.realTimeOnlineCount,
+  });
+
+  @override
+  State<ViewerPanel> createState() => _ViewerPanelState();
+}
+
+class _ViewerPanelState extends State<ViewerPanel> {
+  List<dynamic> _viewers = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchOnlineUsers();
+  }
+
+  // 请求接口获取列表
+  void _fetchOnlineUsers() async {
+    try {
+      // 调用后端: /api/pk/online_users?roomId=xxx (注意核对你控制器的实际路径)
+      final res = await HttpUtil().get(
+        "/api/room/online_users",
+        params: {"roomId": widget.roomId},
+      );
+
+      if (mounted) {
+        setState(() {
+          // 假设 res 是 List<dynamic>
+          _viewers = res;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("加载观众列表失败: $e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 模拟数据：生成 20 个观众
-    final List<Map<String, dynamic>> viewers = List.generate(20, (index) {
-      return {
-        "name": "观众_${888 + index}",
-        "avatar": "https://picsum.photos/seed/${index + 100}/200",
-        "level": 50 - index, // 等级递减
-        "isVip": index < 5, // 前5个是贵宾
-      };
-    });
-
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7, // 占据屏幕 70% 高度
+      height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
-        color: Color(0xFF171717), // 深色背景
+        color: Color(0xFF171717),
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(16),
           topRight: Radius.circular(16),
@@ -26,16 +61,22 @@ class ViewerPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // 1. 顶部拖拽条 & 标题
+          // 1. 顶部栏 (显示 WebSocket 传进来的实时总数)
           _buildHeader(context),
 
           // 2. 列表内容
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 0),
-              itemCount: viewers.length,
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _viewers.isEmpty
+                ? const Center(
+                child: Text("暂时无人在线",
+                    style: TextStyle(color: Colors.white54)))
+                : ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: _viewers.length,
               itemBuilder: (context, index) {
-                return _buildViewerItem(viewers[index], index);
+                return _buildViewerItem(_viewers[index], index);
               },
             ),
           ),
@@ -44,7 +85,6 @@ class ViewerPanel extends StatelessWidget {
     );
   }
 
-  // 构建顶部栏
   Widget _buildHeader(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -53,7 +93,6 @@ class ViewerPanel extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // 灰色小横条 (视觉提示可拖拽)
           Container(
             width: 40,
             height: 4,
@@ -63,7 +102,6 @@ class ViewerPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          // 标题栏
           Row(
             children: [
               const Text(
@@ -74,9 +112,11 @@ class ViewerPanel extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              const SizedBox(width: 4),
+              const SizedBox(width: 6),
+              // 🟢 这里展示 WebSocket 传进来的实时数字，而不是列表的长度
+              // 因为列表可能只加载了前 50 人，但在线可能有 1万人
               Text(
-                "1.2w",
+                "${widget.realTimeOnlineCount}",
                 style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
               ),
               const Spacer(),
@@ -91,21 +131,24 @@ class ViewerPanel extends StatelessWidget {
     );
   }
 
-  // 构建单行观众信息
   Widget _buildViewerItem(Map<String, dynamic> user, int index) {
-    // 前三名给特殊排名图标/颜色
+    // 🟢 自动处理前三名逻辑：只要后端排好序，index 0/1/2 就是大哥
     Color rankColor = Colors.grey;
     String rankText = "${index + 1}";
     if (index == 0) rankColor = const Color(0xFFFFD700); // 金
     if (index == 1) rankColor = const Color(0xFFC0C0C0); // 银
     if (index == 2) rankColor = const Color(0xFFCD7F32); // 铜
 
+    // 解析字段，防止空值报错
+    final String name = user['nickname'] ?? "神秘用户";
+    final String avatar = user['avatar'] ?? "";
+    final int level = user['level'] ?? 1;
+    final bool isVip = user['isVip'] ?? false;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: Colors.transparent, // 点击时的涟漪效果基底
       child: Row(
         children: [
-          // 排名
           SizedBox(
             width: 24,
             child: Text(
@@ -120,35 +163,37 @@ class ViewerPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-
-          // 头像
           Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: index < 3 ? Border.all(color: rankColor, width: 1.5) : null,
+              border:
+              index < 3 ? Border.all(color: rankColor, width: 1.5) : null,
             ),
             child: CircleAvatar(
               radius: 20,
-              backgroundImage: NetworkImage(user['avatar']),
+              // 处理图片加载错误的情况
+              backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+              backgroundColor: Colors.grey[800],
+              child: avatar.isEmpty ? const Icon(Icons.person, color: Colors.white) : null,
             ),
           ),
           const SizedBox(width: 12),
-
-          // 信息 (昵称 + 等级)
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user['name'],
+                  name,
                   style: const TextStyle(color: Colors.white, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    // 等级标签
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Colors.blueAccent, Colors.lightBlueAccent],
@@ -157,10 +202,11 @@ class ViewerPanel extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.bar_chart, color: Colors.white, size: 10),
+                          const Icon(Icons.bar_chart,
+                              color: Colors.white, size: 10),
                           const SizedBox(width: 2),
                           Text(
-                            "${user['level']}",
+                            "$level",
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 9,
@@ -170,14 +216,15 @@ class ViewerPanel extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (user['isVip']) ...[
+                    if (isVip) ...[
                       const SizedBox(width: 6),
-                      // 贵宾标签
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 4, vertical: 1),
                         decoration: BoxDecoration(
                           color: Colors.purpleAccent.withOpacity(0.2),
-                          border: Border.all(color: Colors.purpleAccent, width: 0.5),
+                          border: Border.all(
+                              color: Colors.purpleAccent, width: 0.5),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
@@ -194,16 +241,6 @@ class ViewerPanel extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-
-          // 右侧按钮 (例如：关注 或 主页)
-          GestureDetector(
-            onTap: () {
-              // TODO: 点击关注逻辑
-            },
-            child: index % 3 == 0 // 模拟部分已关注，部分未关注
-                ? const Icon(Icons.check, color: Colors.white30, size: 20)
-                : const Icon(Icons.add_circle_outline, color: Colors.pinkAccent, size: 20),
           ),
         ],
       ),

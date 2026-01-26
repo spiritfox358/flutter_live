@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../profile_pill.dart';
-import '../viewer_list.dart';
+import 'viewer_list.dart';
 
 class BuildTopBar extends StatelessWidget {
   final String title;
   final String name;
+  final String roomId;
+  final int onlineCount;
   final String avatar;
+
   // 🟢 1. 新增：定义点击回调
   final VoidCallback? onClose;
 
@@ -14,6 +17,8 @@ class BuildTopBar extends StatelessWidget {
     super.key,
     required this.title,
     required this.name,
+    required this.roomId,
+    required this.onlineCount,
     required this.avatar,
     this.onClose, // 🟢 2. 加入构造函数
   });
@@ -26,9 +31,9 @@ class BuildTopBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         child: Row(
           children: [
-            ProfilePill(name: name,avatar: avatar,),
+            ProfilePill(name: name, avatar: avatar),
             const Spacer(),
-            const ViewerList(),
+            ViewerList(roomId: roomId, onlineCount: onlineCount),
             const SizedBox(width: 8),
 
             // 🟢 3. 包裹 GestureDetector 添加点击事件

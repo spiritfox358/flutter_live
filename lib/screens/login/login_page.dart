@@ -1,7 +1,9 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
-
+import '../../store/user_store.dart';
+import '../../tools/HttpUtil.dart';
+import '../home/live/real_live_page.dart';
 import '../home/live_list_page.dart';
+import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -11,103 +13,95 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _idController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _isLoading = false;
 
-  @override
-  void initState() {
-    super.initState();
-    // 🟢 默认填好 2039，方便你测试房主
-    _idController.text = "2039";
-    _nameController.text = "机械姬本人";
-  }
+  Future<void> _login() async {
+    if (!_formKey.currentState!.validate()) return;
 
-  // 生成随机观众数据
-  void _randomViewer() {
-    setState(() {
-      _idController.text = "${Random().nextInt(8999) + 1000}";
-      _nameController.text = "吃瓜群众${Random().nextInt(999)}";
-    });
-  }
+    // 收起键盘
+    FocusScope.of(context).unfocus();
 
-  void _login() {
-    if (_idController.text.isEmpty || _nameController.text.isEmpty) return;
+    setState(() => _isLoading = false);
+    var response = await HttpUtil().post("/api/user/login", data: {"accountId": _emailController.text, "password": _passwordController.text});
 
-    // 跳转到直播列表
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => LiveListPage(
-          userId: _idController.text,
-          userName: _nameController.text,
-          level: "73",
-          avatarUrl:
-              "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/6e738b58d65d8b3685efffc4cdb9c2cd.png",
-        ),
-      ),
-    );
+    // 假设 HttpUtil 统一处理了 Result.succ 的 data 部分
+    if (response != null) {
+      // 2. 获取数据
+      String token = response['token'];
+      Map<String, dynamic> userInfo = response['userInfo'];
+      String userId = userInfo['id'].toString(); // 注意转 String
+      String userName = userInfo['nickname'];
+      String avatar = userInfo['avatar'];
+      await UserStore.to.setToken(token);
+      await UserStore.to.saveProfile(userInfo);
+      // 3. 存储 Token (使用 shared_preferences)
+      // await SpUtil.save("token", token);
+
+      // 4. 跳转到直播页 (传入真实用户信息)
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LiveListPage(),
+          ),
+        );
+      }
+    } else {
+      // 登录失败提示...
+    }
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('登录成功')));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(title: const Text("直播 Demo 登录")),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.live_tv, size: 80, color: Colors.purple),
-            const SizedBox(height: 40),
+      appBar: AppBar(title: const Text("登录")),
+      // 使用 SingleChildScrollView 防止键盘弹出时报错
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            // 默认就是从上往下排，不需要 MainAxisAlignment.center
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // 核心修改：距离顶部 100px
+              const SizedBox(height: 50),
 
-            // ID 输入框
-            TextField(
-              controller: _idController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "用户 ID (2039是房主)",
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.perm_identity),
-                helperText: "提示：只有 ID 为 2039 才能开启房间 1001",
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: '手机号', border: OutlineInputBorder()),
               ),
-            ),
-            const SizedBox(height: 20),
-
-            // 昵称输入框
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: "用户昵称",
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
+              const SizedBox(height: 20),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '密码', border: OutlineInputBorder()),
               ),
-            ),
-
-            // 快速切换按钮
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: _randomViewer,
-                icon: const Icon(Icons.refresh),
-                label: const Text("随机切换成观众账号"),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: _isLoading ? null : _login,
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                child: _isLoading
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Text('登 录', style: TextStyle(fontSize: 16)),
               ),
-            ),
-
-            const SizedBox(height: 40),
-
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: _login,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text("登录大厅", style: TextStyle(fontSize: 18)),
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterPage()));
+                },
+                child: const Text('没有账号？去注册'),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

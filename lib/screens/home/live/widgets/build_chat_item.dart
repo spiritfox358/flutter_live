@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 import '../models/live_models.dart';
 
 class BuildChatItem extends StatelessWidget {
@@ -20,65 +21,22 @@ class BuildChatItem extends StatelessWidget {
           children: [
             Flexible(
               child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), borderRadius: BorderRadius.circular(16)),
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                 child: Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 2,
-                        vertical: 1,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            msg.levelColor.withOpacity(0.8),
-                            msg.levelColor,
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.pentagon,
-                            size: 10,
-                            color: Colors.white,
-                          ),
-                          const SizedBox(width: 2),
-                          Text(
-                            "${msg.level}",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1), child: LevelBadge(level: 73)),
                     const SizedBox(width: 6),
                     Text(
-                      "${msg.name}: ",
+                      msg.name,
                       // 🟢 如果是礼物消息，使用黄色，否则使用原来的颜色
-                      style: TextStyle(
-                        color: msg.isGift ? Colors.yellow : Colors.white.withOpacity(0.8),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: TextStyle(color: msg.isGift ? Colors.yellow : Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                     Text(
                       msg.content,
                       // 🟢 如果是礼物消息，使用黄色，否则使用白色
-                      style: TextStyle(
-                          color: msg.isGift ? Colors.yellow : Colors.white,
-                          fontSize: 13
-                      ),
+                      style: TextStyle(color: msg.isGift ? Colors.yellow : Colors.white, fontSize: 13),
                     ),
                   ],
                 ),
