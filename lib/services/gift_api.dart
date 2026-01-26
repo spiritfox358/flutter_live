@@ -21,7 +21,7 @@ class GiftApi {
   static Future<List<GiftItemData>> getGiftList() async {
     try {
       // 调用后端接口: /coin_gift/list
-      var data = await HttpUtil().get('/coin_gift/list');
+      var data = await HttpUtil().get('/api/gift/list');
 
       // 解析数据: List<dynamic> -> List<GiftItemData>
       if (data is List) {

@@ -39,16 +39,9 @@ class _LoginPageState extends State<LoginPage> {
       await UserStore.to.setToken(token);
       await UserStore.to.saveProfile(userInfo);
       // 3. 存储 Token (使用 shared_preferences)
-      // await SpUtil.save("token", token);
-
       // 4. 跳转到直播页 (传入真实用户信息)
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MainContainer(),
-          ),
-        );
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainContainer()));
       }
     } else {
       // 登录失败提示...

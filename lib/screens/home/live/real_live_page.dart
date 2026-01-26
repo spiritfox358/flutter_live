@@ -7,7 +7,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
-import 'package:flutter_live/store/user_store.dart';
 import 'package:video_player/video_player.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -15,13 +14,12 @@ import 'package:my_alpha_player/my_alpha_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+// 假设你的路径结构如下，请根据实际情况调整
 import '../../../services/gift_api.dart';
 import '../../../services/ai_music_service.dart';
 import '../../../tools/HttpUtil.dart';
 
 import 'models/live_models.dart';
-
-// 🟢 确保引入你复刻的真人PK视图
 import 'widgets/pk_real_battle_view.dart';
 import 'widgets/single_mode_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_chat_list.dart';
@@ -32,7 +30,6 @@ import 'package:flutter_live/screens/home/live/widgets/pk_widgets.dart';
 import 'animate_gift_item.dart';
 import 'gift_panel.dart';
 
-// 🟢 解决 image_06c8f4.png 报错：补全类定义
 class EntranceEvent {
   final String userName;
   final String level;
@@ -70,7 +67,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final int _punishmentDuration = 20;
 
   WebSocketChannel? _channel;
-  StreamSubscription? _socketSubscription; // 🟢 新增：用于管理监听流
+  StreamSubscription? _socketSubscription;
   late String _myUserName;
   late String _myUserId;
   late int _myLevel;
@@ -79,16 +76,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late int _onlineCount = 0;
   late bool _isHost;
 
+  // 🟢 新增：用户余额（用于扣费检查）
+  int _myCoins = 0;
+
   final String _wsUrl = "ws://${HttpUtil.getBaseIpPort}/ws/live";
 
-  // 🟢 解决 image_06cfdc.png 报错：定义变量
   VideoPlayerController? _bgController;
   bool _isBgInitialized = false;
   bool _isVideoBackground = false;
   String _currentBgImage = "";
   String _currentName = "";
-  Timer? _heartbeatTimer; // 心跳定时器
-  bool _isDisposed = false; // 标记页面是否已销毁，防止退出后还在重连
+  Timer? _heartbeatTimer;
+  bool _isDisposed = false;
   String _currentAvatar = "";
   final List<String> _bgImageUrls = [
     "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.png",
@@ -101,13 +100,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   int _pkTimeLeft = 0;
   Timer? _pkTimer;
 
-  // 🟢 真人 PK 参与者数据
   List<dynamic> _participants = [];
 
-  // 🟢 解决 image_0886d7.png 报错：定义翻倍相关变量
-  bool _isFirstGiftPromoActive = false;
-  int _promoTimeLeft = 30;
+  // 🟢 核心修改：首翻相关变量
+  bool _isFirstGiftPromoActive = false; // 活动时间是否开启
+  int _promoTimeLeft = 30; // 倒计时
   Timer? _promoTimer;
+
+  // 🟢 使用 Set<String> 记录 userId，确保每人仅一次
+  final Set<String> _usersWhoUsedPromo = {};
 
   MyAlphaPlayerController? _alphaPlayerController;
   final Queue<String> _effectQueue = Queue();
@@ -121,7 +122,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final Queue<GiftEvent> _waitingQueue = Queue();
   List<GiftItemData> _giftList = [];
 
-  // 🟢 解决 image_0740b5.png 报错：定义连击动画
   bool _showComboButton = false;
   GiftItemData? _lastGiftSent;
   late AnimationController _comboScaleController;
@@ -138,6 +138,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final Queue<EntranceEvent> _entranceQueue = Queue();
   bool _isEntranceBannerShowing = false;
   EntranceEvent? _currentEntranceEvent;
+  final ValueNotifier<int> _balanceNotifier = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -173,7 +174,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _welcomeBannerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
     _welcomeBannerAnimation = Tween<Offset>(begin: const Offset(1.5, 0), end: const Offset(0, 0)).animate(_welcomeBannerController);
 
-    // 🟢 进场检查
     _startEnterRoomSequence();
   }
 
@@ -193,17 +193,28 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
   }
 
+  // 🟢 新增：获取用户余额
+  Future<void> _fetchUserBalance() async {
+    try {
+      final res = await HttpUtil().get("/api/user/info");
+      if (mounted && res != null) {
+        setState(() {
+          _myCoins = _parseInt(res['coin']);
+          _balanceNotifier.value = _myCoins;
+        });
+      }
+    } catch (e) {
+      debugPrint("获取余额失败: $e");
+    }
+  }
+
   void _connectWebSocket() {
     try {
-      // 🟢 1. 先取消旧的监听订阅 (关键修复)
       _socketSubscription?.cancel();
-
-      // 2. 关闭旧的 sink (保持原样)
       _channel?.sink.close();
 
       _channel = WebSocketChannel.connect(Uri.parse(_wsUrl));
 
-      // 🟢 3. 将监听赋值给变量
       _socketSubscription = _channel!.stream.listen(
         (message) => _handleSocketMessage(message),
         onError: (error) {
@@ -224,7 +235,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
   }
 
-  // 🟢 心跳机制：每 30 秒发送一次 "HEARTBEAT"
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
@@ -232,26 +242,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         timer.cancel();
         return;
       }
-      // 发送一个轻量级的心跳包
-      // 注意：不要用 _sendSocketMessage，因为那个会带一堆 userId 用户名，浪费流量
-      // 直接发最简单的 JSON
       try {
         _channel?.sink.add(jsonEncode({"type": "HEARTBEAT", "roomId": _roomId}));
-        // debugPrint("💓 发送心跳");
       } catch (e) {
-        // 发送失败说明断了，触发重连
         _reconnect();
       }
     });
   }
 
-  // 🟢 重连机制：延迟 3 秒后重试，防止死循环刷爆服务器
   void _reconnect() {
     if (_isDisposed) return;
-
-    _heartbeatTimer?.cancel(); // 重连期间停止发心跳
-
-    debugPrint("⏳ 3秒后尝试重连...");
+    _heartbeatTimer?.cancel();
     Future.delayed(const Duration(seconds: 3), () {
       if (!_isDisposed) {
         _connectWebSocket();
@@ -259,16 +260,16 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     });
   }
 
-  // 🟢 统一的进场启动器
   void _startEnterRoomSequence() async {
     try {
-      // 第一步：调用加入接口（数据库 online_count +1）
       await HttpUtil().post("/api/room/join", data: {"roomId": int.parse(_roomId)});
+
+      // 🟢 顺便拉取余额
+      _fetchUserBalance();
+
       if (!mounted || _isDisposed) return;
-      // 第二步：连接 WebSocket（建立实时监听）
       _connectWebSocket();
-      if (!mounted || _isDisposed) return; // 这里也建议加一个
-      // 第三步：拉取房间详情（同步当前的 PK 画面和头像）
+      if (!mounted || _isDisposed) return;
       _fetchRoomDetailAndSyncState();
     } catch (e) {
       debugPrint("进房初始化失败: $e");
@@ -277,31 +278,23 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _fetchRoomDetailAndSyncState() async {
     try {
-      // 1. 调用你后端的 PkController.getRoomDetail 接口
       final res = await HttpUtil().get("/api/pk/detail", params: {"roomId": int.parse(_roomId), "userId": _myUserId, "userName": _myUserName});
       final data = res;
-      // 更新在线人数等基础信息
       setState(() {
-        // 如果后端返回了最新的 onlineCount，在这里更新
         // _onlineCount = _parseInt(data['onlineCount']);
       });
 
-      // 2. 检查 PK 信息并同步
       if (data['pkInfo'] != null) {
         final pkInfo = data['pkInfo'];
         final int status = _parseInt(pkInfo['status']);
         final String startTimeStr = pkInfo['startTime'];
 
         setState(() {
-          _participants = pkInfo['participants'] as List; // 同步参与者头像和名字
-          // 🟢 核心补全：进入房间时，立即从 API 返回的数据中恢复当前分数
+          _participants = pkInfo['participants'] as List;
           if (_participants.isNotEmpty) {
-            // 在房间 B 中，_participants[0] 永远是房间 B 的主播
-            // 将左侧背景图更新为当前房间主播的个人 PK 背景
             _currentName = _participants[0]['name'] ?? _currentName;
             _currentAvatar = _participants[0]['avatar'] ?? _currentAvatar;
             _currentBgImage = _participants[0]['pkBg'] ?? _currentBgImage;
-            // 如果正在 PK，同步双方分数
             if (_participants.length >= 2) {
               _myPKScore = _parseInt(_participants[0]['score']);
               _opponentPKScore = _parseInt(_participants[1]['score']);
@@ -313,41 +306,32 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         final int elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
 
         if (status == 1) {
-          // 🟢 同步 PK 状态
           final int remaining = 90 - elapsedSeconds;
           if (remaining > 0) {
             _startPKRound(initialTimeLeft: remaining);
-            // 2. 🟢 新增：检查是否还在首翻 30秒 保护期内
-            // 假设首翻时间是 30 秒
+            // 🟢 进房同步：如果还在30秒内，开启首翻计时
             const int promoDuration = 30;
-
             if (elapsedSeconds < promoDuration) {
-              // 还在首翻时间内，恢复状态
               setState(() {
                 _isFirstGiftPromoActive = true;
-                _promoTimeLeft = promoDuration - elapsedSeconds; // 算出剩下的首翻时间
+                _promoTimeLeft = promoDuration - elapsedSeconds;
+                _usersWhoUsedPromo.clear(); // 注意：中途进房简单处理，默认清空或需从后端拉取已用列表
               });
-              // 启动首翻倒计时器
               _startPromoTimer();
             } else {
-              // 超过30秒了，确保关闭
               setState(() {
                 _isFirstGiftPromoActive = false;
-                _promoTimeLeft = 0;
               });
             }
           } else {
             _enterPunishmentPhase();
           }
         } else if (status == 2) {
-          // 🟡 同步惩罚状态
           final int remainingPunishment = 20 - (elapsedSeconds - 90);
           if (remainingPunishment > 0) {
             _enterPunishmentPhase(timeLeft: remainingPunishment);
           }
         } else if (status == 3) {
-          // 🔵 补全：同步连麦状态
-          // 连麦通常是持续进行的，计算从开始到现在已过去的时间
           DateTime startTime = DateTime.parse(startTimeStr);
           int totalElapsed = DateTime.now().difference(startTime).inSeconds;
           int coHostElapsed = totalElapsed - 90 - 20;
@@ -375,14 +359,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
       switch (type) {
         case "ENTER":
-          // data 是后端 LiveSocketHandler 广播出来的 JSON
-          final String joinerId = data['userId']?.toString() ?? "";
           final String joinerName = data['userName'] ?? "神秘人";
           final String joinerAvatar = data['avatar'] ?? "";
           final String joinerLevel = data['level']?.toString() ?? "1";
-          // 1. 在聊天列表显示进入消息
-          // _addSocketChatMessage("系统", "$joinerName 进入了直播间", Colors.grey);
-          // 2. 触发进场座驾/横幅动画
           _simulateVipEnter(overrideName: joinerName, overrideAvatar: joinerAvatar, overrideLevel: joinerLevel);
           break;
         case "CHAT":
@@ -390,12 +369,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           break;
         case "ONLINE_COUNT":
           final int newCount = data['onlineCount'] ?? 0;
-          if (mounted) {
-            setState(() {
-              _onlineCount = newCount;
-            });
-          }
-          break;
+          if (mounted) setState(() => _onlineCount = newCount);
           break;
         case "GIFT":
           final String giftId = data['giftId']?.toString() ?? "";
@@ -406,22 +380,25 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             }
           } catch (e) {}
           targetGift ??= GiftItemData(id: giftId, name: "未知礼物", price: 0, iconUrl: "...");
-          _processGiftEvent(targetGift, data['userName'] ?? "神秘人", data['avatar'] ?? "神秘人", isMe, count: data['giftCount'] ?? 1);
+
+          // 🟢 关键：Socket 接收时，传入发送者的 userId
+          _processGiftEvent(
+            targetGift,
+            data['userName'] ?? "神秘人",
+            data['avatar'] ?? "神秘人",
+            isMe,
+            senderId: msgUserId, // 👈 必须传 ID
+            count: data['giftCount'] ?? 1,
+          );
           break;
         case "PK_START":
-          _isFirstGiftPromoActive = true;
-          _promoTimeLeft = 30;
-          _startPromoTimer();
+          // 收到 PK 开始，重置一切
           _startPKRound();
-          // 重新拉取一次详情以更新参与者头像
           _fetchRoomDetailAndSyncState();
           break;
-        // 🟢 新增：监听到进入惩罚阶段广播
         case "PK_PUNISHMENT":
           if (!isMe) _enterPunishmentPhase();
           break;
-
-        // 🟢 新增：监听到进入连线阶段广播
         case "PK_COHOST":
           if (!isMe) _enterCoHostPhase(initialElapsedTime: 0);
           break;
@@ -481,18 +458,25 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _pkTimer = null;
     if (_pkStatus == PKStatus.playing && initialTimeLeft == null) return;
     if (initialTimeLeft == null) _playPKStartAnimation();
+
     setState(() {
       _pkStatus = PKStatus.playing;
       _pkTimeLeft = initialTimeLeft ?? 90;
+
       if (initialTimeLeft == null) {
         _myPKScore = 0;
         _opponentPKScore = 0;
+
+        // 🟢 开启首翻活动 (前30秒)
         _isFirstGiftPromoActive = true;
         _promoTimeLeft = 30;
+        // 🟢 清空已使用名单，所有人获得新一轮机会
+        _usersWhoUsedPromo.clear();
+
         _startPromoTimer();
       }
     });
-    _pkTimer?.cancel();
+
     _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       setState(() => _pkTimeLeft--);
@@ -507,19 +491,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     setState(() {
       _pkStatus = PKStatus.punishment;
       _pkTimeLeft = (timeLeft != null && timeLeft > 0) ? timeLeft : _punishmentDuration;
-      _isFirstGiftPromoActive = false;
+      _isFirstGiftPromoActive = false; // 确保惩罚期关闭活动
       _promoTimer?.cancel();
     });
-    // 🟢 房主逻辑：当自然进入惩罚期（非进场同步）时，通知后端并广播
     if (_isHost && timeLeft == null) {
       try {
-        // 1. 提交后端接口更新房间模式为 2 (惩罚中)
         await HttpUtil().post("/api/room/enter_punishment", data: {"roomId": int.parse(_roomId)});
-        // 2. 发布 WebSocket 广播
         _sendSocketMessage("PK_PUNISHMENT");
-      } catch (e) {
-        debugPrint("进入惩罚阶段同步失败: $e");
-      }
+      } catch (e) {}
     }
     _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
@@ -532,17 +511,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _pkTimer?.cancel();
     _enterCoHostPhase(initialElapsedTime: 0);
     try {
-      // 1. 提交后端接口更新房间模式为 3 (连麦/连线中)
       await HttpUtil().post("/api/pk/to_cohost", data: {"roomId": int.parse(_roomId)});
-      // 2. 发布 WebSocket 广播
-      // _sendSocketMessage("PK_COHOST");
-    } catch (e) {
-      debugPrint("进入连线阶段同步失败: $e");
-    }
+    } catch (e) {}
   }
 
   void _enterCoHostPhase({required int initialElapsedTime, DateTime? serverStartTime}) {
-    // 1. 彻底取消并清理旧计时器，防止多个计时器叠加导致数字乱跳
     _pkTimer?.cancel();
     _pkTimer = null;
 
@@ -553,31 +526,24 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       _promoTimer?.cancel();
     });
 
-    // 2. 🟢 核心逻辑：确定“连线开始”的那个绝对时间点（anchorTime）
     DateTime anchorTime;
     if (serverStartTime != null) {
-      // 粉丝进场：连线开始时间 = PK开始时间 + 90s(PK) + 20s(惩罚)
       anchorTime = serverStartTime.add(const Duration(seconds: 90 + 20));
     } else {
-      // 主播切换：连线开始时间 = 现在 - 已经流逝的时间
       anchorTime = DateTime.now().subtract(Duration(seconds: initialElapsedTime));
     }
 
-    // 3. 开启计时器，每秒计算一次差值
     _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
-
       if (_pkStatus == PKStatus.coHost) {
         setState(() {
-          // 🟢 绝对计算：当前时间 - 锚点时间
-          // difference 返回的是 Duration，.inSeconds 拿到总秒数
           _pkTimeLeft = DateTime.now().difference(anchorTime).inSeconds;
         });
       } else {
-        timer.cancel(); // 如果状态变了，停止这个计时器
+        timer.cancel();
       }
     });
   }
@@ -595,7 +561,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     HttpUtil().post("/api/pk/pk_end", data: {"roomId": int.parse(_roomId)});
   }
 
-  // 🟢 解决 image_091d54.png 报错：补全键盘和倒计时逻辑
   void _dismissKeyboard() {
     SystemChannels.textInput.invokeMethod('TextInput.hide');
     FocusManager.instance.primaryFocus?.unfocus();
@@ -661,14 +626,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 12, bottom: 20),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)),
-                ),
-              ),
               ListTile(
                 leading: const Icon(Icons.link_off, color: Colors.redAccent),
                 title: const Text("断开连线/PK", style: TextStyle(color: Colors.white)),
@@ -725,41 +682,92 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
-  void _processGiftEvent(GiftItemData giftData, String senderName, String senderAvatar, bool isMe, {int count = 1}) {
+  // 🟢 核心修改：处理礼物和分数 (包含 userId 逻辑)
+  void _processGiftEvent(GiftItemData giftData, String senderName, String senderAvatar, bool isMe, {required String senderId, int count = 1}) {
     final comboKey = "${senderName}_${giftData.name}";
     if (isMe) _lastGiftSent = giftData;
+
     setState(() {
       final existingIndex = _activeGifts.indexWhere((g) => g.comboKey == comboKey);
-      int finalCount = count;
       if (existingIndex != -1) {
         _activeGifts[existingIndex] = _activeGifts[existingIndex].copyWith(count: _activeGifts[existingIndex].count + count);
       } else {
         _processNewGift(
-          GiftEvent(senderName: senderName, senderAvatar: senderAvatar, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: finalCount),
+          GiftEvent(senderName: senderName, senderAvatar: senderAvatar, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: count),
         );
       }
-      _addGiftMessage(senderName, giftData.name, finalCount);
-      if (isMe && _pkStatus == PKStatus.playing) {
-        HttpUtil().post("/api/pk/update_score", data: {"roomId": int.parse(_roomId), "score": giftData.price * count});
+      _addGiftMessage(senderName, giftData.name, count);
+
+      // 🟢 PK 分数计算逻辑
+      if (_pkStatus == PKStatus.playing) {
+        int scoreToAdd = giftData.price * count;
+
+        // 🟢 首翻判定：时间有效 且 该 userId 未使用过
+        if (_isFirstGiftPromoActive && !_usersWhoUsedPromo.contains(senderId)) {
+          scoreToAdd = scoreToAdd * 2; // 分数翻倍
+          _usersWhoUsedPromo.add(senderId); // 记录该用户已使用，本局无效
+          // ⚠️ 倒计时继续，UI 会自动变更为“已达成”
+        }
+
+        if (isMe) {
+          _myPKScore += scoreToAdd;
+          // 上报分数
+          HttpUtil().post("/api/pk/update_score", data: {"roomId": int.parse(_roomId), "score": scoreToAdd});
+        } else {
+          // 如果是队友或自己主播加分逻辑，如果是PK对手则不应加到 _myPKScore
+          // 假设：Socket 的 PK_UPDATE 会做最终同步，这里只是为了即时动画效果
+          // 如果 _processGiftEvent 收到的是 对手 的礼物，应该加到 _opponentPKScore
+          // 简单判断：如果 senderId 是对手主播ID，或者当前房间是对手房间
+          // 这里简化处理：默认 socket 收到 GIFT 都是本房间的
+          _myPKScore += scoreToAdd;
+        }
       }
     });
+
     if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
       _addEffectToQueue(giftData.effectAsset!);
     }
     if (isMe) _triggerComboMode();
   }
 
-  void _sendGift(GiftItemData giftData) {
+  // 🟢 核心修改：发送礼物 + 扣费逻辑
+  Future<void> _sendGift(GiftItemData giftData) async {
     _dismissKeyboard();
     int countToSend = 1;
-    if (_pkStatus == PKStatus.playing && _isFirstGiftPromoActive) {
-      countToSend = 2;
-      setState(() {
-        _isFirstGiftPromoActive = false;
-        _promoTimer?.cancel();
-      });
+
+    // 1. 本地计算价格 (永远按1倍扣费)
+    int totalPrice = giftData.price * countToSend;
+
+    // 2. 检查余额
+    if (_myCoins < totalPrice) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("余额不足，请充值"), backgroundColor: Colors.red));
+      return;
     }
-    _sendSocketMessage("GIFT", giftId: giftData.id, giftCount: countToSend, userName: _myUserName, avatar: _myAvatar);
+
+    try {
+      // 3. 调接口扣费
+      final res = await HttpUtil().post("/api/gift/send", data: {"userId": int.parse(_myUserId), "giftId": giftData.id, "count": countToSend});
+
+      if (!mounted) return;
+
+      setState(() {
+        if (res != null && res['newBalance'] != null) {
+          _myCoins = _parseInt(res['newBalance']);
+        } else {
+          _myCoins -= totalPrice;
+        }
+        _balanceNotifier.value = _myCoins;
+      });
+
+      // 4. 发送 Socket (让所有人看到特效)
+      _sendSocketMessage("GIFT", giftId: giftData.id, giftCount: countToSend, userName: _myUserName, avatar: _myAvatar);
+
+      // 5. 本地触发特效和算分 (传入 myUserId)
+      // _processGiftEvent(giftData, _myUserName, _myAvatar, true, senderId: _myUserId, count: countToSend);
+    } catch (e) {
+      debugPrint("❌ 送礼失败: $e");
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("发送失败: $e")));
+    }
   }
 
   void _processNewGift(GiftEvent gift) {
@@ -871,13 +879,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       isScrollControlled: true,
       builder: (_) => GiftPanel(
         initialGiftList: _giftList,
+        myBalance: _myCoins, // 传递余额给面板
+        balanceNotifier: _balanceNotifier, // 🔥 传入 Notifier
         onSend: (gift) {
-          _dismissKeyboard();
           _sendGift(gift);
           Navigator.pop(context);
-          Future.delayed(const Duration(milliseconds: 50), () {
-            if (mounted) _dismissKeyboard();
-          });
         },
       ),
     );
@@ -889,23 +895,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _simulateVipEnter({String? overrideName, String? overrideAvatar, String? overrideLevel}) {
-    final names = ["顾北", "王校长", "阿特", "小柠檬", "榜一大哥", "神秘土豪"];
+    final names = ["顾北", "王校长", "阿特", "小柠檬"];
     final randomIdx = Random().nextInt(names.length);
     final name = overrideName ?? names[randomIdx];
-    final level = overrideLevel;
     final event = EntranceEvent(
-      userName: overrideName ?? "安静呀",
-      level: level ?? "41",
+      userName: name,
+      level: overrideLevel ?? "41",
       avatarUrl: overrideAvatar ?? "https://picsum.photos/seed/${888 + randomIdx}/200",
       frameUrl: "https://cdn-icons-png.flaticon.com/512/8313/8313626.png",
     );
     _entranceQueue.add(event);
     if (!_isEntranceBannerShowing) _playNextEntrance();
-    if (mounted) {
-      setState(() {
-        _messages.insert(0, ChatMessage(name: "", content: "$name 加入直播间！", level: 100, levelColor: const Color(0xFFFFD700)));
-      });
-    }
+    if (mounted) setState(() => _messages.insert(0, ChatMessage(name: "", content: "$name 加入直播间！", level: 100, levelColor: const Color(0xFFFFD700))));
   }
 
   void _playNextEntrance() async {
@@ -950,8 +951,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     final double pkVideoBottomY = padding.top + topBarHeight + gap1 + pkVideoHeight + 18;
     final double videoRatio = _videoAspectRatio ?? (9 / 16);
     double entranceTop = pkVideoBottomY + 4;
-    final bool showPromo = _isFirstGiftPromoActive && _pkStatus == PKStatus.playing;
-    if (showPromo) entranceTop += 22 + 4;
+
+    // 🟢 核心修改：Banner 显示条件
+    // 1. 在首翻时间内 (30s内)
+    // 2. 正在 PK
+    // 无论是否达成，都显示，只是文案和颜色不同
+    final bool showPromoBanner = _isFirstGiftPromoActive && _pkStatus == PKStatus.playing;
+
+    // 🟢 检查当前用户是否已达成 (使用 userId Set)
+    final bool iHaveUsedPromo = _usersWhoUsedPromo.contains(_myUserId);
+
+    if (showPromoBanner) entranceTop += 22 + 4;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -1092,15 +1102,16 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                             BuildInputBar(
                               textController: _textController,
                               onTapGift: _showGiftPanel,
-                              onSend: (text) =>
-                                  _sendSocketMessage("CHAT", content: text, userName: _myUserName, level: _myLevel),
+                              onSend: (text) => _sendSocketMessage("CHAT", content: text, userName: _myUserName, level: _myLevel),
                             ),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  if (showPromo)
+
+                  // 🟢 核心修改：首翻横幅
+                  if (showPromoBanner)
                     Positioned(
                       top: pkVideoBottomY + 4,
                       left: 0,
@@ -1110,19 +1121,19 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                           height: 22,
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Colors.white.withOpacity(0.15), Colors.pinkAccent.withOpacity(0.15)],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
+                            // 🟢 颜色区分：已达成(绿/teal)，未达成(粉/透明)
+                            gradient: iHaveUsedPromo
+                                ? LinearGradient(colors: [Colors.green.withOpacity(0.8), Colors.teal.withOpacity(0.8)])
+                                : LinearGradient(colors: [Colors.white.withOpacity(0.15), Colors.pinkAccent.withOpacity(0.5)]),
                             borderRadius: BorderRadius.circular(11),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
-                                "首送翻倍",
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                              // 🟢 文案区分
+                              Text(
+                                iHaveUsedPromo ? "首翻已达成" : "首送翻倍",
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -1134,6 +1145,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                         ),
                       ),
                     ),
+
                   Positioned(
                     top: entranceTop,
                     left: 0,
@@ -1401,12 +1413,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   @override
   void dispose() {
-    _isDisposed = true; // 🟢 必须加这行，彻底终止重连死循环
+    _isDisposed = true;
     WakelockPlus.disable();
-    // 🟢 1. 取消订阅
     _socketSubscription?.cancel();
     _channel?.sink.close();
-    _heartbeatTimer?.cancel(); // 🟢 销毁心跳
+    _heartbeatTimer?.cancel();
     _bgController?.dispose();
     try {
       AIMusicService().stopMusic();

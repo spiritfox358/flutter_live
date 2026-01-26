@@ -870,6 +870,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
       isScrollControlled: true,
       builder: (_) => GiftPanel(
         initialGiftList: _giftList,
+        myBalance: 10,
         onSend: (gift) {
           _dismissKeyboard();
           _sendGift(gift);

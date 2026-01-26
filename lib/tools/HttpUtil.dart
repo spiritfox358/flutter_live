@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_live/store/user_store.dart';
 
 class HttpUtil {
   // 单例模式
@@ -32,6 +33,8 @@ class HttpUtil {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
+          // 动态添加 Authorization header
+          options.headers['Authorization'] = "Bearer  ${UserStore.to.token}";
           debugPrint("请求发送: ${options.method} ${options.uri}");
           return handler.next(options);
         },
