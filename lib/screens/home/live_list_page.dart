@@ -121,7 +121,7 @@ class _LiveListPageState extends State<LiveListPage> {
   }
 
   Widget _buildListItem(AnchorInfo anchor) {
-    final bool isMyRoom = (UserStore.to.userId == "2039" && anchor.roomId == "1001");
+    final bool isMyRoom = (UserStore.to.userAccountId == "2039" && anchor.roomId == "1001");
 
     // 🟢 1. 状态文本与图标逻辑
     String modeText = "直播中";

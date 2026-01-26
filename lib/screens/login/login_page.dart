@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../main.dart';
 import '../../store/user_store.dart';
 import '../../tools/HttpUtil.dart';
 import '../home/live/real_live_page.dart';
@@ -32,7 +33,7 @@ class _LoginPageState extends State<LoginPage> {
       // 2. 获取数据
       String token = response['token'];
       Map<String, dynamic> userInfo = response['userInfo'];
-      String userId = userInfo['id'].toString(); // 注意转 String
+      String userId = userInfo['account_id'].toString(); // 注意转 String
       String userName = userInfo['nickname'];
       String avatar = userInfo['avatar'];
       await UserStore.to.setToken(token);
@@ -45,7 +46,7 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (context) => LiveListPage(),
+            builder: (context) => MainContainer(),
           ),
         );
       }

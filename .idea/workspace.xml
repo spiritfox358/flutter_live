@@ -5,28 +5,30 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/level_badge_widget.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/login/register_page.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/store/user_store.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/codeStyles/Project.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/index.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/index.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/course_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/active_user_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/active_user_top_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/grade_report_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/school_board_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/school_management_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/stats_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/student_leaderboard_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/student_personal_dashboard_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/teacher_stats_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard_tabs.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard_tabs2.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/doc_screen.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_banner_widget.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_banner_widget.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/gift_panel.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_panel.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/viewer_list.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_list.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_item.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_item.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_top_bar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_top_bar.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/single_mode_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/single_mode_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_panel.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_panel.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/login/login_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/login/login_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/me_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/me_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/store/user_store.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/store/user_store.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -204,7 +206,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769355658845</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1769420845733</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1769420845733</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -235,6 +245,11 @@
           <url>file://$PROJECT_DIR$/lib/tools/HttpUtil.dart</url>
           <line>56</line>
           <option name="timeStamp" value="70" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/store/user_store.dart</url>
+          <line>37</line>
+          <option name="timeStamp" value="81" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>

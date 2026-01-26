@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import '../../../store/user_store.dart';
 import 'animate_gift_item.dart';
 import 'models/live_models.dart';
 
-class AnimatedGiftBannerWidget extends State<AnimatedGiftItem>
-    with TickerProviderStateMixin {
+class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProviderStateMixin {
   late AnimationController _entryController;
   late AnimationController _comboController;
   late Animation<Offset> _slideAnimation;
@@ -19,26 +19,15 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem>
   @override
   void initState() {
     super.initState();
-    _entryController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 300),
-    );
-    _slideAnimation =
-        Tween<Offset>(begin: const Offset(-1.2, 0.0), end: Offset.zero).animate(
-          CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
-        );
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(_entryController);
+    _entryController = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(-1.2, 0.0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_entryController);
 
-    _comboController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-    );
-    _scaleAnimation = Tween<double>(begin: 1.3, end: 1.0).animate(
-      CurvedAnimation(parent: _comboController, curve: Curves.elasticOut),
-    );
+    _comboController = AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
+    _scaleAnimation = Tween<double>(begin: 1.3, end: 1.0).animate(CurvedAnimation(parent: _comboController, curve: Curves.elasticOut));
 
     _entryController.forward();
     _comboController.forward(from: 0.0);
@@ -75,10 +64,7 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem>
   Widget build(BuildContext context) {
     return SlideTransition(
       position: _slideAnimation,
-      child: FadeTransition(
-        opacity: _fadeAnimation,
-        child: _buildPremiumGiftBanner(widget.giftEvent),
-      ),
+      child: FadeTransition(opacity: _fadeAnimation, child: _buildPremiumGiftBanner(widget.giftEvent)),
     );
   }
 
@@ -108,25 +94,19 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem>
               ),
               borderRadius: BorderRadius.circular(18),
               // 边框稍微亮一点，增加质感
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 0.5,
-              ),
+              border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 // A. 头像
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 15,
                   backgroundColor: Colors.white24, // 头像加载前的底色
-                  backgroundImage: NetworkImage(
-                    'https://picsum.photos/seed/myAvatar/200',
-                  ),
+                  backgroundImage: NetworkImage(gift.senderAvatar),
                 ),
 
                 const SizedBox(width: 4),
-
                 // B. 文字信息
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,11 +114,7 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem>
                   children: [
                     Text(
                       gift.senderName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       "送出 ${gift.giftName}",
@@ -153,12 +129,7 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem>
                 const SizedBox(width: 4),
 
                 // C. 礼物图标
-                Image.network(
-                  gift.giftIconUrl,
-                  width: 30,
-                  height: 30,
-                  fit: BoxFit.contain,
-                ),
+                Image.network(gift.giftIconUrl, width: 30, height: 30, fit: BoxFit.contain),
               ],
             ),
           ),
@@ -176,22 +147,12 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem>
               children: [
                 const Text(
                   "x",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontStyle: FontStyle.italic,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
                 ),
                 const SizedBox(width: 2),
                 Text(
                   "${gift.count}",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    fontStyle: FontStyle.italic,
-                  ),
+                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic),
                 ),
               ],
             ),

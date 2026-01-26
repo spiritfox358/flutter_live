@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
+import 'package:flutter_live/store/user_store.dart';
 import 'package:video_player/video_player.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -69,8 +70,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final int _punishmentDuration = 20;
 
   WebSocketChannel? _channel;
+  StreamSubscription? _socketSubscription; // 🟢 新增：用于管理监听流
   late String _myUserName;
   late String _myUserId;
+  late int _myLevel;
   late String _myAvatar;
   late String _roomId;
   late int _onlineCount = 0;
@@ -143,6 +146,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     _myUserId = widget.userId;
     _myUserName = widget.userName;
+    _myLevel = widget.level;
     _myAvatar = widget.avatarUrl;
     _isHost = widget.isHost;
     _roomId = widget.roomId;
@@ -191,23 +195,28 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _connectWebSocket() {
     try {
+      // 🟢 1. 先取消旧的监听订阅 (关键修复)
+      _socketSubscription?.cancel();
+
+      // 2. 关闭旧的 sink (保持原样)
       _channel?.sink.close();
 
       _channel = WebSocketChannel.connect(Uri.parse(_wsUrl));
-      _channel!.stream.listen(
+
+      // 🟢 3. 将监听赋值给变量
+      _socketSubscription = _channel!.stream.listen(
         (message) => _handleSocketMessage(message),
-        // 🟢 监听连接错误
         onError: (error) {
           debugPrint("❌ WebSocket 报错: $error");
           _reconnect();
         },
-        // 🟢 监听连接断开 (服务器主动断开或网络中断)
         onDone: () {
           debugPrint("🔌 WebSocket 连接断开");
           _reconnect();
         },
       );
-      _sendSocketMessage("ENTER", content: "进入了直播间", userName: _myUserName, avatar: _myAvatar, level: "10");
+
+      _sendSocketMessage("ENTER", content: "进入了直播间", userName: _myUserName, avatar: _myAvatar, level: _myLevel);
       _startHeartbeat();
     } catch (e) {
       debugPrint("❌ WS连接失败");
@@ -255,10 +264,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     try {
       // 第一步：调用加入接口（数据库 online_count +1）
       await HttpUtil().post("/api/room/join", data: {"roomId": int.parse(_roomId)});
-
+      if (!mounted || _isDisposed) return;
       // 第二步：连接 WebSocket（建立实时监听）
       _connectWebSocket();
-
+      if (!mounted || _isDisposed) return; // 这里也建议加一个
       // 第三步：拉取房间详情（同步当前的 PK 画面和头像）
       _fetchRoomDetailAndSyncState();
     } catch (e) {
@@ -439,7 +448,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
   }
 
-  void _sendSocketMessage(String type, {String? content, String? giftId, int giftCount = 1, String? userName, String? avatar, String? level}) {
+  void _sendSocketMessage(String type, {String? content, String? giftId, int giftCount = 1, String? userName, String? avatar, int? level}) {
     if (_channel == null) return;
     final Map<String, dynamic> msg = {
       "type": type,
@@ -750,14 +759,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         _promoTimer?.cancel();
       });
     }
-    _sendSocketMessage("GIFT", giftId: giftData.id, giftCount: countToSend);
+    _sendSocketMessage("GIFT", giftId: giftData.id, giftCount: countToSend, userName: _myUserName, avatar: _myAvatar);
   }
 
   void _processNewGift(GiftEvent gift) {
-    if (_activeGifts.length < _maxActiveGifts)
+    if (_activeGifts.length < _maxActiveGifts) {
       _activeGifts.add(gift);
-    else
+    } else {
       _waitingQueue.add(gift);
+    }
   }
 
   void _onGiftFinished(String giftId) {
@@ -1072,17 +1082,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                     left: 0,
                     right: 0,
                     bottom: bottomInset > 0 ? bottomInset : padding.bottom,
-                    height: _pkStatus == PKStatus.idle ? 300 : (size.height - pkVideoBottomY),
+                    height: _pkStatus == PKStatus.idle ? 230 : (size.height - pkVideoBottomY - 30),
                     child: RepaintBoundary(
                       child: Container(
-                        color: bottomInset > 0 ? Colors.black87 : Colors.transparent,
+                        color: Colors.transparent,
                         child: Column(
                           children: [
                             Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
                             BuildInputBar(
                               textController: _textController,
                               onTapGift: _showGiftPanel,
-                              onSend: (text) => _sendSocketMessage("CHAT", content: text),
+                              onSend: (text) =>
+                                  _sendSocketMessage("CHAT", content: text, userName: _myUserName, level: _myLevel),
                             ),
                           ],
                         ),
@@ -1392,6 +1403,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   void dispose() {
     _isDisposed = true; // 🟢 必须加这行，彻底终止重连死循环
     WakelockPlus.disable();
+    // 🟢 1. 取消订阅
+    _socketSubscription?.cancel();
     _channel?.sink.close();
     _heartbeatTimer?.cancel(); // 🟢 销毁心跳
     _bgController?.dispose();

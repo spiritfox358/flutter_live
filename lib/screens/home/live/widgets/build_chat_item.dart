@@ -27,11 +27,11 @@ class BuildChatItem extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Container(padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1), child: LevelBadge(level: 73)),
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 4),
                     Text(
-                      msg.name,
+                      msg.name.isEmpty ? '' : "${msg.name}：",
                       // 🟢 如果是礼物消息，使用黄色，否则使用原来的颜色
-                      style: TextStyle(color: msg.isGift ? Colors.yellow : Colors.white.withOpacity(0.8), fontSize: 13, fontWeight: FontWeight.w500),
+                      style: TextStyle(color: Colors.lightBlueAccent, fontSize: 13, fontWeight: FontWeight.w500),
                     ),
                     Text(
                       msg.content,

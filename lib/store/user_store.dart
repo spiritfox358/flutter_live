@@ -49,6 +49,8 @@ class UserStore {
   // 便捷获取常用字段
   String get userId => profile?['id']?.toString() ?? "";
 
+  String get userAccountId => profile?['accountId']?.toString() ?? "";
+
   String get userName => profile?['nickname'] ?? "未知用户";
 
   String get avatar => profile?['avatar'] ?? "";

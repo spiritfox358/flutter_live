@@ -1,12 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_live/screens/dashboard_tabs.dart';
 import 'package:flutter_live/screens/home/live_list_page.dart';
-import 'package:flutter_live/screens/home/live_list_page1.dart';
-import 'package:flutter_live/screens/home/live/index.dart';
 import 'package:flutter_live/screens/login/login_page.dart';
 import 'package:flutter_live/store/user_store.dart';
-import 'screens/course_screen.dart';
-import 'screens/doc_screen.dart';
 import 'screens/me_screen.dart';
 
 void main() async {
@@ -71,7 +66,7 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      home: UserStore.to.isLogin ? const LiveListPage() : const LoginPage(),
+      home: UserStore.to.isLogin ? const MainContainer() : const LoginPage(),
     );
   }
 }
