@@ -189,7 +189,7 @@ class _LiveListPageState extends State<LiveListPage> {
           userId: UserStore.to.userId,
           userName: UserStore.to.userName,
           avatarUrl: UserStore.to.avatar,
-          level: UserStore.to.userLevel,
+          level: 0,
           isHost: isHost,
           roomId: anchor.roomId,
           initialRoomData: {

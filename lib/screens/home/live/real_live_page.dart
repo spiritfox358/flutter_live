@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
+import 'package:flutter_live/store/user_store.dart';
 import 'package:video_player/video_player.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -33,7 +34,7 @@ import 'gift_panel.dart';
 
 class EntranceEvent {
   final String userName;
-  final String level;
+  final int level;
   final String avatarUrl;
   final String? frameUrl;
 
@@ -74,8 +75,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late int _myLevel;
   late String _myAvatar;
   late String _roomId;
+  Timer? _effectWatchdog;
   late int _onlineCount = 0;
-  late bool _isHost;
+  late bool _isHost = false;
 
   // 🟢 新增：用户余额（用于扣费检查）
   int _myCoins = 0;
@@ -86,6 +88,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   bool _isBgInitialized = false;
   bool _isVideoBackground = false;
   String _currentBgImage = "";
+  int _currentUserId = 1;
   String _currentName = "";
   Timer? _heartbeatTimer;
   bool _isDisposed = false;
@@ -152,7 +155,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _myUserName = widget.userName;
     _myLevel = widget.level;
     _myAvatar = widget.avatarUrl;
-    _isHost = widget.isHost;
     _roomId = widget.roomId;
 
     _fetchGiftList();
@@ -280,7 +282,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       await HttpUtil().post("/api/room/join", data: {"roomId": int.parse(_roomId)});
 
       // 🟢 顺便拉取余额
-      _fetchUserBalance();
+      await _fetchUserBalance();
 
       if (!mounted || _isDisposed) return;
       _connectWebSocket();
@@ -357,6 +359,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         _currentAvatar = data['coverImg'] ?? _currentAvatar;
         _currentBgImage = data['personalPkBg'] ?? _currentBgImage;
       }
+      _currentUserId = data['anchorId'] ?? _currentUserId;
+      _isHost = _currentUserId.toString() == UserStore.to.userId;
     } catch (e) {
       debugPrint("❌ 同步房间详情失败: $e");
     }
@@ -376,11 +380,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         case "ENTER":
           final String joinerName = data['userName'] ?? "神秘人";
           final String joinerAvatar = data['avatar'] ?? "";
-          final String joinerLevel = data['level']?.toString() ?? "1";
+          final int joinerLevel = data['level'] ?? 1;
+
           _simulateVipEnter(overrideName: joinerName, overrideAvatar: joinerAvatar, overrideLevel: joinerLevel);
           break;
         case "CHAT":
-          _addSocketChatMessage(data['userName'] ?? "神秘人", data['content'] ?? "", isMe ? Colors.amber : Colors.white);
+          _addSocketChatMessage(data['userName'] ?? "神秘人", data['content'] ?? "", isMe ? Colors.amber : Colors.white, level: data["level"]);
           break;
         case "ONLINE_COUNT":
           final int newCount = data['onlineCount'] ?? 0;
@@ -401,6 +406,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             targetGift,
             data['userName'] ?? "神秘人",
             data['avatar'] ?? "神秘人",
+            senderLevel: data['level'] ?? 1,
             isMe,
             senderId: msgUserId, // 👈 必须传 ID
             count: data['giftCount'] ?? 1,
@@ -466,6 +472,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开启失败: $e")));
     }
+  }
+
+  void _startWatchdog(int seconds) {
+    _effectWatchdog?.cancel();
+    _effectWatchdog = Timer(Duration(seconds: seconds), () {
+      print("🐶 看门狗介入：特效播放超时或卡死，强制切歌");
+      _onEffectComplete(); // 强制结束
+    });
   }
 
   void _startPKRound({int? initialTimeLeft}) {
@@ -685,20 +699,31 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
-  void _addSocketChatMessage(String name, String content, Color color) {
+  void _addSocketChatMessage(String name, String content, Color color, {required int level}) {
     setState(() {
-      _messages.insert(0, ChatMessage(name: name, content: content, level: 99, levelColor: color, isGift: false));
+      _messages.insert(0, ChatMessage(name: name, content: content, level: level, levelColor: color, isGift: false));
     });
   }
 
-  void _addGiftMessage(String senderName, String giftName, int count) {
+  void _addGiftMessage(String senderName, String giftName, int count, {String senderAvatar = "", required int senderLevel}) {
     setState(
-      () => _messages.insert(0, ChatMessage(name: senderName, content: '送出了 $giftName x$count', level: 99, levelColor: Colors.yellow, isGift: true)),
+      () => _messages.insert(
+        0,
+        ChatMessage(name: senderName, content: '送出了 $giftName x$count', level: senderLevel, levelColor: Colors.yellow, isGift: true),
+      ),
     );
   }
 
   // 🟢 核心修改：处理礼物和分数 (包含 userId 逻辑)
-  void _processGiftEvent(GiftItemData giftData, String senderName, String senderAvatar, bool isMe, {required String senderId, int count = 1}) {
+  void _processGiftEvent(
+    GiftItemData giftData,
+    String senderName,
+    String senderAvatar,
+    bool isMe, {
+    required String senderId,
+    int count = 1,
+    int senderLevel = 1,
+  }) {
     final comboKey = "${senderName}_${giftData.name}";
     if (isMe) _lastGiftSent = giftData;
 
@@ -708,10 +733,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         _activeGifts[existingIndex] = _activeGifts[existingIndex].copyWith(count: _activeGifts[existingIndex].count + count);
       } else {
         _processNewGift(
-          GiftEvent(senderName: senderName, senderAvatar: senderAvatar, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: count),
+          GiftEvent(
+            senderName: senderName,
+            senderAvatar: senderAvatar,
+            giftName: giftData.name,
+            giftIconUrl: giftData.iconUrl,
+            count: count,
+            senderLevel: senderLevel,
+          ),
         );
       }
-      _addGiftMessage(senderName, giftData.name, count);
+      _addGiftMessage(senderName, giftData.name, count, senderLevel: senderLevel);
 
       // 🟢 PK 分数计算逻辑
       if (_pkStatus == PKStatus.playing) {
@@ -783,7 +815,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       });
 
       // 4. 发送 Socket (让所有人看到特效)
-      _sendSocketMessage("GIFT", giftId: giftData.id, giftCount: countToSend, userName: _myUserName, avatar: _myAvatar);
+      _sendSocketMessage("GIFT", giftId: giftData.id, giftCount: countToSend, userName: _myUserName, avatar: _myAvatar, level: _myLevel);
 
       // 5. 本地触发特效和算分 (传入 myUserId)
       // _processGiftEvent(giftData, _myUserName, _myAvatar, true, senderId: _myUserId, count: countToSend);
@@ -818,38 +850,111 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _onPlayerCreated(MyAlphaPlayerController controller) {
+    print("✅ 播放器视图已创建，控制器就绪"); // 建议加个日志看看有没有打印
     _alphaPlayerController = controller;
+
+    // 绑定回调（防止你在别的地方漏了绑定）
     _alphaPlayerController?.onFinish = _onEffectComplete;
     _alphaPlayerController?.onVideoSize = (width, height) {
-      if (width > 0 && height > 0 && mounted) setState(() => _videoAspectRatio = width / height);
+      if (width > 0 && height > 0 && mounted) {
+        setState(() => _videoAspectRatio = width / height);
+      }
     };
+
+    // 如果队列里有堆积的特效，且当前没有在播放，立即触发
+    if (_effectQueue.isNotEmpty && !_isEffectPlaying) {
+      _playNextEffect();
+    }
   }
 
   void _onEffectComplete() {
     if (!mounted) return;
-    _alphaPlayerController?.stop();
-    setState(() => _isEffectPlaying = false);
-    Future.delayed(const Duration(milliseconds: 50), _playNextEffect);
+
+    // 1. 关掉看门狗 (任务已完成，不需要狗叫了)
+    _effectWatchdog?.cancel();
+
+    // 2. 停止播放器
+    try {
+      _alphaPlayerController?.stop(); // 如果库支持 reset 或 stop
+    } catch (e) {}
+
+    // 3. 状态重置
+    setState(() {
+      _isEffectPlaying = false;
+    });
+
+    // 4. 递归播放下一个
+    // 稍微延迟一点点，给 UI 喘息机会，避免死循环爆栈
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) _playNextEffect();
+    });
   }
 
-  void _playNextEffect() async {
-    if (_effectQueue.isEmpty || _alphaPlayerController == null) return;
+  Future<void> _playNextEffect() async {
+    // 1. 队列检查
+    if (_effectQueue.isEmpty) return;
+
+    // 如果已经在播放，且控制器正常，则不打断
+    if (_isEffectPlaying && _alphaPlayerController != null) return;
+
     final url = _effectQueue.removeFirst();
     setState(() => _isEffectPlaying = true);
+
+    // ❌❌❌ 【删除这两行】不要在这里销毁控制器！
+    // try { _alphaPlayerController?.dispose(); } catch(e) {}
+    // _alphaPlayerController = null;
+    // ❌❌❌
+
+    // ✅ 【改为】先停止上一个（如果有的话），确保状态干净
     try {
-      String? localPath = await _downloadGiftFile(url);
-      if (localPath != null && mounted)
-        await _alphaPlayerController!.play(localPath);
-      else
+      await _alphaPlayerController?.stop();
+    } catch (e) {}
+
+    // 2. 启动看门狗 (防止下载或播放卡死)
+    _startWatchdog(17);
+
+    try {
+      // 3. 下载文件
+      String? localPath = await _downloadGiftFile(url).timeout(
+          const Duration(seconds: 8),
+          onTimeout: () => null
+      );
+
+      // 下载失败处理
+      if (localPath == null || !mounted) {
+        debugPrint("❌ 文件下载失败或页面已销毁，跳过");
         _onEffectComplete();
+        return;
+      }
+
+      // 4. 播放
+      if (mounted) {
+        // ✅ 此时 _alphaPlayerController 应该是在 initState 之后的 onCreated 里赋值好的
+        // 只要页面没销毁，它就不应该是 null
+        if (_alphaPlayerController != null) {
+          print("▶️ 开始播放特效: $localPath");
+          await _alphaPlayerController!.play(localPath);
+        } else {
+          // 如果这里还是 null，说明 onCreated 从来没执行过（View 没渲染出来）
+          print("⚠️ 播放器未就绪（onCreated未回调），跳过此特效");
+          _onEffectComplete();
+        }
+      }
+
     } catch (e) {
+      print("❌ 特效播放异常: $e");
       _onEffectComplete();
     }
   }
 
   void _addEffectToQueue(String url) {
     _effectQueue.add(url);
-    if (!_isEffectPlaying) _playNextEffect();
+    print("➕ 加入队列，当前队列长度: ${_effectQueue.length}, 正在播放: $_isEffectPlaying");
+
+    // 只有当前空闲时，才主动去推一下
+    if (!_isEffectPlaying) {
+      _playNextEffect();
+    }
   }
 
   Future<String?> _downloadGiftFile(String url) async {
@@ -917,20 +1022,20 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     showModalBottomSheet(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, builder: (_) => const MusicPanel());
   }
 
-  void _simulateVipEnter({String? overrideName, String? overrideAvatar, String? overrideLevel}) {
+  void _simulateVipEnter({String? overrideName, String? overrideAvatar, required int overrideLevel}) {
     final names = ["顾北", "王校长", "阿特", "小柠檬"];
     final randomIdx = Random().nextInt(names.length);
     final name = overrideName ?? names[randomIdx];
     final event = EntranceEvent(
       userName: name,
-      level: overrideLevel ?? "41",
+      level: overrideLevel,
       avatarUrl: overrideAvatar ?? "https://picsum.photos/seed/${888 + randomIdx}/200",
       frameUrl: "https://cdn-icons-png.flaticon.com/512/8313/8313626.png",
     );
     _entranceQueue.add(event);
     if (!_isEntranceBannerShowing) _playNextEntrance();
     if (mounted) {
-      setState(() => _messages.insert(0, ChatMessage(name: "", content: "$name 加入直播间！", level: 100, levelColor: const Color(0xFFFFD700))));
+      setState(() => _messages.insert(0, ChatMessage(name: "", content: "$name 加入直播间！", level: overrideLevel, levelColor: const Color(0xFFFFD700))));
     }
   }
 
@@ -1123,9 +1228,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                         color: Colors.transparent,
                         child: Column(
                           children: [
-                            Expanded(
-                              child: BuildChatList(bottomInset: 0, messages: _messages, userLevel: _myLevel),
-                            ),
+                            Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
                             BuildInputBar(
                               textController: _textController,
                               onTapGift: _showGiftPanel,
@@ -1195,7 +1298,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  LevelBadge(level: _myLevel),
+                                  LevelBadge(level: _currentEntranceEvent!.level),
                                   const SizedBox(width: 6),
                                   Text(
                                     "${_currentEntranceEvent!.userName} 加入了直播间",
@@ -1214,7 +1317,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                     bottom: -2,
                     child: IgnorePointer(
                       child: Opacity(
-                        opacity: _isEffectPlaying ? 1.0 : 0.0,
+                        opacity: _isEffectPlaying ? 1.0 : 0.01,
                         child: Align(
                           alignment: Alignment.bottomCenter,
                           child: SizedBox(
@@ -1441,6 +1544,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   @override
   void dispose() {
     _isDisposed = true;
+    _effectWatchdog?.cancel(); // 别忘了关狗
+    _alphaPlayerController?.dispose(); // ✅ 只有这里才能彻底销毁
     WakelockPlus.disable();
     _socketSubscription?.cancel();
     _channel?.sink.close();

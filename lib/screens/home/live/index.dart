@@ -103,7 +103,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
   bool _isRightVideoMode = false;
 
   final ValueNotifier<UserStatus> _userStatusNotifier = ValueNotifier(
-    UserStatus(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0"),
+    UserStatus(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0),
   );
 
   String _opponentBgImage = "";
@@ -743,7 +743,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
         _activeGifts[existingIndex] = updatedGift.copyWith(count: finalCount);
       } else {
         _processNewGift(
-          GiftEvent(senderName: senderName, senderAvatar: senderAvatar, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: finalCount),
+          GiftEvent(senderName: senderName, senderAvatar: senderAvatar, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: finalCount, senderLevel: 0),
         );
       }
       _addGiftMessage(senderName, giftData.name, finalCount);
@@ -1091,7 +1091,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
                         color: bottomInset > 0 ? Colors.black87 : Colors.transparent,
                         child: Column(
                           children: [
-                            Expanded(child: BuildChatList(bottomInset: 0, messages: _messages, userLevel: 0)),
+                            Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
                             BuildInputBar(
                               textController: _textController,
                               onTapGift: _showGiftPanel,

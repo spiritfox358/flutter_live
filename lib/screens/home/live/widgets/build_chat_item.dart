@@ -5,9 +5,8 @@ import '../models/live_models.dart';
 class BuildChatItem extends StatelessWidget {
   // 如果需要从外部传递数据，可以定义构造函数
   final ChatMessage msg;
-  final int userLevel;
 
-  const BuildChatItem({super.key, required this.msg, required this.userLevel});
+  const BuildChatItem({super.key, required this.msg});
 
   // 可选：添加 key 或其他参数
   @override
@@ -27,7 +26,7 @@ class BuildChatItem extends StatelessWidget {
                 child: Wrap(
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1), child: LevelBadge(level: userLevel)),
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1), child: LevelBadge(level: msg.level)),
                     const SizedBox(width: 4),
                     Text(
                       msg.name.isEmpty ? '' : "${msg.name}：",
