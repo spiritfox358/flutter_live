@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/models/user_models.dart';
+import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 import '../../../services/gift_api.dart'; // ⚠️ 请确认路径
 import 'gift_panel.dart';
 import 'models/live_models.dart';
@@ -122,23 +124,11 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
           Stack(
             alignment: Alignment.centerRight,
             children: [
-              Image.network(
-                "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/user_level/level_70.png",
-                height: 18,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => const SizedBox(width: 38, height: 38),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 3.0, top: 1),
-                child: Text(
-                  "73",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                    shadows: [Shadow(offset: Offset(1, 1), color: Colors.black26, blurRadius: 2)],
-                  ),
-                ),
+              ValueListenableBuilder<UserStatus>(
+                valueListenable: widget.userStatusNotifier,
+                builder: (context, value, child) {
+                  return LevelBadge(level: value.level);
+                },
               ),
             ],
           ),
@@ -149,15 +139,28 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
-                  child: LinearProgressIndicator(
-                    value: 0.35,
-                    minHeight: 6,
-                    backgroundColor: Colors.white.withOpacity(0.1),
-                    valueColor: const AlwaysStoppedAnimation(Color(0xFFEC407A)),
+                  child: ValueListenableBuilder<UserStatus>(
+                    valueListenable: widget.userStatusNotifier,
+                    builder: (context, value, child) {
+                      return LinearProgressIndicator(
+                        value:
+                            (value.coinsNextLevelThreshold - value.coinsToNextLevel - value.coinsCurrentLevelThreshold) /
+                            (value.coinsNextLevelThreshold - value.coinsCurrentLevelThreshold),
+                        minHeight: 6,
+                        backgroundColor: Colors.white.withOpacity(0.1),
+                        valueColor: const AlwaysStoppedAnimation(Color(0xFFEC407A)),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text("距离74级 还差 300.7万钻", style: TextStyle(color: Colors.white54, fontSize: 10)),
+                ValueListenableBuilder<UserStatus>(
+                  valueListenable: widget.userStatusNotifier,
+                  builder: (context, value, child) {
+                    int nextLevel = value.level + 1;
+                    return Text("距离$nextLevel级 还差 ${value.coinsToNextLevelText}钻", style: const TextStyle(color: Colors.white54, fontSize: 10));
+                  },
+                ),
               ],
             ),
           ),
@@ -223,21 +226,15 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(width: 6),
-                widget.balanceNotifier != null
-                    ? ValueListenableBuilder<int>(
-                        valueListenable: widget.balanceNotifier!,
-                        builder: (context, value, child) {
-                          return Text(
-                            value.toString(),
-                            style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
-                          );
-                        },
-                      )
-                    : Text(
-                        // 如果没有传入 notifier，显示静态传入的余额
-                        widget.myBalance.toString(),
-                        style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
-                      ),
+                ValueListenableBuilder<UserStatus>(
+                  valueListenable: widget.userStatusNotifier,
+                  builder: (context, value, child) {
+                    return Text(
+                      value.coin.toString(),
+                      style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                    );
+                  },
+                ),
                 const SizedBox(width: 2),
                 const Icon(Icons.chevron_right, color: Colors.white54, size: 16),
               ],

@@ -5,10 +5,12 @@ import 'build_chat_item.dart';
 class BuildChatList extends StatelessWidget {
   // 如果需要从外部传递数据，可以定义构造函数
   final double bottomInset;
+  final int userLevel;
   final List<ChatMessage> messages;
 
   const BuildChatList({
     super.key,
+    required this.userLevel,
     required this.bottomInset,
     required this.messages,
   });
@@ -41,7 +43,7 @@ class BuildChatList extends StatelessWidget {
             reverse: true,
             itemCount: messages.length,
             itemBuilder: (context, index) =>
-                BuildChatItem(msg: messages[index]),
+                BuildChatItem(msg: messages[index],userLevel: userLevel,),
           ),
         ),
       ),

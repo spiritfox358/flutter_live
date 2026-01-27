@@ -15,6 +15,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 // 假设你的路径结构如下，请根据实际情况调整
+import '../../../models/user_models.dart';
 import '../../../services/gift_api.dart';
 import '../../../services/ai_music_service.dart';
 import '../../../tools/HttpUtil.dart';
@@ -138,7 +139,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final Queue<EntranceEvent> _entranceQueue = Queue();
   bool _isEntranceBannerShowing = false;
   EntranceEvent? _currentEntranceEvent;
-  final ValueNotifier<int> _balanceNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<UserStatus> _userStatusNotifier = ValueNotifier(
+    UserStatus(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0),
+  );
 
   @override
   void initState() {
@@ -200,7 +203,19 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       if (mounted && res != null) {
         setState(() {
           _myCoins = _parseInt(res['coin']);
-          _balanceNotifier.value = _myCoins;
+          _myLevel = _parseInt(res['level']);
+          int coinsToNextLevel = res['coinsToNextLevel'];
+          int coinsNextLevelThreshold = res['coinsNextLevelThreshold'];
+          String coinsToNextLevelText = res['coinsToNextLevelText'];
+          int coinsCurrentLevelThreshold = res['coinsCurrentLevelThreshold'];
+          _userStatusNotifier.value = UserStatus(
+            _myCoins,
+            _myLevel,
+            coinsToNextLevel: coinsToNextLevel,
+            coinsNextLevelThreshold: coinsNextLevelThreshold,
+            coinsToNextLevelText: coinsToNextLevelText,
+            coinsCurrentLevelThreshold: coinsCurrentLevelThreshold,
+          );
         });
       }
     } catch (e) {
@@ -753,10 +768,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       setState(() {
         if (res != null && res['newBalance'] != null) {
           _myCoins = _parseInt(res['newBalance']);
+          _myLevel = _parseInt(res['newLevel']);
         } else {
           _myCoins -= totalPrice;
         }
-        _balanceNotifier.value = _myCoins;
+        _userStatusNotifier.value = UserStatus(
+          _myCoins,
+          _myLevel,
+          coinsToNextLevel: _parseInt(res['coinsToNextLevel']),
+          coinsToNextLevelText: res['coinsToNextLevelText'],
+          coinsNextLevelThreshold: _parseInt(res['coinsNextLevelThreshold']),
+          coinsCurrentLevelThreshold: _parseInt(res['coinsCurrentLevelThreshold']),
+        );
       });
 
       // 4. 发送 Socket (让所有人看到特效)
@@ -880,7 +903,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       builder: (_) => GiftPanel(
         initialGiftList: _giftList,
         myBalance: _myCoins, // 传递余额给面板
-        balanceNotifier: _balanceNotifier, // 🔥 传入 Notifier
+        userStatusNotifier: _userStatusNotifier, // 🔥 传入 Notifier
         onSend: (gift) {
           _sendGift(gift);
           Navigator.pop(context);
@@ -906,7 +929,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
     _entranceQueue.add(event);
     if (!_isEntranceBannerShowing) _playNextEntrance();
-    if (mounted) setState(() => _messages.insert(0, ChatMessage(name: "", content: "$name 加入直播间！", level: 100, levelColor: const Color(0xFFFFD700))));
+    if (mounted) {
+      setState(() => _messages.insert(0, ChatMessage(name: "", content: "$name 加入直播间！", level: 100, levelColor: const Color(0xFFFFD700))));
+    }
   }
 
   void _playNextEntrance() async {
@@ -1098,7 +1123,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                         color: Colors.transparent,
                         child: Column(
                           children: [
-                            Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
+                            Expanded(
+                              child: BuildChatList(bottomInset: 0, messages: _messages, userLevel: _myLevel),
+                            ),
                             BuildInputBar(
                               textController: _textController,
                               onTapGift: _showGiftPanel,
@@ -1168,7 +1195,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  LevelBadge(level: 73),
+                                  LevelBadge(level: _myLevel),
                                   const SizedBox(width: 6),
                                   Text(
                                     "${_currentEntranceEvent!.userName} 加入了直播间",

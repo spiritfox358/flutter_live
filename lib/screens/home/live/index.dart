@@ -6,6 +6,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_live/models/user_models.dart';
 import 'package:video_player/video_player.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
@@ -100,6 +101,10 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
   final List<VideoPlayerController> _allBossControllers = [];
   VideoPlayerController? _aiVideoController;
   bool _isRightVideoMode = false;
+
+  final ValueNotifier<UserStatus> _userStatusNotifier = ValueNotifier(
+    UserStatus(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0"),
+  );
 
   String _opponentBgImage = "";
   bool _isAIThinking = false;
@@ -878,7 +883,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
           Future.delayed(const Duration(milliseconds: 50), () {
             if (mounted) _dismissKeyboard();
           });
-        },
+        },  userStatusNotifier: _userStatusNotifier,
       ),
     );
   }
@@ -1086,7 +1091,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
                         color: bottomInset > 0 ? Colors.black87 : Colors.transparent,
                         child: Column(
                           children: [
-                            Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
+                            Expanded(child: BuildChatList(bottomInset: 0, messages: _messages, userLevel: 0)),
                             BuildInputBar(
                               textController: _textController,
                               onTapGift: _showGiftPanel,
