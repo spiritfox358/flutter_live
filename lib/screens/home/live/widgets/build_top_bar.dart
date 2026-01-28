@@ -35,7 +35,6 @@ class BuildTopBar extends StatelessWidget {
             const Spacer(),
             ViewerList(roomId: roomId, onlineCount: onlineCount),
             const SizedBox(width: 8),
-
             // 🟢 3. 包裹 GestureDetector 添加点击事件
             GestureDetector(
               onTap: onClose, // 绑定回调

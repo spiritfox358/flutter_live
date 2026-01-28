@@ -66,6 +66,8 @@ class RealLivePage extends StatefulWidget {
 }
 
 class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMixin {
+  // PK时长配置
+  int _pkDuration = 90; // 默认为90秒，后续根据选择或接口动态更新
   final int _punishmentDuration = 20;
 
   WebSocketChannel? _channel;
@@ -94,8 +96,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   bool _isDisposed = false;
   String _currentAvatar = "";
   final List<String> _bgImageUrls = [
-    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.png",
-    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_2.png",
+    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.jpg",
+    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_2.jpg",
   ];
 
   PKStatus _pkStatus = PKStatus.idle;
@@ -233,7 +235,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       _channel = WebSocketChannel.connect(Uri.parse(_wsUrl));
 
       _socketSubscription = _channel!.stream.listen(
-        (message) => _handleSocketMessage(message),
+            (message) => _handleSocketMessage(message),
         onError: (error) {
           debugPrint("❌ WebSocket 报错: $error");
           _reconnect();
@@ -306,6 +308,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         final int status = _parseInt(pkInfo['status']);
         final String startTimeStr = pkInfo['startTime'];
 
+        // 🟢 同步 PK 时长 (如果没有返回则默认90)
+        _pkDuration = _parseInt(pkInfo['duration'], defaultValue: 90);
+
         setState(() {
           _participants = pkInfo['participants'] as List;
           if (_participants.isNotEmpty) {
@@ -323,7 +328,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         final int elapsedSeconds = DateTime.now().difference(startTime).inSeconds;
 
         if (status == 1) {
-          final int remaining = 90 - elapsedSeconds;
+          // ⚠️ 使用 _pkDuration 计算剩余时间
+          final int remaining = _pkDuration - elapsedSeconds;
           if (remaining > 0) {
             _startPKRound(initialTimeLeft: remaining);
             // 🟢 进房同步：如果还在30秒内，开启首翻计时
@@ -344,14 +350,16 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _enterPunishmentPhase();
           }
         } else if (status == 2) {
-          final int remainingPunishment = 20 - (elapsedSeconds - 90);
+          // ⚠️ 惩罚阶段剩余时间：惩罚时长 - (经过时间 - PK时长)
+          final int remainingPunishment = _punishmentDuration - (elapsedSeconds - _pkDuration);
           if (remainingPunishment > 0) {
             _enterPunishmentPhase(timeLeft: remainingPunishment);
           }
         } else if (status == 3) {
           DateTime startTime = DateTime.parse(startTimeStr);
           int totalElapsed = DateTime.now().difference(startTime).inSeconds;
-          int coHostElapsed = totalElapsed - 90 - 20;
+          // ⚠️ 连麦阶段经过时间：总时间 - PK时长 - 惩罚时长
+          int coHostElapsed = totalElapsed - _pkDuration - _punishmentDuration;
           _enterCoHostPhase(initialElapsedTime: coHostElapsed > 0 ? coHostElapsed : 0, serverStartTime: startTime);
         }
       } else {
@@ -413,7 +421,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           );
           break;
         case "PK_START":
-          // 收到 PK 开始，重置一切
+        // 收到 PK 开始，如果有时长数据最好同步一下，否则可能默认90
+        // 建议：Socket 消息体里也带上 duration
+          if (data['duration'] != null) {
+            _pkDuration = _parseInt(data['duration']);
+          }
           _startPKRound();
           _fetchRoomDetailAndSyncState();
           break;
@@ -464,13 +476,86 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     } catch (e) {}
   }
 
-  void _onTapStartPK() async {
+  // 🟢 修改点：点击发起PK，弹出时长选择
+  void _onTapStartPK() {
     _dismissKeyboard();
     if (_pkStatus != PKStatus.idle || !_isHost) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 20,left: 20,right: 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 16),
+                child: const Text(
+                  "选择PK时长",
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              // 第一条分割线
+              const Divider(color: Colors.white10, height: 1),
+
+              _buildDurationOption("2分钟", 120),
+              const Divider(color: Colors.white10, height: 1), // 选项间的网格线
+
+              _buildDurationOption("5分钟", 300),
+              const Divider(color: Colors.white10, height: 1), // 选项间的网格线
+
+              _buildDurationOption("10分钟", 600),
+              const Divider(color: Colors.white10, height: 1), // 选项间的网格线
+
+              _buildDurationOption("15分钟", 900),
+              const Divider(color: Colors.white10, height: 1), // 最后一条网格线
+
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("取消", style: TextStyle(color: Colors.white54)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDurationOption(String label, int seconds) {
+    return ListTile(
+      // ⬇️ 增加垂直内边距，让每一项高度变高
+      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+      title: Text(
+          label,
+          // ⬇️ 文字居中
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontSize: 16)
+      ),
+      // ⬇️ 移除右侧箭头 (trailing)
+      trailing: null,
+      onTap: () {
+        Navigator.pop(context);
+        _startPKWithDuration(seconds);
+      },
+    );
+  }
+
+  // 🟢 真正的发起逻辑
+  void _startPKWithDuration(int duration) async {
+    setState(() {
+      _pkDuration = duration;
+    });
     try {
-      await HttpUtil().post("/api/pk/start", data: {"roomId": int.parse(_roomId), "duration": 90});
+      await HttpUtil().post("/api/pk/start", data: {"roomId": int.parse(_roomId), "duration": duration});
+      // 成功后，_handleSocketMessage 会收到 PK_START，或者直接在这里调用 _startPKRound
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开启失败: $e")));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开启失败: $e")));
     }
   }
 
@@ -490,7 +575,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     setState(() {
       _pkStatus = PKStatus.playing;
-      _pkTimeLeft = initialTimeLeft ?? 90;
+      // ⚠️ 使用 _pkDuration
+      _pkTimeLeft = initialTimeLeft ?? _pkDuration;
 
       if (initialTimeLeft == null) {
         _myPKScore = 0;
@@ -557,7 +643,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     DateTime anchorTime;
     if (serverStartTime != null) {
-      anchorTime = serverStartTime.add(const Duration(seconds: 90 + 20));
+      // ⚠️ 服务端开始时间 + PK时长 + 惩罚时长 = 连麦开始时间
+      anchorTime = serverStartTime.add(Duration(seconds: _pkDuration + _punishmentDuration));
     } else {
       anchorTime = DateTime.now().subtract(Duration(seconds: initialElapsedTime));
     }
@@ -707,7 +794,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _addGiftMessage(String senderName, String giftName, int count, {String senderAvatar = "", required int senderLevel}) {
     setState(
-      () => _messages.insert(
+          () => _messages.insert(
         0,
         ChatMessage(name: senderName, content: '送出了 $giftName x$count', level: senderLevel, levelColor: Colors.yellow, isGift: true),
       ),
@@ -716,14 +803,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   // 🟢 核心修改：处理礼物和分数 (包含 userId 逻辑)
   void _processGiftEvent(
-    GiftItemData giftData,
-    String senderName,
-    String senderAvatar,
-    bool isMe, {
-    required String senderId,
-    int count = 1,
-    int senderLevel = 1,
-  }) {
+      GiftItemData giftData,
+      String senderName,
+      String senderAvatar,
+      bool isMe, {
+        required String senderId,
+        int count = 1,
+        int senderLevel = 1,
+      }) {
     final comboKey = "${senderName}_${giftData.name}";
     if (isMe) _lastGiftSent = giftData;
 
@@ -1119,105 +1206,106 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                     ),
                   _pkStatus == PKStatus.idle
                       ? SingleModeView(
+                    roomId: _roomId,
+                    onlineCount: _onlineCount,
+                    isVideoBackground: _isVideoBackground,
+                    isBgInitialized: _isBgInitialized,
+                    bgController: _bgController,
+                    currentBgImage: _currentBgImage,
+                    title: "直播间",
+                    name: _currentName,
+                    avatar: _currentAvatar,
+                    onClose: _handleCloseButton,
+                  )
+                      : Column(
+                    children: [
+                      Container(
+                        margin: EdgeInsets.only(top: padding.top),
+                        height: topBarHeight,
+                        child: BuildTopBar(
                           roomId: _roomId,
                           onlineCount: _onlineCount,
-                          isVideoBackground: _isVideoBackground,
-                          isBgInitialized: _isBgInitialized,
-                          bgController: _bgController,
-                          currentBgImage: _currentBgImage,
                           title: "直播间",
                           name: _currentName,
                           avatar: _currentAvatar,
                           onClose: _handleCloseButton,
-                        )
-                      : Column(
+                        ),
+                      ),
+                      SizedBox(height: gap1),
+                      SizedBox(
+                        height: pkVideoHeight + 18,
+                        width: size.width,
+                        child: Stack(
                           children: [
-                            Container(
-                              margin: EdgeInsets.only(top: padding.top),
-                              height: topBarHeight,
-                              child: BuildTopBar(
-                                roomId: _roomId,
-                                onlineCount: _onlineCount,
-                                title: "直播间",
-                                name: _currentName,
-                                avatar: _currentAvatar,
-                                onClose: _handleCloseButton,
+                            Positioned(
+                              top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: PKRealBattleView(
+                                leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
+                                leftBgImage: _isVideoBackground ? null : _currentBgImage,
+                                rightAvatarUrl: _participants.length > 1 ? _participants[1]['avatar'] : "https://picsum.photos/200",
+                                rightName: _participants.length > 1 ? _participants[1]['name'] : "对手主播",
+                                rightBgImage: _participants.length > 1 ? (_participants[1]['pkBg'] ?? "") : "",
+                                pkStatus: _pkStatus,
+                                myScore: _myPKScore,
+                                opponentScore: _opponentPKScore,
+                                onTapOpponent: _switchToOpponentRoom,
+                                isOpponentSpeaking: true,
                               ),
                             ),
-                            SizedBox(height: gap1),
-                            SizedBox(
-                              height: pkVideoHeight + 18,
-                              width: size.width,
-                              child: Stack(
+                            if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: PKScoreBar(
+                                  myScore: _myPKScore,
+                                  opponentScore: _opponentPKScore,
+                                  status: _pkStatus,
+                                  secondsLeft: _pkTimeLeft,
+                                ),
+                              ),
+                            Positioned(
+                              top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
+                              left: 0,
+                              right: 0,
+                              child: Center(
+                                child: PKTimer(
+                                  secondsLeft: _pkTimeLeft,
+                                  status: _pkStatus,
+                                  myScore: _myPKScore,
+                                  opponentScore: _opponentPKScore,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              right: 10,
+                              bottom: 10,
+                              child: Column(
                                 children: [
-                                  Positioned(
-                                    top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
-                                    left: 0,
-                                    right: 0,
-                                    bottom: 0,
-                                    child: PKRealBattleView(
-                                      leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
-                                      leftBgImage: _isVideoBackground ? null : _currentBgImage,
-                                      rightAvatarUrl: _participants.length > 1 ? _participants[1]['avatar'] : "https://picsum.photos/200",
-                                      rightName: _participants.length > 1 ? _participants[1]['name'] : "对手主播",
-                                      rightBgImage: _participants.length > 1 ? (_participants[1]['pkBg'] ?? "") : "",
-                                      pkStatus: _pkStatus,
-                                      myScore: _myPKScore,
-                                      opponentScore: _opponentPKScore,
-                                      onTapOpponent: _switchToOpponentRoom,
-                                    ),
+                                  _buildCircleBtn(
+                                    onTap: _showMusicPanel,
+                                    icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
+                                    borderColor: Colors.purpleAccent,
+                                    label: "点歌",
                                   ),
-                                  if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
-                                    Positioned(
-                                      top: 0,
-                                      left: 0,
-                                      right: 0,
-                                      child: PKScoreBar(
-                                        myScore: _myPKScore,
-                                        opponentScore: _opponentPKScore,
-                                        status: _pkStatus,
-                                        secondsLeft: _pkTimeLeft,
-                                      ),
-                                    ),
-                                  Positioned(
-                                    top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
-                                    left: 0,
-                                    right: 0,
-                                    child: Center(
-                                      child: PKTimer(
-                                        secondsLeft: _pkTimeLeft,
-                                        status: _pkStatus,
-                                        myScore: _myPKScore,
-                                        opponentScore: _opponentPKScore,
-                                      ),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    right: 10,
-                                    bottom: 10,
-                                    child: Column(
-                                      children: [
-                                        _buildCircleBtn(
-                                          onTap: _showMusicPanel,
-                                          icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
-                                          borderColor: Colors.purpleAccent,
-                                          label: "点歌",
-                                        ),
-                                        const SizedBox(height: 10),
-                                        _buildCircleBtn(
-                                          onTap: _toggleBackgroundMode,
-                                          icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20),
-                                          borderColor: Colors.cyanAccent,
-                                          label: "背景",
-                                        ),
-                                      ],
-                                    ),
+                                  const SizedBox(height: 10),
+                                  _buildCircleBtn(
+                                    onTap: _toggleBackgroundMode,
+                                    icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20),
+                                    borderColor: Colors.cyanAccent,
+                                    label: "背景",
                                   ),
                                 ],
                               ),
                             ),
                           ],
                         ),
+                      ),
+                    ],
+                  ),
                   Positioned(
                     left: 0,
                     right: 0,
@@ -1283,31 +1371,31 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                       position: _welcomeBannerAnimation,
                       child: _currentEntranceEvent != null
                           ? Container(
-                              margin: const EdgeInsets.only(left: 5),
-                              height: 25,
-                              padding: const EdgeInsets.symmetric(horizontal: 5),
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                ),
-                                borderRadius: BorderRadius.circular(12.5),
-                                border: Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  LevelBadge(level: _currentEntranceEvent!.level),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    "${_currentEntranceEvent!.userName} 加入了直播间",
-                                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500, height: 1.1),
-                                  ),
-                                  const SizedBox(width: 10),
-                                ],
-                              ),
-                            )
+                        margin: const EdgeInsets.only(left: 5),
+                        height: 25,
+                        padding: const EdgeInsets.symmetric(horizontal: 5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12.5),
+                          border: Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            LevelBadge(level: _currentEntranceEvent!.level),
+                            const SizedBox(width: 6),
+                            Text(
+                              "${_currentEntranceEvent!.userName} 加入了直播间",
+                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500, height: 1.1),
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                        ),
+                      )
                           : const SizedBox(),
                     ),
                   ),
@@ -1347,11 +1435,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                               children: _activeGifts
                                   .map(
                                     (giftEvent) => AnimatedGiftItem(
-                                      key: ValueKey(giftEvent.id),
-                                      giftEvent: giftEvent,
-                                      onFinished: () => _onGiftFinished(giftEvent.id),
-                                    ),
-                                  )
+                                  key: ValueKey(giftEvent.id),
+                                  giftEvent: giftEvent,
+                                  onFinished: () => _onGiftFinished(giftEvent.id),
+                                ),
+                              )
                                   .toList(),
                             ),
                           ),

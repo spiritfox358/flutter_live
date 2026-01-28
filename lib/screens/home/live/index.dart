@@ -86,8 +86,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
   bool _isVideoBackground = false;
   String _currentBgImage = "";
   final List<String> _bgImageUrls = [
-    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.png",
-    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_2.png",
+    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.jpg",
+    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_2.jpg",
   ];
 
   PKStatus _pkStatus = PKStatus.idle;

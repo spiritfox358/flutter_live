@@ -19,6 +19,9 @@ class PKRealBattleView extends StatefulWidget {
   final int myScore;
   final int opponentScore;
 
+  // 新增：说话波纹控制 (默认为 true)
+  final bool isOpponentSpeaking;
+
   // 点击回调
   final VoidCallback? onTapOpponent;
 
@@ -32,6 +35,7 @@ class PKRealBattleView extends StatefulWidget {
     required this.pkStatus,
     required this.myScore,
     required this.opponentScore,
+    this.isOpponentSpeaking = true,
     this.onTapOpponent,
   });
 
@@ -39,16 +43,22 @@ class PKRealBattleView extends StatefulWidget {
   State<PKRealBattleView> createState() => _PKRealBattleViewState();
 }
 
-class _PKRealBattleViewState extends State<PKRealBattleView> with SingleTickerProviderStateMixin {
+class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProviderStateMixin {
   late AnimationController _rotateController;
+  late AnimationController _waveController;
 
   @override
   void initState() {
     super.initState();
-    // 保留您原有的旋转动画逻辑
     _rotateController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 12),
+    )..repeat();
+
+    // 波纹动画
+    _waveController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
     )..repeat();
 
     if (widget.pkStatus == PKStatus.playing) {
@@ -77,13 +87,14 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with SingleTickerPr
   @override
   void dispose() {
     _rotateController.dispose();
+    _waveController.dispose();
     _safeStopMusic();
     super.dispose();
   }
 
   void _safePlayMusic() {
     try {
-      AIMusicService().playRandomBattleMusic();
+      AIMusicService().playRandomBgm();
     } catch (e) {
       debugPrint("播放音乐失败: $e");
     }
@@ -104,7 +115,7 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with SingleTickerPr
 
     return Row(
       children: [
-        // --- 左侧：我方 (主视角) ---
+        // --- 左侧：我方 ---
         Expanded(
           flex: 1,
           child: Container(
@@ -141,23 +152,18 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with SingleTickerPr
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // 对手背景图
                   Image.network(
                     widget.rightBgImage,
                     fit: BoxFit.cover,
                     errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
                   ),
-
-                  // 对手层级覆盖
                   Stack(
                     fit: StackFit.expand,
                     children: [
                       Container(color: Colors.black.withOpacity(0.6)),
-                      _buildRightAvatarContent(), // 构建对手旋转头像
+                      _buildRightAvatarContent(),
                     ],
                   ),
-
-                  // 惩罚阶段的置灰滤镜逻辑
                   if (isPunishment && isLeftWin)
                     BackdropFilter(
                       filter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
@@ -172,52 +178,98 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with SingleTickerPr
     );
   }
 
-  // 构建右侧：旋转头像模式 (适配真人)
   Widget _buildRightAvatarContent() {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          RotationTransition(
-            turns: _rotateController,
-            child: Container(
-              width: 100, height: 100,
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                    colors: [Color(0xFFFF0080), Color(0xFFFF8C00)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight
-                ),
-                boxShadow: [
-                  BoxShadow(color: const Color(0xFFFF4081).withOpacity(0.5), blurRadius: 20, spreadRadius: 5)
+          // ⬇️ 修改：尺寸从 200 缩小到 140，刚刚好包裹住波纹即可
+          SizedBox(
+            width: 140,
+            height: 140,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                if (widget.isOpponentSpeaking) ...[
+                  _buildFixedWave(delay: 0.0),
+                  _buildFixedWave(delay: 0.5),
                 ],
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
-                  image: DecorationImage(
-                    image: NetworkImage(widget.rightAvatarUrl), // 使用真人对手头像
-                    fit: BoxFit.cover,
+
+                RotationTransition(
+                  turns: _rotateController,
+                  child: Container(
+                    width: 100, height: 100,
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                          colors: [Color(0xFFFF0080), Color(0xFFFF8C00)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight
+                      ),
+                      boxShadow: [
+                        BoxShadow(color: const Color(0xFFFF4081).withOpacity(0.5), blurRadius: 20, spreadRadius: 5)
+                      ],
+                    ),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                        image: DecorationImage(
+                          image: NetworkImage(widget.rightAvatarUrl),
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          // 对手名字标签
+
+          const SizedBox(height: 0),
+
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10)),
             child: Text(
-              widget.rightName, // 使用真人对手名字
+              widget.rightName,
               style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // ⬇️ 修改：微调波纹参数，使其更精致
+  Widget _buildFixedWave({required double delay}) {
+    return AnimatedBuilder(
+      animation: _waveController,
+      builder: (context, child) {
+        final double t = (_waveController.value + delay) % 1.0;
+
+        // 1. 范围缩小：只向外扩散 35px (100 -> 135)
+        final double currentSize = 100 + (35 * t);
+
+        // 2. 透明度降低：最大透明度 0.5，更隐约
+        final double opacity = (1.0 - t).clamp(0.0, 0.5);
+
+        // 3. 线条变细：从 2.0 开始变细
+        final double borderWidth = 2.0 * (1.0 - t);
+
+        return Container(
+          width: currentSize,
+          height: currentSize,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: const Color(0xFFFF0080).withOpacity(opacity),
+              width: borderWidth > 0 ? borderWidth : 0,
+            ),
+          ),
+        );
+      },
     );
   }
 

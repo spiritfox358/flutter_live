@@ -46,7 +46,7 @@ class AnchorInfo {
     return AnchorInfo(
       roomId: json['id'].toString(),
       name: json['title'] ?? "未知主播",
-      avatarUrl: json['coverImg'] ?? "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.png",
+      avatarUrl: json['coverImg'] ?? "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.jpg",
       title: json['aiPersona'] ?? "暂无介绍",
       isLive: _parseInt(json['status']) == 1,
       roomMode: _parseInt(json['roomMode'] ?? json['room_mode']),
