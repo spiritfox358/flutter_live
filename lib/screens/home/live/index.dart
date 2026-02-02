@@ -22,7 +22,7 @@ import 'models/live_models.dart';
 import 'widgets/pk_battle_view.dart';
 import 'widgets/single_mode_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_chat_list.dart';
-import 'package:flutter_live/screens/home/live/widgets/build_input_bar.dart';
+import 'package:flutter_live/screens/home/live/widgets/build_bottom_input_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_top_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/music_panel.dart';
 import 'package:flutter_live/screens/home/live/widgets/pk_widgets.dart';
@@ -1091,12 +1091,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
                         color: bottomInset > 0 ? Colors.black87 : Colors.transparent,
                         child: Column(
                           children: [
-                            Expanded(child: BuildChatList(bottomInset: 0, messages: _messages)),
-                            BuildInputBar(
-                              textController: _textController,
-                              onTapGift: _showGiftPanel,
-                              onSend: (text) => _sendSocketMessage("CHAT", content: text),
-                            ),
+
                           ],
                         ),
                       ),

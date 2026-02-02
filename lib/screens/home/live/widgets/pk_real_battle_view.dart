@@ -1,17 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
 import 'package:video_player/video_player.dart';
-import 'dart:math';
 
 import '../../../../services/ai_music_service.dart';
 import '../widgets/pk_widgets.dart';
 
 class PKRealBattleView extends StatefulWidget {
+  // --- 左侧配置 (我方/主播) ---
   final VideoPlayerController? leftVideoController;
   final String? leftBgImage;
 
-  // 右侧配置 (真人对手)
+  // 🟢 新增：左侧头像和名字 (用于非视频模式)
+  final String leftAvatarUrl;
+  final String leftName;
+
+  // --- 右侧配置 (对手) ---
+  final bool isRightVideoMode;
+  final VideoPlayerController? rightVideoController;
   final String rightAvatarUrl;
   final String rightName;
+  final bool isRotating;
   final String rightBgImage;
 
   // PK 数据
@@ -19,19 +27,26 @@ class PKRealBattleView extends StatefulWidget {
   final int myScore;
   final int opponentScore;
 
-  // 新增：说话波纹控制 (默认为 true)
+  // 状态控制
   final bool isOpponentSpeaking;
-
-  // 点击回调
   final VoidCallback? onTapOpponent;
 
   const PKRealBattleView({
     super.key,
+    // 左侧参数
     required this.leftVideoController,
     required this.leftBgImage,
+    required this.leftAvatarUrl, // 🟢 必传
+    required this.leftName, // 🟢 必传
+    // 右侧参数
+    this.isRightVideoMode = false,
+    this.rightVideoController,
     required this.rightAvatarUrl,
     required this.rightName,
     required this.rightBgImage,
+    required this.isRotating,
+
+    // 通用参数
     required this.pkStatus,
     required this.myScore,
     required this.opponentScore,
@@ -50,16 +65,9 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
   @override
   void initState() {
     super.initState();
-    _rotateController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 12),
-    )..repeat();
+    _rotateController = AnimationController(vsync: this, duration: const Duration(seconds: 12))..repeat();
 
-    // 波纹动画
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
+    _waveController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
 
     if (widget.pkStatus == PKStatus.playing) {
       _safePlayMusic();
@@ -128,7 +136,7 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
               fit: StackFit.expand,
               children: [
                 _buildLeftContent(isPunishment && !isLeftWin),
-                Container(color: Colors.black.withOpacity(0.1)),
+                Container(color: Colors.transparent),
               ],
             ),
           ),
@@ -137,7 +145,7 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
         // 中割线
         Container(width: 2, color: Colors.black),
 
-        // --- 右侧：真人对手 ---
+        // --- 右侧：对手 ---
         Expanded(
           flex: 1,
           child: GestureDetector(
@@ -152,23 +160,10 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    widget.rightBgImage,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
-                  ),
-                  Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Container(color: Colors.black.withOpacity(0.6)),
-                      _buildRightAvatarContent(),
-                    ],
-                  ),
-                  if (isPunishment && isLeftWin)
-                    BackdropFilter(
-                      filter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
-                      child: Container(color: Colors.transparent),
-                    ),
+                  if (widget.isRightVideoMode)
+                    _buildRightVideoContent(isPunishment && isLeftWin)
+                  else
+                    _buildRightImageModeContent(isPunishment && isLeftWin),
                 ],
               ),
             ),
@@ -178,105 +173,11 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
     );
   }
 
-  Widget _buildRightAvatarContent() {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // ⬇️ 修改：尺寸从 200 缩小到 140，刚刚好包裹住波纹即可
-          SizedBox(
-            width: 140,
-            height: 140,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                if (widget.isOpponentSpeaking) ...[
-                  _buildFixedWave(delay: 0.0),
-                  _buildFixedWave(delay: 0.5),
-                ],
-
-                RotationTransition(
-                  turns: _rotateController,
-                  child: Container(
-                    width: 100, height: 100,
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                          colors: [Color(0xFFFF0080), Color(0xFFFF8C00)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight
-                      ),
-                      boxShadow: [
-                        BoxShadow(color: const Color(0xFFFF4081).withOpacity(0.5), blurRadius: 20, spreadRadius: 5)
-                      ],
-                    ),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        image: DecorationImage(
-                          image: NetworkImage(widget.rightAvatarUrl),
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 0),
-
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(10)),
-            child: Text(
-              widget.rightName,
-              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ⬇️ 修改：微调波纹参数，使其更精致
-  Widget _buildFixedWave({required double delay}) {
-    return AnimatedBuilder(
-      animation: _waveController,
-      builder: (context, child) {
-        final double t = (_waveController.value + delay) % 1.0;
-
-        // 1. 范围缩小：只向外扩散 35px (100 -> 135)
-        final double currentSize = 100 + (35 * t);
-
-        // 2. 透明度降低：最大透明度 0.5，更隐约
-        final double opacity = (1.0 - t).clamp(0.0, 0.5);
-
-        // 3. 线条变细：从 2.0 开始变细
-        final double borderWidth = 2.0 * (1.0 - t);
-
-        return Container(
-          width: currentSize,
-          height: currentSize,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFFFF0080).withOpacity(opacity),
-              width: borderWidth > 0 ? borderWidth : 0,
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLeftContent(bool isGrayscale) {
-    Widget content;
+  // 构建左侧内容 (视频 或 复用AvatarView)
+  Widget _buildLeftContent(bool showPunishmentMask) {
+    // 1. 优先显示视频
     if (widget.leftVideoController != null && widget.leftVideoController!.value.isInitialized) {
-      content = SizedBox.expand(
+      Widget video = SizedBox.expand(
         child: FittedBox(
           fit: BoxFit.cover,
           child: SizedBox(
@@ -286,18 +187,107 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
           ),
         ),
       );
-    } else if (widget.leftBgImage != null) {
-      content = Image.network(widget.leftBgImage!, fit: BoxFit.cover);
-    } else {
-      content = Container(color: Colors.black);
-    }
 
-    if (isGrayscale) {
-      return ColorFiltered(
-        colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
-        child: content,
+      return RepaintBoundary(
+        child: showPunishmentMask ? ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: video) : video,
       );
     }
-    return content;
+
+    // 2. 🟢 无视频时，使用通用的头像模式 (背景 + 头像组件)
+    return _buildGenericImageMode(
+      bgImage: widget.leftBgImage ?? "",
+      avatarUrl: widget.leftAvatarUrl,
+      name: widget.leftName,
+      isSpeaking: true,
+      // 左侧一般默认自己在说话
+      showPunishmentMask: showPunishmentMask,
+      isRotating: false,
+    );
+  }
+
+  // 构建右侧视频内容
+  Widget _buildRightVideoContent(bool isGrayscale) {
+    Widget content;
+    if (widget.rightVideoController != null && widget.rightVideoController!.value.isInitialized) {
+      content = SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: widget.rightVideoController!.value.size.width,
+            height: widget.rightVideoController!.value.size.height,
+            child: VideoPlayer(widget.rightVideoController!),
+          ),
+        ),
+      );
+    } else {
+      content = Image.network(
+        widget.rightBgImage,
+        fit: BoxFit.cover,
+        errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
+      );
+    }
+
+    return RepaintBoundary(
+      child: isGrayscale ? ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: content) : content,
+    );
+  }
+
+  // 构建右侧非视频模式 (复用AvatarView)
+  Widget _buildRightImageModeContent(bool showPunishmentMask) {
+    return _buildGenericImageMode(
+      bgImage: widget.rightBgImage,
+      avatarUrl: widget.rightAvatarUrl,
+      name: widget.rightName,
+      isSpeaking: widget.isOpponentSpeaking,
+      isRotating: widget.isRotating,
+      showPunishmentMask: showPunishmentMask,
+    );
+  }
+
+  // 🟢 通用的非视频模式构建器
+  Widget _buildGenericImageMode({
+    required String bgImage,
+    required String avatarUrl,
+    required String name,
+    required bool isSpeaking,
+    required bool isRotating,
+    required bool showPunishmentMask,
+  }) {
+    return RepaintBoundary(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. 背景图
+          if (bgImage.isNotEmpty)
+            Image.network(
+              bgImage,
+              fit: BoxFit.cover,
+              errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
+            )
+          else
+            Container(color: Colors.black),
+
+          // 2. 黑色遮罩 (凸显头像)
+          Container(color: Colors.black.withOpacity(0.6)),
+
+          // 3. 🟢 复用的头像组件
+          Center(
+            child: AvatarAnimation(
+              avatarUrl: avatarUrl,
+              name: name,
+              isSpeaking: isSpeaking,
+              isRotating: isRotating,
+            ),
+          ),
+
+          // 4. 惩罚滤镜
+          if (showPunishmentMask)
+            BackdropFilter(
+              filter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+              child: Container(color: Colors.transparent),
+            ),
+        ],
+      ),
+    );
   }
 }

@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data'; // 🟢 新增：用于处理二进制流
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:audioplayers/audioplayers.dart'; // 🟢 新增：播放器
 
 // 你的 DeepSeek API Key
 const String _apiKey = "sk-89228156b56b4c0ab4b6163fd4cfe96f";
@@ -27,6 +29,9 @@ class AIDecision {
 }
 
 class AIService {
+  // 🟢 1. 定义音频播放器 (静态单例，防止声音重叠)
+  static final AudioPlayer _audioPlayer = AudioPlayer();
+
   static final Dio _dio = Dio(BaseOptions(
     baseUrl: "https://api.deepseek.com",
     connectTimeout: const Duration(seconds: 10),
@@ -36,6 +41,56 @@ class AIService {
       "Content-Type": "application/json",
     },
   ));
+
+  // 🟢 2. 新增：TTS 请求与播放方法
+  // 在这里直接调用后端接口并播放
+  static Future<void> playTTS(String text) async {
+    if (text.isEmpty) return;
+
+    // 创建一个新的 Dio 实例用于 TTS，避免和 DeepSeek 的 BaseUrl 冲突
+    // 或者你可以复用全局 HttpUtil，这里为了演示独立写
+    final Dio ttsDio = Dio(BaseOptions(
+      // ⚠️ 替换成你自己的后端地址
+      baseUrl: "http://你的后端IP:端口",
+      connectTimeout: const Duration(seconds: 10),
+    ));
+
+    try {
+      debugPrint("🔊 正在请求 TTS: $text");
+
+      // 调用后端接口
+      // 假设你的接口是 /api/tts，参数是 text
+      final response = await ttsDio.post("/api/tts", data: {"text": text});
+
+      if (response.statusCode == 200 && response.data != null) {
+        // 解析结构: {"data": {"audio": "...", "status": 2}, ...}
+        final dataObj = response.data['data'];
+
+        if (dataObj != null && dataObj['audio'] != null) {
+          String audioStr = dataObj['audio'].toString();
+
+          // 1. 处理前缀 (如果有 data:audio/mp3;base64, 则去掉)
+          if (audioStr.contains(',')) {
+            audioStr = audioStr.split(',').last;
+          }
+
+          // 2. 解码 (Base64 -> Bytes)
+          // 注意：虽然文档写 Hex，但看之前截图通常是 Base64。
+          // 如果真的是 Hex 字符串，请告诉我，需要换一种解码方式。
+          Uint8List audioBytes = base64Decode(audioStr);
+
+          // 3. 停止上一句，播放当前句
+          await _audioPlayer.stop();
+          await _audioPlayer.play(BytesSource(audioBytes));
+          debugPrint("✅ TTS 播放成功");
+        }
+      }
+    } catch (e) {
+      debugPrint("❌ TTS 播放失败: $e");
+    }
+  }
+
+  // --- 原有的 DeepSeek 逻辑保持不变 ---
 
   static Future<AIDecision> analyzeSituation({
     required String bossName,
@@ -99,14 +154,13 @@ class AIService {
             {"role": "system", "content": systemPrompt},
             {"role": "user", "content": userContent}
           ],
-          "temperature": 1.5, // 温度调高，让它更疯
+          "temperature": 1.5,
           "response_format": {"type": "json_object"},
         },
       );
 
       if (response.statusCode == 200) {
         final content = response.data['choices'][0]['message']['content'];
-        // debugPrint("AI 决策 ($bossName): $content");
         final Map<String, dynamic> jsonMap = jsonDecode(content);
         return AIDecision.fromMap(jsonMap);
       }
@@ -114,12 +168,10 @@ class AIService {
       debugPrint("API 调用失败: $e");
     }
 
-    // 4. 断网兜底（纯中文激进版）
     return _fallbackLogic(isStealTowerTime, isLosing, scoreDiff);
   }
 
   static AIDecision _fallbackLogic(bool isStealTower, bool isLosing, int diff) {
-    final random = Random();
     if (isStealTower) {
       if (isLosing || diff < 2000) {
         return AIDecision(message: "给我秒了他们！！", addScore: 8888, emotion: "excited");

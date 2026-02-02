@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../store/user_store.dart';
-import 'login/login_page.dart';
+import '../../../store/user_store.dart';
+import '../login/login_page.dart';
+// 🟢 记得引入你的 SupportPage，路径根据你实际存放位置修改
+import 'support_page.dart';
 
 class MeScreen extends StatefulWidget {
   const MeScreen({super.key});
@@ -18,7 +20,6 @@ class _MeScreenState extends State<MeScreen> {
   }
 
   void _handleLogout() {
-    // 🟢 弹窗也要适配深色模式
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showDialog(
@@ -52,15 +53,13 @@ class _MeScreenState extends State<MeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🟢 核心逻辑：获取当前是否为深色模式
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // 🟢 定义两套颜色变量
-    final Color backgroundColor = isDark ? const Color(0xFF121212) : const Color(0xFFF5F5F5); // 背景色
-    final Color cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white; // 卡片颜色
-    final Color textColor = isDark ? Colors.white : Colors.black; // 主标题文字
-    final Color subTextColor = isDark ? Colors.white70 : Colors.grey; // 副标题文字
-    final Color iconColor = isDark ? Colors.white70 : Colors.black87; // 图标颜色
+    final Color backgroundColor = isDark ? const Color(0xFF121212) : const Color(0xFFF5F5F5);
+    final Color cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final Color textColor = isDark ? Colors.white : Colors.black;
+    final Color subTextColor = isDark ? Colors.white70 : Colors.grey;
+    final Color iconColor = isDark ? Colors.white70 : Colors.black87;
 
     final String avatar = userProfile['avatar'] ?? "https://picsum.photos/200";
     final String nickname = userProfile['nickname'] ?? "未知用户";
@@ -74,7 +73,7 @@ class _MeScreenState extends State<MeScreen> {
       backgroundColor: backgroundColor,
       appBar: AppBar(
         title: Text("个人中心", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-        backgroundColor: cardColor, // AppBar 跟随卡片色
+        backgroundColor: cardColor,
         elevation: 0,
         centerTitle: true,
         iconTheme: IconThemeData(color: textColor),
@@ -111,7 +110,7 @@ class _MeScreenState extends State<MeScreen> {
       Color cardColor, Color textColor, Color subTextColor
       ) {
     return Container(
-      color: cardColor, // 🟢 动态背景
+      color: cardColor,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       child: Row(
         children: [
@@ -135,18 +134,17 @@ class _MeScreenState extends State<MeScreen> {
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: textColor, // 🟢 动态文字颜色
+                    color: textColor,
                   ),
                 ),
                 const SizedBox(height: 6),
                 Text(
                   "ID: $id",
-                  style: TextStyle(color: subTextColor, fontSize: 13), // 🟢 动态副标题色
+                  style: TextStyle(color: subTextColor, fontSize: 13),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    // 等级标签
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
@@ -159,7 +157,6 @@ class _MeScreenState extends State<MeScreen> {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    // VIP 标签
                     if (vipLevel > 0)
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -189,7 +186,6 @@ class _MeScreenState extends State<MeScreen> {
     );
   }
 
-  // 钱包卡片使用渐变色，不需要适配深色模式，保持鲜艳即可
   Widget _buildWalletCard(num coin, num diamond) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -236,31 +232,44 @@ class _MeScreenState extends State<MeScreen> {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: cardColor, // 🟢 动态卡片背景
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
-          _buildMenuItem(Icons.history, "观看记录", null, textColor, iconColor),
-          _buildDivider(cardColor),
-          _buildMenuItem(Icons.wallet_giftcard, "我的背包", null, textColor, iconColor),
-          _buildDivider(cardColor),
-          _buildMenuItem(Icons.security, "账号安全", null, textColor, iconColor),
-          _buildDivider(cardColor),
-          _buildMenuItem(Icons.help_outline, "帮助与反馈", null, textColor, iconColor),
-          _buildDivider(cardColor),
-          _buildMenuItem(Icons.info_outline, "关于 Coin Dance", "v1.0.0", textColor, iconColor),
+          // _buildMenuItem(Icons.history, "观看记录", null, textColor, iconColor),
+          // _buildDivider(cardColor),
+
+          // 🟢 修改处：在这里传入 onTap 回调
+          _buildMenuItem(
+            Icons.favorite,
+            "赞赏支持",
+            null,
+            textColor,
+            iconColor,
+            onTap: () {
+              // 跳转到 SupportPage
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SupportPage())
+              );
+            },
+          ),
+
+          // _buildDivider(cardColor),
+          // _buildMenuItem(Icons.info_outline, "关于 Coin Dance", "v1.0.0", textColor, iconColor),
         ],
       ),
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title, String? trailingText, Color textColor, Color iconColor) {
+  // 🟢 修改处：增加 optional 参数 {VoidCallback? onTap}
+  Widget _buildMenuItem(IconData icon, String title, String? trailingText, Color textColor, Color iconColor, {VoidCallback? onTap}) {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.1), // 🟢 这里的灰色背景用透明度，自动适配深浅
+          color: Colors.grey.withOpacity(0.1),
           shape: BoxShape.circle,
         ),
         child: Icon(icon, color: iconColor, size: 20),
@@ -275,14 +284,13 @@ class _MeScreenState extends State<MeScreen> {
           const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
         ],
       ),
-      onTap: () {},
+      // 🟢 修改处：将传入的 onTap 赋值给 ListTile
+      onTap: onTap,
     );
   }
 
   Widget _buildDivider(Color cardColor) {
-    // 这里的分割线颜色如果是纯白背景可以灰色，如果是深色背景需要更深或更浅
-    // 简单处理：使用透明度
-    return const Divider(height: 1, indent: 60, color: Colors.grey); // 灰色在深浅模式下都可见
+    return const Divider(height: 1, indent: 60, color: Colors.grey);
   }
 
   Widget _buildLogoutButton(Color cardColor) {
@@ -294,7 +302,7 @@ class _MeScreenState extends State<MeScreen> {
         child: ElevatedButton(
           onPressed: _handleLogout,
           style: ElevatedButton.styleFrom(
-            backgroundColor: cardColor, // 🟢 按钮背景也动态变化
+            backgroundColor: cardColor,
             foregroundColor: Colors.redAccent,
             elevation: 0,
             shape: RoundedRectangleBorder(

@@ -81,9 +81,8 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
           // ==============================
           Container(
             height: 36,
-            padding: const EdgeInsets.only(left: 2, right: 4),
+            padding: const EdgeInsets.only(left: 2, right: 8), // 右侧padding稍微加大一点，避免文字贴边
             decoration: BoxDecoration(
-              // 🟢 核心修改：使用粉橙色渐变，比黑色更醒目，减少视觉干扰
               gradient: LinearGradient(
                 colors: [
                   const Color(0xFFFF0080).withOpacity(0.8), // 左侧：醒目的洋红色
@@ -93,7 +92,6 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
                 end: Alignment.centerRight,
               ),
               borderRadius: BorderRadius.circular(18),
-              // 边框稍微亮一点，增加质感
               border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
             ),
             child: Row(
@@ -102,28 +100,38 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
                 // A. 头像
                 CircleAvatar(
                   radius: 15,
-                  backgroundColor: Colors.white24, // 头像加载前的底色
+                  backgroundColor: Colors.white24,
                   backgroundImage: NetworkImage(gift.senderAvatar),
                 ),
 
-                const SizedBox(width: 4),
-                // B. 文字信息
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      gift.senderName,
-                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      "送出 ${gift.giftName}",
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.95), // 提高亮度
-                        fontSize: 9,
+                const SizedBox(width: 6), // 间距稍微拉大一点点
+
+                // B. 文字信息 (🟢 核心修改：增加宽度限制)
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 85), // 🟢 限制最大宽度，防止名字太长
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // 用户名
+                      Text(
+                        gift.senderName,
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        maxLines: 1, // 🟢 单行
+                        overflow: TextOverflow.ellipsis, // 🟢 超出显示省略号
                       ),
-                    ),
-                  ],
+                      // 送出礼物名
+                      Text(
+                        "送出 ${gift.giftName}",
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.95),
+                          fontSize: 9,
+                        ),
+                        maxLines: 1, // 🟢 单行
+                        overflow: TextOverflow.ellipsis, // 🟢 超出显示省略号
+                      ),
+                    ],
+                  ),
                 ),
 
                 const SizedBox(width: 4),
@@ -137,7 +145,7 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
           const SizedBox(width: 5),
 
           // ==============================
-          // 2. 连击数字 (纯白、基线对齐)
+          // 2. 连击数字
           // ==============================
           ScaleTransition(
             scale: _scaleAnimation,

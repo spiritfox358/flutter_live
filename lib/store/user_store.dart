@@ -57,9 +57,39 @@ class UserStore {
 
   int get userLevel => profile?['level'] ?? 1;
 
+  int get coin => profile?['coin'] ?? 0;
+
   // 6. 退出登录 (清空数据)
   Future<void> logout() async {
     await _prefs.remove(_kTokenKey);
     await _prefs.remove(_kProfileKey);
+  }
+
+  // 🟢 7. 新增：单独更新等级 (刷礼物升级后调用)
+  Future<void> updateLevel(int newLevel) async {
+    Map<String, dynamic>? currentData = profile;
+    if (currentData == null) return;
+
+    // 只有当等级真的变了才执行保存操作
+    if (currentData['level'] == newLevel) return;
+
+    // 复制一份数据确保可变性
+    final mutableMap = Map<String, dynamic>.from(currentData);
+    mutableMap['level'] = newLevel;
+
+    await saveProfile(mutableMap);
+  }
+
+  // 🟢 8. 新增：单独更新余额 (刷礼物扣费后调用)
+  Future<void> updateCoin(int newCoin) async {
+    Map<String, dynamic>? currentData = profile;
+    if (currentData == null) return;
+
+    if (currentData['coin'] == newCoin) return;
+
+    final mutableMap = Map<String, dynamic>.from(currentData);
+    mutableMap['coin'] = newCoin;
+
+    await saveProfile(mutableMap);
   }
 }

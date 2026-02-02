@@ -318,7 +318,6 @@ class _PKBattleViewState extends State<PKBattleView> with TickerProviderStateMix
       animation: _waveController,
       builder: (context, child) {
         final double t = (_waveController.value + delay) % 1.0;
-
         // 核心逻辑：
         // 大小从 100 (头像大小) 变大到 180
         final double currentSize = 100 + (80 * t);

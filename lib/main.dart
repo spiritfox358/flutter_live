@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live_list_page.dart';
 import 'package:flutter_live/screens/login/login_page.dart';
 import 'package:flutter_live/store/user_store.dart';
-import 'screens/me_screen.dart';
+import 'screens/me/me_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

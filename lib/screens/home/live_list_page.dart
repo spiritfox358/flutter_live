@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/real_live_page.dart';
 import 'package:flutter_live/store/user_store.dart';
+import '../../services/update_manager.dart';
 import '../../tools/HttpUtil.dart';
 
+// AnchorInfo 模型
 class AnchorInfo {
   final String roomId;
   final String name;
   final String avatarUrl;
   final String title;
   final bool isLive;
-
   final int roomMode;
   final String? pkStartTime;
   final int pkDuration;
@@ -35,28 +36,14 @@ class AnchorInfo {
     this.bgIndex = 0,
   });
 
-  static int _parseInt(dynamic value, {int defaultValue = 0}) {
-    if (value == null) return defaultValue;
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value) ?? defaultValue;
-    return defaultValue;
-  }
-
   factory AnchorInfo.fromJson(Map<String, dynamic> json) {
     return AnchorInfo(
       roomId: json['id'].toString(),
       name: json['title'] ?? "未知主播",
       avatarUrl: json['coverImg'] ?? "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.jpg",
       title: json['aiPersona'] ?? "暂无介绍",
-      isLive: _parseInt(json['status']) == 1,
-      roomMode: _parseInt(json['roomMode'] ?? json['room_mode']),
-      pkStartTime: json['pkStartTime'] ?? json['pk_start_time'],
-      pkDuration: _parseInt(json['pkDuration'] ?? json['pk_duration'], defaultValue: 90),
-      punishmentDuration: _parseInt(json['punishmentDuration'] ?? json['punishment_duration'], defaultValue: 20),
-      myScore: _parseInt(json['pkMyScore'] ?? json['pk_my_score']),
-      opScore: _parseInt(json['pkOpponentScore'] ?? json['pk_opponent_score']),
-      bossIndex: _parseInt(json['pkBossIndex'] ?? json['pk_boss_index']),
-      bgIndex: _parseInt(json['pkBgIndex'] ?? json['pk_bg_index']),
+      isLive: (json['status'] == 1 || json['status'] == "1"),
+      roomMode: int.tryParse(json['roomMode']?.toString() ?? "0") ?? 0,
     );
   }
 }
@@ -70,115 +57,190 @@ class LiveListPage extends StatefulWidget {
 
 class _LiveListPageState extends State<LiveListPage> {
   List<AnchorInfo> _anchors = [];
-  bool _isLoading = true;
+  bool _isInitLoading = true;
+
+  // 🟢 关键：使用 GlobalKey 来控制 RefreshIndicator，实现“自动刷新”
+  final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
 
   @override
   void initState() {
     super.initState();
-    _fetchRoomList();
+    // 页面初始化时，自动触发下拉刷新动画
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _refreshKey.currentState?.show();
+    });
   }
 
-  Future<void> _fetchRoomList() async {
+  // 下拉刷新的具体逻辑
+  Future<void> _handleRefresh() async {
     try {
       var responseData = await HttpUtil().get("/api/room/list");
       if (mounted) {
         setState(() {
           _anchors = (responseData as List).map((json) => AnchorInfo.fromJson(json)).toList();
-          _isLoading = false;
+          _isInitLoading = false;
         });
       }
     } catch (e) {
+      if (mounted) setState(() => _isInitLoading = false);
+    }
+  }
+
+  // 开播逻辑
+  void _onStartLive() async {
+    final String myUserId = UserStore.to.userId;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (c) => const Center(child: CircularProgressIndicator(color: Color(0xFFFF0050))),
+    );
+
+    try {
+      final res = await HttpUtil().post("/api/room/start_live", data: {
+        "anchorId": int.tryParse(myUserId) ?? 0,
+      });
+
       if (mounted) {
-        setState(() => _isLoading = false);
+        Navigator.pop(context); // 关loading
+        if (res != null) {
+          final String assignedRoomId = res['roomId'].toString();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => RealLivePage(
+                userId: myUserId,
+                userName: UserStore.to.userName,
+                avatarUrl: UserStore.to.avatar,
+                level: 0,
+                isHost: true,
+                roomId: assignedRoomId,
+              ),
+            ),
+          ).then((_) {
+            // 🟢 下播回来，自动触发刷新
+            _refreshKey.currentState?.show();
+          });
+        }
       }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开播失败: $e")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final dividerColor = theme.dividerColor;
+
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text("直播列表", style: TextStyle(fontWeight: FontWeight.bold)),
+        elevation: 0,
+        backgroundColor: theme.scaffoldBackgroundColor,
+        title: Text("直播列表", style: TextStyle(color: theme.textTheme.titleLarge?.color, fontWeight: FontWeight.bold, fontSize: 18)),
         centerTitle: true,
+        iconTheme: IconThemeData(color: theme.textTheme.titleLarge?.color),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              setState(() => _isLoading = true);
-              _fetchRoomList();
+              // 🟢 点击按钮，手动触发下拉刷新
+              _refreshKey.currentState?.show();
             },
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView.separated(
-              itemCount: _anchors.length,
-              separatorBuilder: (ctx, i) => const Divider(height: 1, indent: 70),
-              itemBuilder: (context, index) => _buildListItem(_anchors[index]),
-            ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _onStartLive,
+        backgroundColor: const Color(0xFFFF0050),
+        elevation: 4,
+        icon: const Icon(Icons.videocam, color: Colors.white),
+        label: const Text("我要开播", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
+      // 🟢 原生 RefreshIndicator，最稳健，最利索
+      body: RefreshIndicator(
+        key: _refreshKey,
+        color: const Color(0xFFFF0050), // 粉色加载圈
+        backgroundColor: Colors.white,
+        onRefresh: _handleRefresh,
+        child: ListView.separated(
+          // 🟢 核心物理配置：
+          // 1. ClampingScrollPhysics: 强制硬边界，禁止底部回弹（解决“禁止往上推”）。
+          // 2. AlwaysScrollableScrollPhysics: 保证即使列表很短，顶部依然能下拉触发刷新。
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: ClampingScrollPhysics(),
+          ),
+          padding: const EdgeInsets.only(top: 5, bottom: 80),
+          itemCount: _anchors.length,
+          separatorBuilder: (ctx, i) => Divider(
+            height: 1,
+            thickness: 0.5,
+            indent: 100,
+            endIndent: 16,
+            color: dividerColor.withOpacity(0.1),
+          ),
+          itemBuilder: (context, index) => _buildCustomListItem(_anchors[index], theme),
+        ),
+      ),
     );
   }
 
-  Widget _buildListItem(AnchorInfo anchor) {
+  Widget _buildCustomListItem(AnchorInfo anchor, ThemeData theme) {
     final bool isMyRoom = (UserStore.to.userAccountId == "2039" && anchor.roomId == "1001");
-
-    // 🟢 1. 状态文本与图标逻辑
     String modeText = "直播中";
-    IconData modeIcon = Icons.videocam; // 默认直播图标
+    IconData modeIcon = Icons.bar_chart_rounded;
 
     if (anchor.isLive) {
-      switch (anchor.roomMode) {
-        case 1:
-          modeText = "PK中";
-          modeIcon = Icons.bolt; // PK使用闪电图标
-          break;
-        case 2:
-          modeText = "惩罚中";
-          modeIcon = Icons.timer_3_sharp;
-          break;
-        case 3:
-          modeText = "连线中";
-          modeIcon = Icons.link; // 连线中换成链接图标
-          break;
-        default:
-          modeText = "直播中";
-          modeIcon = Icons.videocam;
-      }
+      if (anchor.roomMode == 1) { modeText = "PK排位"; modeIcon = Icons.bolt; }
+      else if (anchor.roomMode == 2) { modeText = "接受惩罚"; modeIcon = Icons.sentiment_very_dissatisfied; }
+      else if (anchor.roomMode == 3) { modeText = "连线互动"; modeIcon = Icons.link; }
     }
 
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      // 🟢 2. 头像加红框且发光逻辑
-      leading: Stack(
-        alignment: Alignment.center,
-        children: [
-          if (anchor.isLive)
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFFFF0050), width: 2),
-                boxShadow: [BoxShadow(color: const Color(0xFFFF0050).withOpacity(0.6), blurRadius: 10, spreadRadius: 2)],
+    return InkWell(
+      onTap: () => _enterRoom(anchor, isHost: isMyRoom),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            _RippleAvatar(avatarUrl: anchor.avatarUrl, isLive: anchor.isLive),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(anchor.name, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color)),
+                  const SizedBox(height: 6),
+                  Text(anchor.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: Colors.grey)),
+                ],
               ),
             ),
-          CircleAvatar(radius: 20, backgroundImage: NetworkImage(anchor.avatarUrl)),
-        ],
+            if (anchor.isLive)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFFFF0050), Color(0xFFFF0080)]),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Icon(modeIcon, color: Colors.white, size: 14),
+                    const SizedBox(width: 4),
+                    Text(modeText, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text("离线", style: TextStyle(color: Colors.grey, fontSize: 11)),
+              ),
+          ],
+        ),
       ),
-      title: Text(anchor.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(anchor.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: anchor.isLive
-          ? Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(modeIcon, color: const Color(0xFFFF0050), size: 20),
-                const SizedBox(height: 2),
-                Text(modeText, style: const TextStyle(color: Color(0xFFFF0050), fontSize: 10)),
-              ],
-            )
-          : const Text("离线", style: TextStyle(color: Colors.grey, fontSize: 12)),
-      onTap: () => _enterRoom(anchor, isHost: isMyRoom),
     );
   }
 
@@ -192,18 +254,52 @@ class _LiveListPageState extends State<LiveListPage> {
           level: 0,
           isHost: isHost,
           roomId: anchor.roomId,
-          initialRoomData: {
-            "roomMode": anchor.roomMode,
-            "pkStartTime": anchor.pkStartTime,
-            "pkDuration": anchor.pkDuration,
-            "punishmentDuration": anchor.punishmentDuration,
-            "myScore": anchor.myScore,
-            "opScore": anchor.opScore,
-            "bossIndex": anchor.bossIndex,
-            "bgIndex": anchor.bgIndex,
-          },
         ),
       ),
-    );
+    ).then((_) {
+      // 🟢 核心：从直播间返回时，自动调用刷新
+      _refreshKey.currentState?.show();
+    });
+  }
+}
+
+// 简单的头像组件
+class _RippleAvatar extends StatefulWidget {
+  final String avatarUrl;
+  final bool isLive;
+  const _RippleAvatar({required this.avatarUrl, required this.isLive});
+  @override
+  State<_RippleAvatar> createState() => _RippleAvatarState();
+}
+
+class _RippleAvatarState extends State<_RippleAvatar> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000));
+    if (widget.isLive) _controller.repeat();
+  }
+  @override
+  void didUpdateWidget(covariant _RippleAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isLive != oldWidget.isLive) {
+      if (widget.isLive) _controller.repeat(); else { _controller.stop(); _controller.reset(); }
+    }
+  }
+  @override
+  void dispose() { _controller.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isLive) {
+      return Container(width: 62, height: 62, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey[300]!, width: 1)), child: ClipOval(child: ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: Image.network(widget.avatarUrl, fit: BoxFit.cover))));
+    }
+    return SizedBox(width: 76, height: 76, child: Stack(alignment: Alignment.center, children: [
+      ...List.generate(3, (index) => AnimatedBuilder(animation: _controller, builder: (ctx, child) {
+        double t = Curves.easeOutQuad.transform((_controller.value + index * 0.33) % 1.0);
+        return Transform.scale(scale: 1.0 + t * 0.3, child: Container(width: 62, height: 62, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFF0050).withOpacity((1.0 - t).clamp(0.0, 1.0) * 0.6), width: 3.0 * (1.0 - t).clamp(0.5, 3.0)))));
+      })),
+      Container(width: 62, height: 62, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFF0050), width: 2.0), image: DecorationImage(image: NetworkImage(widget.avatarUrl), fit: BoxFit.cover))),
+    ]));
   }
 }
