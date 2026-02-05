@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/models/user_models.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
+import 'package:flutter_live/screens/home/live/widgets/live_profile_popup.dart';
 import '../../../services/gift_api.dart'; // ⚠️ 请确认路径
 import 'gift_panel.dart';
 import 'models/live_models.dart';
@@ -166,7 +167,11 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
           ),
           const SizedBox(width: 12),
           GestureDetector(
-            onTap: () => debugPrint("点击个人中心"),
+            onTap: () {
+              final currentUser = widget.userStatusNotifier.value;
+              // Navigator.pop(context);
+              showLiveProfilePopup(context, currentUser);
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), borderRadius: BorderRadius.circular(3)),

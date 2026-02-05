@@ -1097,7 +1097,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     // 改为调用特效层组件
     if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
-      _giftEffectKey.currentState?.addEffect(giftData.effectAsset!);
+      _giftEffectKey.currentState?.addEffect(giftData.effectAsset!,giftData.id);
     }
 
     if (isMe) _triggerComboMode();
