@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class LevelBadge extends StatelessWidget {
   final int level;
@@ -59,13 +60,12 @@ class LevelBadge extends StatelessWidget {
                 padding: const EdgeInsets.all(0.0),
                 child: Text(
                   level.toString(),
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 11,
-                    shadows: const [
-                      Shadow(offset: Offset(1, 1), color: Colors.black45, blurRadius: 2)
-                    ],
+                  style: GoogleFonts.roboto( // 🟢 强制使用 Roboto 字体
+                    textStyle: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 11,
+                    ),
                   ),
                 ),
               ),

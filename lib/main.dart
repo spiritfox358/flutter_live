@@ -58,7 +58,10 @@ class MyApp extends StatelessWidget {
           foregroundColor: Colors.white, // 标题文字白色
           elevation: 0,
         ),
-        colorScheme: const ColorScheme.dark(primary: Colors.blue, onSurface: Colors.white, onSurfaceVariant: Colors.white70),
+        colorScheme: const ColorScheme.dark(
+            primary: Colors.blue,
+            onSurface: Colors.white,
+            onSurfaceVariant: Colors.white70),
         bottomNavigationBarTheme: const BottomNavigationBarThemeData(
           backgroundColor: Color(0xFF232D45),
           selectedItemColor: Colors.blue,
@@ -92,7 +95,12 @@ class _MainContainerState extends State<MainContainer> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      // 🔴 核心修改：使用 IndexedStack 替换原来的 _screens[_currentIndex]
+      // IndexedStack 会保持所有子页面的状态，切换 Tab 时不会销毁 LiveListPage
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         type: BottomNavigationBarType.fixed,
