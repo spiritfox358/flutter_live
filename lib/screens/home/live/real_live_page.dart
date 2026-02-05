@@ -167,8 +167,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final Queue<EntranceEvent> _entranceQueue = Queue();
   bool _isEntranceBannerShowing = false;
   EntranceEvent? _currentEntranceEvent;
-  final ValueNotifier<UserStatus> _userStatusNotifier = ValueNotifier(
-    UserStatus(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0),
+  final ValueNotifier<UserModel> _userStatusNotifier = ValueNotifier(
+    UserModel(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0),
   );
   final AudioPlayer _ttsPlayer = AudioPlayer();
 
@@ -258,7 +258,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           int coinsNextLevelThreshold = res['coinsNextLevelThreshold'];
           String coinsToNextLevelText = res['coinsToNextLevelText'];
           int coinsCurrentLevelThreshold = res['coinsCurrentLevelThreshold'];
-          _userStatusNotifier.value = UserStatus(
+          _userStatusNotifier.value = UserModel(
             _myCoins,
             _myLevel,
             coinsToNextLevel: coinsToNextLevel,
@@ -649,21 +649,21 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                   _pkMatchManagerKey.currentState?.startRandomMatch(context);
                 },
               ),
-              const Divider(color: Colors.white10, height: 1),
-
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Text("—— 或邀请指定时长 ——", style: TextStyle(color: Colors.white24, fontSize: 12)),
-              ),
-
-              _buildDurationOption("2分钟", 120),
-              const Divider(color: Colors.white10, height: 1),
-
-              _buildDurationOption("5分钟", 300),
-              const Divider(color: Colors.white10, height: 1),
-
-              _buildDurationOption("10分钟", 600),
-              const Divider(color: Colors.white10, height: 1),
+              // const Divider(color: Colors.white10, height: 1),
+              //
+              // const Padding(
+              //   padding: EdgeInsets.all(8.0),
+              //   child: Text("—— 或邀请指定时长 ——", style: TextStyle(color: Colors.white24, fontSize: 12)),
+              // ),
+              //
+              // _buildDurationOption("2分钟", 120),
+              // const Divider(color: Colors.white10, height: 1),
+              //
+              // _buildDurationOption("5分钟", 300),
+              // const Divider(color: Colors.white10, height: 1),
+              //
+              // _buildDurationOption("10分钟", 600),
+              // const Divider(color: Colors.white10, height: 1),
 
               const SizedBox(height: 10),
               TextButton(
@@ -1128,7 +1128,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         }
         UserStore.to.updateCoin(_myCoins);
         UserStore.to.updateLevel(_myLevel);
-        _userStatusNotifier.value = UserStatus(
+        _userStatusNotifier.value = UserModel(
           _myCoins,
           _myLevel,
           coinsToNextLevel: _parseInt(res['coinsToNextLevel']),

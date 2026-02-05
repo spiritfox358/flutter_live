@@ -102,8 +102,8 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
   VideoPlayerController? _aiVideoController;
   bool _isRightVideoMode = false;
 
-  final ValueNotifier<UserStatus> _userStatusNotifier = ValueNotifier(
-    UserStatus(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0),
+  final ValueNotifier<UserModel> _userStatusNotifier = ValueNotifier(
+    UserModel(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0),
   );
 
   String _opponentBgImage = "";

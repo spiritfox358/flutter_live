@@ -63,7 +63,7 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
       }
     };
 
-    // 如果初始化时队列里已经有东西了（比如进房瞬间收礼），立即播放
+    // 如果初始化时队列里已经有东西了，立即播放
     if (_effectQueue.isNotEmpty && !_isEffectPlaying) {
       _playNextEffect();
     }
@@ -77,36 +77,48 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
     final url = _effectQueue.removeFirst();
     setState(() => _isEffectPlaying = true);
 
-    // 停止上一个
+    // 停止上一个（如果有）
     try {
       await _alphaPlayerController?.stop();
     } catch (e) {}
 
-    // 启动看门狗 (15秒后强制结束，防止下载卡死或播放回调丢失)
-    _startWatchdog(15);
+    // ⚠️ 注意：此处不启动看门狗，因为下载时间不确定
+    // 下载的超时控制全权交给 _downloadGiftFile 中的 Dio
 
     try {
       // 1. 下载文件
-      String? localPath = await _downloadGiftFile(url).timeout(
-        const Duration(seconds: 8),
-        onTimeout: () => null,
-      );
+      debugPrint("⏳ 开始下载特效资源: $url");
+      String? localPath = await _downloadGiftFile(url);
 
+      // 下载失败处理
       if (localPath == null || !mounted) {
-        debugPrint("❌ 特效文件下载失败，跳过");
+        debugPrint("❌ 下载失败或页面已销毁，跳过");
+        _onEffectComplete();
+        return;
+      }
+
+      // 文件有效性双重检查
+      final file = File(localPath);
+      if (!await file.exists() || await file.length() == 0) {
+        debugPrint("❌ 文件无效或大小为0，跳过");
         _onEffectComplete();
         return;
       }
 
       // 2. 开始播放
       if (mounted && _alphaPlayerController != null) {
-        debugPrint("▶️ 开始播放特效: $localPath");
+        debugPrint("▶️ 下载完成，开始播放: $localPath");
+
+        // ✨ 关键优化：只有真正开始播放时，才启动看门狗
+        // 10秒后如果还没播完（或者卡死），强制结束
+        _startWatchdog(18);
+
         await _alphaPlayerController!.play(localPath);
       } else {
         _onEffectComplete();
       }
     } catch (e) {
-      debugPrint("❌ 特效播放异常: $e");
+      debugPrint("❌ 特效播放流程异常: $e");
       _onEffectComplete();
     }
   }
@@ -115,7 +127,7 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
   void _onEffectComplete() {
     if (!mounted) return;
 
-    _effectWatchdog?.cancel();
+    _effectWatchdog?.cancel(); // 关狗
 
     // 稍微延迟重置状态，避免UI闪烁
     Future.delayed(const Duration(milliseconds: 50), () {
@@ -131,26 +143,54 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
   void _startWatchdog(int seconds) {
     _effectWatchdog?.cancel();
     _effectWatchdog = Timer(Duration(seconds: seconds), () {
-      debugPrint("🐶 特效看门狗介入：强制切歌");
+      debugPrint("🐶 特效看门狗介入：播放超时或卡死，强制切歌");
       _onEffectComplete();
     });
   }
 
-  /// 下载文件
+  /// 下载文件 (智能超时版)
   Future<String?> _downloadGiftFile(String url) async {
     try {
       final dir = await getApplicationDocumentsDirectory();
-      final fileName = url.split('/').last; // 简单取文件名，建议加MD5防止重名
+
+      // 🟢 优化 1: 使用 Hash 生成文件名
+      // 避免 URL 过长或包含特殊字符导致文件名非法
+      String fileName = "gift_${url.hashCode}.mp4";
+
       final savePath = "${dir.path}/$fileName";
       final file = File(savePath);
 
-      // 有缓存直接用
-      if (await file.exists()) return savePath;
+      // 命中有效缓存（存在且不为空）
+      if (await file.exists() && await file.length() > 0) {
+        debugPrint("✅ 命中缓存: $savePath");
+        return savePath;
+      }
 
-      // 没缓存去下载
-      await Dio().download(url, savePath);
-      return savePath;
+      // 删除旧的无效文件
+      if (await file.exists()) await file.delete();
+
+      // 🟢 优化 2: 配置 Dio 智能超时
+      final dio = Dio(BaseOptions(
+        // 连接超时：连不上服务器（5秒报错）
+        connectTimeout: const Duration(seconds: 5),
+        // 接收超时：连上了但对方不发数据了（10秒没动静报错）
+        // 只要数据还在传输（哪怕只有 1kb/s），就不会触发这个超时，适合大文件！
+        receiveTimeout: const Duration(seconds: 10),
+      ));
+
+      await dio.download(url, savePath);
+
+      // 🟢 优化 3: 下载后校验
+      if (await file.exists() && await file.length() > 0) {
+        debugPrint("✅ 下载成功 (大小: ${await file.length()} bytes)");
+        return savePath;
+      } else {
+        debugPrint("❌ 下载显示成功但文件为空");
+        return null;
+      }
+
     } catch (e) {
+      debugPrint("❌ 下载报错: $e");
       return null;
     }
   }
@@ -160,8 +200,9 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
     final size = MediaQuery.of(context).size;
 
     return IgnorePointer(
-      // 只有在播放时才阻挡点击（如果需要特效穿透点击，这里一直设为 true 即可，或者去掉 IgnorePointer）
-      // 通常特效层是完全穿透的，所以这里设为 true 比较好，防止挡住下面的礼物连击按钮
+      // 播放时是否阻挡点击？
+      // true: 点击穿透（不挡下面的礼物按钮）
+      // false: 拦截点击
       ignoring: true,
       child: Opacity(
         // 没播放时完全隐藏

@@ -124,7 +124,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
           Stack(
             alignment: Alignment.centerRight,
             children: [
-              ValueListenableBuilder<UserStatus>(
+              ValueListenableBuilder<UserModel>(
                 valueListenable: widget.userStatusNotifier,
                 builder: (context, value, child) {
                   return LevelBadge(level: value.level);
@@ -139,7 +139,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
-                  child: ValueListenableBuilder<UserStatus>(
+                  child: ValueListenableBuilder<UserModel>(
                     valueListenable: widget.userStatusNotifier,
                     builder: (context, value, child) {
                       return LinearProgressIndicator(
@@ -154,7 +154,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
                   ),
                 ),
                 const SizedBox(height: 6),
-                ValueListenableBuilder<UserStatus>(
+                ValueListenableBuilder<UserModel>(
                   valueListenable: widget.userStatusNotifier,
                   builder: (context, value, child) {
                     int nextLevel = value.level + 1;
@@ -226,7 +226,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(width: 6),
-                ValueListenableBuilder<UserStatus>(
+                ValueListenableBuilder<UserModel>(
                   valueListenable: widget.userStatusNotifier,
                   builder: (context, value, child) {
                     return Text(

@@ -13,8 +13,21 @@ A new Flutter plugin project.
   s.license          = { :file => '../LICENSE' }
   s.author           = { 'Your Company' => 'email@example.com' }
   s.source           = { :path => '.' }
+
+  # 1. 包含所有源文件 (Swift, OC, Metal)
   s.source_files = 'Classes/**/*'
+
+  # 2. 关键：暴露 OC 头文件给 Swift 使用
+  s.public_header_files = 'Classes/**/*.h'
+
   s.dependency 'Flutter'
+  
+  # 3. 移除旧依赖
+  # s.dependency 'BDAlphaPlayer'
+
+  # 4. 添加系统 Framework 支持 (Metal 渲染核心)
+  s.frameworks = 'AVFoundation', 'Metal', 'QuartzCore', 'CoreMedia'
+
   s.platform = :ios, '13.0'
 
   # Flutter.framework does not contain a i386 slice.

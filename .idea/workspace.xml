@@ -5,45 +5,47 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/gift_convert2.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/avatar_animation.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_bottom_input_bar.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_match_manager.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/me/support_page.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/message/message_screen.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/services/update_manager.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/tools/StringTool.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/me/profile/edit_profile_page.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/services/user_service.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/Bridging-Header.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/LHAlphaVideo.metal" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/LHVideoGiftAlphaVideoMetalView.h" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/LHVideoGiftAlphaVideoMetalView.m" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/NativeAlphaPlayerFactory.swift" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/NativeAlphaPlayerView.swift" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/flutter_live.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/flutter_live.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/AndroidManifest.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/gift_convert.md" beforeDir="false" afterPath="$PROJECT_DIR$/gift_convert.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_banner_widget.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/animate_gift_banner_widget.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ios/Podfile.lock" beforeDir="false" afterPath="$PROJECT_DIR$/ios/Podfile.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ios/Runner.xcodeproj/project.pbxproj" beforeDir="false" afterPath="$PROJECT_DIR$/ios/Runner.xcodeproj/project.pbxproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ios/Runner/Info.plist" beforeDir="false" afterPath="$PROJECT_DIR$/ios/Runner/Info.plist" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/models/user_models.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/models/user_models.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/gift_panel.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_panel.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/index.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/index.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_item.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_item.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_list.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_list.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_input_bar.dart" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_battle_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_battle_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_real_battle_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_real_battle_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_list.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_list.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/level_badge_widget.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/level_badge_widget.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_panel.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_panel.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/me_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/me/me_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/message_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/res/xml/filepaths.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/services/ai_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/services/ai_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/login/login_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/login/login_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/me/me_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/me/me_screen.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/me/support_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/me/support_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/store/user_store.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/store/user_store.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/linux/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/linux/flutter/generated_plugin_registrant.cc" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/linux/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/linux/flutter/generated_plugins.cmake" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Flutter/GeneratedPluginRegistrant.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/NativeAlphaPlayerView.kt" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/NativeAlphaPlayerView.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/example/ios/Runner.xcodeproj/project.pbxproj" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/example/ios/Runner.xcodeproj/project.pbxproj" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/example/ios/Runner.xcworkspace/contents.xcworkspacedata" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/example/ios/Runner.xcworkspace/contents.xcworkspacedata" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/ios/Classes/MyAlphaPlayerPlugin.swift" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/MyAlphaPlayerPlugin.swift" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/ios/my_alpha_player.podspec" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/ios/my_alpha_player.podspec" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/lib/my_alpha_player.dart" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/lib/my_alpha_player.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.cc" beforeDir="false" afterPath="$PROJECT_DIR$/windows/flutter/generated_plugin_registrant.cc" afterDir="false" />
@@ -277,7 +279,15 @@
       <option name="project" value="LOCAL" />
       <updated>1769614090743</updated>
     </task>
-    <option name="localTasksCounter" value="18" />
+    <task id="LOCAL-00018" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1770029172699</created>
+      <option name="number" value="00018" />
+      <option name="presentableId" value="LOCAL-00018" />
+      <option name="project" value="LOCAL" />
+      <updated>1770029172699</updated>
+    </task>
+    <option name="localTasksCounter" value="19" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -301,7 +311,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/store/user_store.dart</url>
-          <line>37</line>
+          <line>44</line>
           <option name="timeStamp" value="81" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -333,6 +343,11 @@
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
           <line>1832</line>
           <option name="timeStamp" value="108" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/services/user_service.dart</url>
+          <line>7</line>
+          <option name="timeStamp" value="110" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>

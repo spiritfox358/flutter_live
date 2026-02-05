@@ -34,7 +34,7 @@ class BuildChatItem extends StatelessWidget {
                         alignment: PlaceholderAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.only(right: 6.0),
-                          child: LevelBadge(level: msg.level),
+                          child: LevelBadge(level: msg.level,showConsumption: true),
                         ),
                       ),
 

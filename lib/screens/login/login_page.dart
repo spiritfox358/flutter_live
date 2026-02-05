@@ -34,7 +34,7 @@ class _LoginPageState extends State<LoginPage> {
       String token = response['token'];
       Map<String, dynamic> userInfo = response['userInfo'];
       String userId = userInfo['account_id'].toString(); // 注意转 String
-      String userName = userInfo['nickname'];
+      String nickname = userInfo['nickname'];
       String avatar = userInfo['avatar'];
       await UserStore.to.setToken(token);
       await UserStore.to.saveProfile(userInfo);

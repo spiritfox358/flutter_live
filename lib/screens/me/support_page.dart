@@ -53,8 +53,7 @@ class SupportPage extends StatelessWidget {
                     SizedBox(height: 6),
                     Text(
                       "这款 App 是我利用业余时间一点一滴搭建起来的。从每一行代码到每一个交互动画，都倾注了我的热情与心血。\n\n"
-                          "能够在这个茫茫网络中与你相遇，并为你带来哪怕一点点的快乐或便利，都是我最大的荣幸。\n\n"
-                          "如果你喜欢这个 App，或者想支持服务器的维护费用，欢迎请我喝杯咖啡 ☕️。你的支持是我持续更新的最大动力！",
+                          "如果你喜欢这个 App，或者想支持服务器的维护费用，欢迎支持。你的支持是我持续更新的最大动力！",
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,
@@ -84,16 +83,16 @@ class SupportPage extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                   // 🟢 请替换为你自己的收款码图片路径
                   // 建议把图片放在 assets/images/qr_code.jpg
-                  child: Image.asset(
-                    "assets/images/qr_code.jpg",
-                    width: 200,
-                    height: 200,
+                  child: Image.network(
+                    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/5ae3a77ee15d265342462003fece0aab.jpg",
+                    width: 270,
+                    height: 270,
                     fit: BoxFit.cover,
                     // 如果暂时没有图片，可以用下面这个 errorBuilder 显示占位符
                     errorBuilder: (context, error, stackTrace) {
                       return Container(
-                        width: 200,
-                        height: 200,
+                        width: 270,
+                        height: 270,
                         color: Colors.grey[200],
                         child: const Center(
                           child: Text("请放入收款码图片", style: TextStyle(color: Colors.black54)),

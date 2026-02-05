@@ -16,6 +16,13 @@ class UserStore {
   static const String _kTokenKey = "TOKEN";
   static const String _kProfileKey = "USER_PROFILE";
 
+  // 🟢 1. 新增：头像版本标识
+  // 默认给一个当前时间戳，保证每次冷启动 App 都能拉取一次最新的
+  String _avatarKey = DateTime.now().millisecondsSinceEpoch.toString();
+
+  // 🟢 2. Getter：给外部获取这个 Key (拼接到 URL 后面)
+  String get avatarKey => _avatarKey;
+
   // 初始化 (在 main.dart 启动时调用)
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -51,7 +58,7 @@ class UserStore {
 
   String get userAccountId => profile?['accountId']?.toString() ?? "";
 
-  String get userName => profile?['nickname'] ?? "未知用户";
+  String get nickname => profile?['nickname'] ?? "未知用户";
 
   String get avatar => profile?['avatar'] ?? "";
 
@@ -91,5 +98,11 @@ class UserStore {
     mutableMap['coin'] = newCoin;
 
     await saveProfile(mutableMap);
+  }
+
+  // 🟢 9. 新增：强制更新头像版本号
+  // 当在编辑页面修改头像成功后，调用此方法，更新 Key，从而让 UI 强制重载图片
+  void forceUpdateAvatar() {
+    _avatarKey = DateTime.now().millisecondsSinceEpoch.toString();
   }
 }

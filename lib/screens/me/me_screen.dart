@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/me/profile/edit_profile_page.dart';
+import 'package:flutter_live/services/user_service.dart';
 import '../../../store/user_store.dart';
 import '../login/login_page.dart';
-// 🟢 记得引入你的 SupportPage，路径根据你实际存放位置修改
 import 'support_page.dart';
 
 class MeScreen extends StatefulWidget {
@@ -88,6 +89,7 @@ class _MeScreenState extends State<MeScreen> {
         child: Column(
           children: [
             const SizedBox(height: 10),
+            // 🟢 在这里调用头部构建方法
             _buildUserHeader(
                 avatar, nickname, userId, level, vipLevel,
                 cardColor, textColor, subTextColor
@@ -105,83 +107,121 @@ class _MeScreenState extends State<MeScreen> {
     );
   }
 
+  // 🟢 修改处：包裹 GestureDetector 并添加跳转逻辑
+// 🟢 修改后的头部构建方法
   Widget _buildUserHeader(
       String avatar, String nickname, String id, int level, int vipLevel,
       Color cardColor, Color textColor, Color subTextColor
       ) {
-    return Container(
-      color: cardColor,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      child: Row(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.purpleAccent.withOpacity(0.5), width: 2),
-            ),
-            child: CircleAvatar(
-              radius: 36,
-              backgroundImage: NetworkImage(avatar),
+    return GestureDetector(
+      onTap: () async {
+        // 1. 跳转到编辑页面
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EditProfilePage(
+              currentAvatarUrl: avatar,
+              currentNickname: nickname,
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  nickname,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  "ID: $id",
-                  style: TextStyle(color: subTextColor, fontSize: 13),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Colors.blue, Colors.cyan]),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        "Lv.$level",
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                      ),
+        );
+
+        // 🟢 2. 核心步骤：从编辑页回来后
+        // 先等待最新的用户信息同步完成
+        await UserService.syncUserInfo();
+
+        // 🟢 3. 关键：手动更新头像版本号
+        // 告诉 UserStore：“我刚才改了头像，请生成一个新的 Key，让图片强制刷新”
+        UserStore.to.forceUpdateAvatar();
+
+        // 4. 刷新当前 UI
+        if (mounted) {
+          setState(() {
+            // 触发 build，UI 会读取到最新的 UserStore.to.profile 和 UserStore.to.avatarKey
+          });
+        }
+      },
+      child: Container(
+        color: cardColor,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+        child: Row(
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.purpleAccent.withOpacity(0.5), width: 2),
+              ),
+              child: CircleAvatar(
+                radius: 36,
+                // 🟢 4. 核心修改：使用 Store 里的 Key
+                // 原理：平时 key 不变 -> 命中缓存 -> 界面不闪烁
+                //      改完头像 key 变了 -> 视为新 URL -> 强制刷新图片
+                backgroundImage: NetworkImage(avatar),
+
+                onBackgroundImageError: (exception, stackTrace) {
+                  debugPrint("头像加载失败");
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    nickname,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
-                    const SizedBox(width: 8),
-                    if (vipLevel > 0)
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    "ID: $id",
+                    style: TextStyle(color: subTextColor, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFFD700),
+                          gradient: const LinearGradient(colors: [Colors.blue, Colors.cyan]),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.verified, size: 10, color: Colors.deepOrange),
-                            const SizedBox(width: 2),
-                            Text(
-                              "VIP$vipLevel",
-                              style: const TextStyle(color: Colors.deepOrange, fontSize: 10, fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                        child: Text(
+                          "Lv.$level",
+                          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                         ),
                       ),
-                  ],
-                )
-              ],
+                      const SizedBox(width: 8),
+                      if (vipLevel > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFD700),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.verified, size: 10, color: Colors.deepOrange),
+                              const SizedBox(width: 2),
+                              Text(
+                                "VIP$vipLevel",
+                                style: const TextStyle(color: Colors.deepOrange, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  )
+                ],
+              ),
             ),
-          ),
-          Icon(Icons.arrow_forward_ios, size: 16, color: subTextColor),
-        ],
+            Icon(Icons.arrow_forward_ios, size: 16, color: subTextColor),
+          ],
+        ),
       ),
     );
   }
@@ -237,10 +277,6 @@ class _MeScreenState extends State<MeScreen> {
       ),
       child: Column(
         children: [
-          // _buildMenuItem(Icons.history, "观看记录", null, textColor, iconColor),
-          // _buildDivider(cardColor),
-
-          // 🟢 修改处：在这里传入 onTap 回调
           _buildMenuItem(
             Icons.favorite,
             "赞赏支持",
@@ -248,22 +284,17 @@ class _MeScreenState extends State<MeScreen> {
             textColor,
             iconColor,
             onTap: () {
-              // 跳转到 SupportPage
               Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const SupportPage())
               );
             },
           ),
-
-          // _buildDivider(cardColor),
-          // _buildMenuItem(Icons.info_outline, "关于 Coin Dance", "v1.0.0", textColor, iconColor),
         ],
       ),
     );
   }
 
-  // 🟢 修改处：增加 optional 参数 {VoidCallback? onTap}
   Widget _buildMenuItem(IconData icon, String title, String? trailingText, Color textColor, Color iconColor, {VoidCallback? onTap}) {
     return ListTile(
       leading: Container(
@@ -284,7 +315,6 @@ class _MeScreenState extends State<MeScreen> {
           const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
         ],
       ),
-      // 🟢 修改处：将传入的 onTap 赋值给 ListTile
       onTap: onTap,
     );
   }

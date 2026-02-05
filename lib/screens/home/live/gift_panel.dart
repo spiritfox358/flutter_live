@@ -10,7 +10,7 @@ class GiftPanel extends StatefulWidget {
   // 🟢 新增：接收从外面传进来的礼物列表 (可选，如果传了就不用 API 再查一遍)
   final List<GiftItemData>? initialGiftList;
   final int myBalance;
-  final ValueNotifier<UserStatus> userStatusNotifier;
+  final ValueNotifier<UserModel> userStatusNotifier;
   const GiftPanel({
     super.key,
     required this.onSend,

@@ -100,8 +100,18 @@ class _MyAlphaPlayerViewState extends State<MyAlphaPlayerView> {
         // 🟢 优化：避免重复创建，这在列表或频繁刷新页面中很重要
         hitTestBehavior: PlatformViewHitTestBehavior.transparent,
       );
+    } else if (Platform.isIOS) {
+      // 👇👇👇 新增 iOS 支持 👇👇👇
+      return UiKitView(
+        viewType: viewType, // 使用同一个 ID
+        onPlatformViewCreated: _onPlatformViewCreated,
+        creationParamsCodec: const StandardMessageCodec(),
+        // 如果需要传递初始参数（例如为了预加载），可以在这里传
+        // creationParams: {"url": "xxx"},
+      );
     }
-    return const Center(child: Text("IOS 暂未实现"));
+
+    return const Center(child: Text("不支持的平台"));
   }
 
   void _onPlatformViewCreated(int id) {

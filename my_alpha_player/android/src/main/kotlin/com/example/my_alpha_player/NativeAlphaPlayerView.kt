@@ -85,6 +85,9 @@ class NativeAlphaPlayerView(
 
                     override fun startAction() {
                         Log.i("AlphaPlayer", "开始播放")
+                        container.post {
+                            container.alpha = 1f
+                        }
                     }
                     override fun endAction() {
                         Log.i("AlphaPlayer", "播放结束")
@@ -136,6 +139,8 @@ class NativeAlphaPlayerView(
             Log.e("AlphaPlayer", "文件不存在: $path")
             return
         }
+
+        container.alpha = 0f
 
         // 使用 canonicalPath 获取标准路径
         val realPath = file.canonicalPath

@@ -278,7 +278,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     // 从 UserStore 获取我的基本信息
-    final myName = UserStore.to.userName;
+    final myName = UserStore.to.nickname;
     final myLevel = UserStore.to.userLevel;
     final myAvatar = UserStore.to.avatar;
 

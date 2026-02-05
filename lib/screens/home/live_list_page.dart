@@ -59,16 +59,15 @@ class _LiveListPageState extends State<LiveListPage> {
   List<AnchorInfo> _anchors = [];
   bool _isInitLoading = true;
 
-  // 🟢 关键：使用 GlobalKey 来控制 RefreshIndicator，实现“自动刷新”
+  // 使用 GlobalKey 来控制 RefreshIndicator
   final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
 
   @override
   void initState() {
     super.initState();
-    // 页面初始化时，自动触发下拉刷新动画
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshKey.currentState?.show();
-    });
+    // 🔴 修改 1：移除了 WidgetsBinding 自动触发 _refreshKey.currentState?.show() 的逻辑
+    // 改为直接调用数据请求方法，这样进页面会加载数据，但不会弹出下拉刷新圈
+    _handleRefresh();
   }
 
   // 下拉刷新的具体逻辑
@@ -96,29 +95,28 @@ class _LiveListPageState extends State<LiveListPage> {
     );
 
     try {
-      final res = await HttpUtil().post("/api/room/start_live", data: {
-        "anchorId": int.tryParse(myUserId) ?? 0,
-      });
-
+      final res = await HttpUtil().post(
+        "/api/room/start_live",
+        data: {"anchorId": int.tryParse(myUserId) ?? 0, "title": UserStore.to.nickname, "coverImg": UserStore.to.avatar},
+      );
       if (mounted) {
         Navigator.pop(context); // 关loading
         if (res != null) {
           final String assignedRoomId = res['roomId'].toString();
-          Navigator.of(context).push(
+          Navigator.of(context)
+              .push(
             MaterialPageRoute(
               builder: (context) => RealLivePage(
                 userId: myUserId,
-                userName: UserStore.to.userName,
+                userName: UserStore.to.nickname,
                 avatarUrl: UserStore.to.avatar,
                 level: 0,
                 isHost: true,
                 roomId: assignedRoomId,
               ),
             ),
-          ).then((_) {
-            // 🟢 下播回来，自动触发刷新
-            _refreshKey.currentState?.show();
-          });
+          );
+          // 🔴 修改 2：移除了 .then(...) 中的自动刷新逻辑
         }
       }
     } catch (e) {
@@ -137,14 +135,17 @@ class _LiveListPageState extends State<LiveListPage> {
       appBar: AppBar(
         elevation: 0,
         backgroundColor: theme.scaffoldBackgroundColor,
-        title: Text("直播列表", style: TextStyle(color: theme.textTheme.titleLarge?.color, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: Text(
+          "直播列表",
+          style: TextStyle(color: theme.textTheme.titleLarge?.color, fontWeight: FontWeight.bold, fontSize: 18),
+        ),
         centerTitle: true,
         iconTheme: IconThemeData(color: theme.textTheme.titleLarge?.color),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              // 🟢 点击按钮，手动触发下拉刷新
+              // 点击按钮，手动触发下拉刷新动画（保留这个按钮作为手动刷新的快捷方式）
               _refreshKey.currentState?.show();
             },
           ),
@@ -155,30 +156,23 @@ class _LiveListPageState extends State<LiveListPage> {
         backgroundColor: const Color(0xFFFF0050),
         elevation: 4,
         icon: const Icon(Icons.videocam, color: Colors.white),
-        label: const Text("我要开播", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text(
+          "我要开播",
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
       ),
-      // 🟢 原生 RefreshIndicator，最稳健，最利索
+      // 原生 RefreshIndicator
       body: RefreshIndicator(
         key: _refreshKey,
-        color: const Color(0xFFFF0050), // 粉色加载圈
+        color: const Color(0xFFFF0050),
         backgroundColor: Colors.white,
         onRefresh: _handleRefresh,
         child: ListView.separated(
-          // 🟢 核心物理配置：
-          // 1. ClampingScrollPhysics: 强制硬边界，禁止底部回弹（解决“禁止往上推”）。
-          // 2. AlwaysScrollableScrollPhysics: 保证即使列表很短，顶部依然能下拉触发刷新。
-          physics: const AlwaysScrollableScrollPhysics(
-            parent: ClampingScrollPhysics(),
-          ),
+          // 物理滚动效果配置
+          physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
           padding: const EdgeInsets.only(top: 5, bottom: 80),
           itemCount: _anchors.length,
-          separatorBuilder: (ctx, i) => Divider(
-            height: 1,
-            thickness: 0.5,
-            indent: 100,
-            endIndent: 16,
-            color: dividerColor.withOpacity(0.1),
-          ),
+          separatorBuilder: (ctx, i) => Divider(height: 1, thickness: 0.5, indent: 100, endIndent: 16, color: dividerColor.withOpacity(0.1)),
           itemBuilder: (context, index) => _buildCustomListItem(_anchors[index], theme),
         ),
       ),
@@ -191,9 +185,16 @@ class _LiveListPageState extends State<LiveListPage> {
     IconData modeIcon = Icons.bar_chart_rounded;
 
     if (anchor.isLive) {
-      if (anchor.roomMode == 1) { modeText = "PK排位"; modeIcon = Icons.bolt; }
-      else if (anchor.roomMode == 2) { modeText = "接受惩罚"; modeIcon = Icons.sentiment_very_dissatisfied; }
-      else if (anchor.roomMode == 3) { modeText = "连线互动"; modeIcon = Icons.link; }
+      if (anchor.roomMode == 1) {
+        modeText = "PK排位";
+        modeIcon = Icons.bolt;
+      } else if (anchor.roomMode == 2) {
+        modeText = "接受惩罚";
+        modeIcon = Icons.sentiment_very_dissatisfied;
+      } else if (anchor.roomMode == 3) {
+        modeText = "连线互动";
+        modeIcon = Icons.link;
+      }
     }
 
     return InkWell(
@@ -208,9 +209,17 @@ class _LiveListPageState extends State<LiveListPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(anchor.name, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color)),
+                  Text(
+                    anchor.name,
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color),
+                  ),
                   const SizedBox(height: 6),
-                  Text(anchor.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 14, color: Colors.grey)),
+                  Text(
+                    anchor.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
                 ],
               ),
             ),
@@ -225,17 +234,17 @@ class _LiveListPageState extends State<LiveListPage> {
                   children: [
                     Icon(modeIcon, color: Colors.white, size: 14),
                     const SizedBox(width: 4),
-                    Text(modeText, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    Text(
+                      modeText,
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
                   ],
                 ),
               )
             else
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
                 child: Text("离线", style: TextStyle(color: Colors.grey, fontSize: 11)),
               ),
           ],
@@ -245,21 +254,20 @@ class _LiveListPageState extends State<LiveListPage> {
   }
 
   void _enterRoom(AnchorInfo anchor, {required bool isHost}) {
-    Navigator.of(context).push(
+    Navigator.of(context)
+        .push(
       MaterialPageRoute(
         builder: (context) => RealLivePage(
           userId: UserStore.to.userId,
-          userName: UserStore.to.userName,
+          userName: UserStore.to.nickname,
           avatarUrl: UserStore.to.avatar,
           level: 0,
           isHost: isHost,
           roomId: anchor.roomId,
         ),
       ),
-    ).then((_) {
-      // 🟢 核心：从直播间返回时，自动调用刷新
-      _refreshKey.currentState?.show();
-    });
+    );
+    // 🔴 修改 3：移除了 .then(...) 中的自动刷新逻辑，从直播间回来不再自动转圈
   }
 }
 
@@ -267,39 +275,100 @@ class _LiveListPageState extends State<LiveListPage> {
 class _RippleAvatar extends StatefulWidget {
   final String avatarUrl;
   final bool isLive;
+
   const _RippleAvatar({required this.avatarUrl, required this.isLive});
+
   @override
   State<_RippleAvatar> createState() => _RippleAvatarState();
 }
 
 class _RippleAvatarState extends State<_RippleAvatar> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
+
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000));
     if (widget.isLive) _controller.repeat();
   }
+
   @override
   void didUpdateWidget(covariant _RippleAvatar oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isLive != oldWidget.isLive) {
-      if (widget.isLive) _controller.repeat(); else { _controller.stop(); _controller.reset(); }
+      if (widget.isLive) {
+        _controller.repeat();
+      } else {
+        _controller.stop();
+        _controller.reset();
+      }
     }
   }
+
   @override
-  void dispose() { _controller.dispose(); super.dispose(); }
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!widget.isLive) {
-      return Container(width: 62, height: 62, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.grey[300]!, width: 1)), child: ClipOval(child: ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: Image.network(widget.avatarUrl, fit: BoxFit.cover))));
+      return Container(
+        width: 62,
+        height: 62,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.grey[300]!, width: 1),
+        ),
+        child: ClipOval(
+          child: ColorFiltered(
+            colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+            child: Image.network(widget.avatarUrl, fit: BoxFit.cover),
+          ),
+        ),
+      );
     }
-    return SizedBox(width: 76, height: 76, child: Stack(alignment: Alignment.center, children: [
-      ...List.generate(3, (index) => AnimatedBuilder(animation: _controller, builder: (ctx, child) {
-        double t = Curves.easeOutQuad.transform((_controller.value + index * 0.33) % 1.0);
-        return Transform.scale(scale: 1.0 + t * 0.3, child: Container(width: 62, height: 62, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFF0050).withOpacity((1.0 - t).clamp(0.0, 1.0) * 0.6), width: 3.0 * (1.0 - t).clamp(0.5, 3.0)))));
-      })),
-      Container(width: 62, height: 62, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFFFF0050), width: 2.0), image: DecorationImage(image: NetworkImage(widget.avatarUrl), fit: BoxFit.cover))),
-    ]));
+    return SizedBox(
+      width: 76,
+      height: 76,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          ...List.generate(
+            3,
+                (index) => AnimatedBuilder(
+              animation: _controller,
+              builder: (ctx, child) {
+                double t = Curves.easeOutQuad.transform((_controller.value + index * 0.33) % 1.0);
+                return Transform.scale(
+                  scale: 1.0 + t * 0.3,
+                  child: Container(
+                    width: 62,
+                    height: 62,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFFF0050).withOpacity((1.0 - t).clamp(0.0, 1.0) * 0.6),
+                        width: 3.0 * (1.0 - t).clamp(0.5, 3.0),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          Container(
+            width: 62,
+            height: 62,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFFF0050), width: 2.0),
+              image: DecorationImage(image: NetworkImage(widget.avatarUrl), fit: BoxFit.cover),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
