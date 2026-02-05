@@ -110,8 +110,8 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
         debugPrint("▶️ 下载完成，开始播放: $localPath");
 
         // ✨ 关键优化：只有真正开始播放时，才启动看门狗
-        // 10秒后如果还没播完（或者卡死），强制结束
-        _startWatchdog(18);
+        // 20秒后如果还没播完（或者卡死），强制结束
+        _startWatchdog(20);
 
         await _alphaPlayerController!.play(localPath);
       } else {
