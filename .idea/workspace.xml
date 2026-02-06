@@ -5,23 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/tools/GiftColorsTool.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/player/AlphaShader.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/player/AlphaTextureView.kt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/player/FilterParams.kt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_preview/gift_unlock_details.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/level_badge_widget.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/level_badge_widget.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/AlphaShader.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/AlphaTextureView.kt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/AlphaVideoRenderer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/player/AlphaVideoRenderer.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/NativeAlphaPlayerView.kt" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/NativeAlphaPlayerView.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/my_alpha_player/lib/my_alpha_player.dart" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/lib/my_alpha_player.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/player/AlphaTextureView.kt" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/player/AlphaTextureView.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/player/AlphaVideoRenderer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/android/src/main/kotlin/com/example/my_alpha_player/player/AlphaVideoRenderer.kt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -64,7 +56,7 @@
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
-    "Flutter.main.dart.executor": "Debug",
+    "Flutter.main.dart.executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
@@ -294,7 +286,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770306231485</updated>
     </task>
-    <option name="localTasksCounter" value="23" />
+    <task id="LOCAL-00023" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1770366648060</created>
+      <option name="number" value="00023" />
+      <option name="presentableId" value="LOCAL-00023" />
+      <option name="project" value="LOCAL" />
+      <updated>1770366648060</updated>
+    </task>
+    <option name="localTasksCounter" value="24" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -308,7 +308,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart</url>
-          <line>63</line>
+          <line>64</line>
           <option name="timeStamp" value="13" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -318,7 +318,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart</url>
-          <line>10</line>
+          <line>11</line>
           <option name="timeStamp" value="89" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">

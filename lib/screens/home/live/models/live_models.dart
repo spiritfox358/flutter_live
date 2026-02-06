@@ -7,6 +7,7 @@ class ChatMessage {
   final Color levelColor;
   final bool isGift; // 🟢 添加一个字段来标识是否是礼物消息
   final bool isAnchor;
+
   ChatMessage({
     required this.name,
     required this.content,
@@ -68,6 +69,7 @@ class GiftItemData {
   final String id;
   final String name;
   final int price;
+  final bool? isLocked;
   final String iconUrl;
   final String? effectAsset; // 🟢 修改：改为可空，防止后端没配特效报错
   final List<dynamic>? configJsonList;
@@ -84,7 +86,8 @@ class GiftItemData {
     this.tag,
     this.expireTime,
     this.tabId,
-    this.configJsonList, // 🟢 新增
+    this.configJsonList,
+    this.isLocked, // 🟢 新增
   });
 
   factory GiftItemData.fromJson(Map<String, dynamic> json) {
@@ -99,8 +102,8 @@ class GiftItemData {
       // 后端叫 tagName
       // expireTime: json['expireTime'] // 如果后续有过期时间逻辑可开启
       tabId: json['tabId']?.toString() ?? "",
-      configJsonList: json['vibrationConfig'] is List ?
-      (json['vibrationConfig'] as List).cast<dynamic>() : []
+      configJsonList: json['vibrationConfig'] is List ? (json['vibrationConfig'] as List).cast<dynamic>() : [],
+      isLocked: json['isLocked'] as bool,
     );
   }
 }

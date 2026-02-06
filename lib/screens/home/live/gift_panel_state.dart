@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/models/user_models.dart';
+import 'package:flutter_live/screens/home/live/widgets/gift_preview/gift_unlock_details.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 import 'package:flutter_live/screens/home/live/widgets/live_profile_popup.dart';
 import '../../../services/gift_api.dart'; // ⚠️ 请确认路径
@@ -324,127 +325,166 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
   Widget build(BuildContext context) {
     const double buttonHeight = 28.0;
     const double cardRadius = 8.0;
+    // 假设 null 表示“未锁定”
+    final bool isLocked = widget.gift.isLocked ?? true;
+    // 🟢 1. 如果被锁住了，整体透明度降低一点
+    final double opacity = isLocked ? 0.6 : 1.0;
 
     return AnimatedBuilder(
       animation: _glowAnimation,
       builder: (context, child) {
-        return Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(cardRadius),
-            border: Border.all(color: widget.isSelected ? const Color(0xFFFFFFFF) : Colors.transparent, width: 0.2),
-            color: widget.isSelected ? Colors.white.withOpacity(0.05) : Colors.transparent,
-          ),
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: widget.isSelected ? buttonHeight : 0),
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: widget.onTap,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.center,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            height: 60,
-                            child: Stack(
-                              alignment: Alignment.bottomCenter,
-                              children: [
-                                Container(
-                                  height: 60,
-                                  alignment: Alignment.center,
-                                  child: Image.network(
-                                    widget.gift.iconUrl,
-                                    width: 54,
-                                    height: 54,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.white24),
-                                  ),
-                                ),
-                                if (widget.gift.expireTime != null)
-                                  Transform.translate(
-                                    offset: const Offset(0, 3),
-                                    child: Container(
-                                      margin: const EdgeInsets.only(bottom: 0),
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), borderRadius: BorderRadius.circular(6)),
-                                      child: Text(
-                                        "${widget.gift.expireTime}过期",
-                                        style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500),
-                                        softWrap: false,
-                                      ),
+        return Opacity(
+          opacity: opacity,
+          child: Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(cardRadius),
+              border: Border.all(color: widget.isSelected ? const Color(0xFFFFFFFF) : Colors.transparent, width: 0.2),
+              color: widget.isSelected ? Colors.white.withOpacity(0.05) : Colors.transparent,
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Padding(
+                    padding: EdgeInsets.only(bottom: widget.isSelected ? buttonHeight : 0),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: widget.onTap,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // --- 图标区域 ---
+                            SizedBox(
+                              height: 60,
+                              child: Stack(
+                                alignment: Alignment.bottomCenter,
+                                children: [
+                                  Container(
+                                    height: 60,
+                                    alignment: Alignment.center,
+                                    child: Image.network(
+                                      widget.gift.iconUrl,
+                                      width: 54,
+                                      height: 54,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.white24),
                                     ),
                                   ),
-                              ],
+                                  // 显示过期时间
+                                  if (widget.gift.expireTime != null)
+                                    Transform.translate(
+                                      offset: const Offset(0, 3),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                        decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), borderRadius: BorderRadius.circular(6)),
+                                        child: Text(
+                                          widget.gift.expireTime!,
+                                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500),
+                                          softWrap: false,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          if (widget.isSelected)
-                            Text(
-                              "${widget.gift.price} 钻",
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                            )
-                          else ...[
-                            Text(widget.gift.name, style: const TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1),
-                            Text("${widget.gift.price} 钻", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                            const SizedBox(height: 4),
+
+                            // --- 名字 & 价格区域 ---
+                            if (widget.isSelected)
+                              Text(
+                                "${widget.gift.price} 钻",
+                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                              )
+                            else ...[
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  // 🟢 2. 礼物名字左边加个锁
+                                  if (isLocked)
+                                    const Padding(
+                                      padding: EdgeInsets.only(right: 2),
+                                      child: Icon(Icons.lock, color: Colors.white70, size: 10),
+                                    ),
+                                  Text(widget.gift.name, style: const TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1),
+                                ],
+                              ),
+                              Text("${widget.gift.price} 钻", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
+                            ],
                           ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              if (widget.gift.tag != null)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: widget.gift.tag == "神秘" ? const Color(0xFFD96F31) : const Color(0xFFE5D1B5),
-                      borderRadius: const BorderRadius.only(bottomRight: Radius.circular(8)),
-                    ),
-                    child: Text(
-                      widget.gift.tag!,
-                      style: TextStyle(
-                        color: widget.gift.tag == "神秘" ? Colors.white : const Color(0xFF5A4331),
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              if (widget.isSelected)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: GestureDetector(
-                    onTap: widget.onSend,
-                    child: Container(
-                      height: buttonHeight,
-                      alignment: Alignment.center,
-                      decoration: const BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Color(0xFFFF0050), Color(0xFFFE2C55)],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
                         ),
-                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(8.0)),
-                      ),
-                      child: const Text(
-                        "赠送",
-                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
                 ),
-            ],
+
+                // --- 标签 (Tag) ---
+                if (widget.gift.tag != null)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: widget.gift.tag == "神秘" ? const Color(0xFFD96F31) : const Color(0xFFE5D1B5),
+                        borderRadius: const BorderRadius.only(bottomRight: Radius.circular(8)),
+                      ),
+                      child: Text(
+                        widget.gift.tag!,
+                        style: TextStyle(
+                          color: widget.gift.tag == "神秘" ? Colors.white : const Color(0xFF5A4331),
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // --- 🟢 3. 赠送按钮 (处理锁定状态) ---
+                if (widget.isSelected)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: GestureDetector(
+                      // 如果锁了，点击无效
+                      onTap: isLocked ? () => GiftUnlockDetails.show(context, widget.gift) : widget.onSend,
+                      child: Container(
+                        height: buttonHeight,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          // 如果锁了，显示灰色；没锁，显示渐变红
+                          gradient: isLocked
+                              ? const LinearGradient(colors: [Colors.grey, Colors.grey])
+                              : const LinearGradient(
+                                  colors: [Color(0xFFFF0050), Color(0xFFFE2C55)],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8.0)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (isLocked)
+                              const Padding(
+                                padding: EdgeInsets.only(right: 4),
+                                child: Icon(Icons.lock, size: 10, color: Colors.white),
+                              ),
+                            Text(
+                              isLocked ? "未解锁" : "赠送",
+                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       },

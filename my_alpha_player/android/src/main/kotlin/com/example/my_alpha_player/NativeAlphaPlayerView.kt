@@ -1,7 +1,6 @@
 package com.example.my_alpha_player
 
 import android.content.Context
-import android.graphics.SurfaceTexture
 import android.media.MediaPlayer
 import android.util.Log
 import android.view.Surface
@@ -11,7 +10,6 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.platform.PlatformView
 import java.io.File
-// 🌟 必须导入这些
 import com.example.my_alpha_player.player.FilterParams
 import com.example.my_alpha_player.player.AlphaTextureView
 
@@ -29,26 +27,12 @@ class NativeAlphaPlayerView(
     private var currentSurface: Surface? = null
     private var pendingUrl: String? = null
 
-    // 默认神仙参数
-    private val defaultBestParams = FilterParams(
-        hue = 0.0f,
-        sat = 1.0f,
-        value = 1.1f,
-        shadow = 0.15f,
-        gamma = 0.8f,
-        inLow = 0.0f,
-        mixOrigin = 0.0f,
-        isOn = true
-    )
-
     init {
         methodChannel.setMethodCallHandler(this)
         initCustomPlayer()
     }
 
-    override fun getView(): View {
-        return container
-    }
+    override fun getView(): View = container
 
     override fun dispose() {
         releaseMediaPlayer()
@@ -61,7 +45,6 @@ class NativeAlphaPlayerView(
             "play" -> {
                 val url = call.argument<String>("url")
                 val hue = call.argument<Double>("hue")?.toFloat()
-
                 if (url != null) {
                     playVideo_Custom(url, hue)
                     result.success(null)
@@ -78,18 +61,11 @@ class NativeAlphaPlayerView(
     }
 
     private fun initCustomPlayer() {
-        Log.i("AlphaPlayer", "✨ 初始化引擎...")
         customAlphaView = AlphaTextureView(context)
-
         container.addView(customAlphaView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-        container.alpha = 0f
 
-        // 🌟 修正：使用 onSurfaceReady 回调，而不是 setOnSurfaceTextureListener
         customAlphaView?.onSurfaceReady = { st ->
-            st.setOnFrameAvailableListener {
-                customAlphaView?.requestRender()
-            }
-
+            customAlphaView?.setClear(true)
             currentSurface?.release()
             currentSurface = Surface(st)
 
@@ -103,9 +79,7 @@ class NativeAlphaPlayerView(
     private fun releaseMediaPlayer() {
         try {
             if (mediaPlayer != null) {
-                if (mediaPlayer!!.isPlaying) {
-                    mediaPlayer!!.stop()
-                }
+                if (mediaPlayer!!.isPlaying) mediaPlayer!!.stop()
                 mediaPlayer!!.reset()
                 mediaPlayer!!.release()
                 mediaPlayer = null
@@ -122,20 +96,12 @@ class NativeAlphaPlayerView(
             return
         }
 
-        // 设置参数
-        if (hue != null) {
-            val newParams = defaultBestParams.copy(isOn = true, hue = hue)
-            customAlphaView?.setFilterParams(newParams)
-            Log.i("AlphaPlayer", "🎨 开启染色: Hue=$hue")
-        } else {
-            customAlphaView?.setFilterParams(FilterParams(isOn = false))
-            Log.i("AlphaPlayer", "🎞️ 原画模式")
-        }
+        // 设置滤镜
+        val params = if (hue != null) FilterParams(isOn = true, hue = hue) else FilterParams(isOn = false)
+        customAlphaView?.setFilterParams(params)
 
-        // 防鬼影
+        // 1. 播放前先开启 Clear，清空屏幕
         customAlphaView?.setClear(true)
-        container.animate().cancel()
-        container.alpha = 0f
 
         releaseMediaPlayer()
 
@@ -153,29 +119,24 @@ class NativeAlphaPlayerView(
                     }
                 }
 
+                // 🟢 关键修复：准备好后必须 start()，否则不播放！
                 setOnPreparedListener { mp ->
+                    Log.i("AlphaPlayer", "✅ 视频准备完毕，开始播放")
                     mp.start()
-                }
-
-                setOnInfoListener { _, what, _ ->
-                    if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
-                        Log.i("AlphaPlayer", "✨ 首帧显示")
-                        customAlphaView?.setClear(false)
-                        container.post {
-                            container.animate().alpha(1f).setDuration(200).start()
-                        }
-                        return@setOnInfoListener true
-                    }
-                    false
+                    // 只要开始播放，就允许渲染器工作。
+                    // 渲染器内部有 "前5帧丢弃" 逻辑，所以这里直接设为 false 也没问题。
+                    customAlphaView?.setClear(false)
                 }
 
                 setOnCompletionListener {
                     methodChannel.invokeMethod("onPlayFinished", null)
+                    customAlphaView?.setClear(true)
                 }
 
                 setOnErrorListener { _, what, extra ->
                     methodChannel.invokeMethod("onError", mapOf("error" to "MediaPlayer Error: $what"))
                     releaseMediaPlayer()
+                    customAlphaView?.setClear(true)
                     return@setOnErrorListener true
                 }
 
@@ -183,13 +144,13 @@ class NativeAlphaPlayerView(
             }
         } catch (e: Exception) {
             releaseMediaPlayer()
+            customAlphaView?.setClear(true)
         }
     }
 
     private fun stop_Custom() {
         releaseMediaPlayer()
         customAlphaView?.setClear(true)
-        container.post { container.alpha = 0f }
         pendingUrl = null
     }
 }
