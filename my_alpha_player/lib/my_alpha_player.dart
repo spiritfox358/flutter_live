@@ -42,13 +42,23 @@ class MyAlphaPlayerController {
     });
   }
 
-  Future<void> play(String url) async {
+// ✨ 修改后的 play 方法：支持传入可选的 hue (0.0 ~ 1.0)
+  Future<void> play(String url, {double? hue}) async {
     if (_isDisposed) return;
     try {
-      await _channel?.invokeMethod('play', {"url": url});
+      // 1. 构建参数 Map
+      final Map<String, dynamic> args = {"url": url};
+
+      // 2. 如果传入了 hue，则添加到参数中
+      // Native 端收到 hue 后会开启染色模式，否则保持原画
+      if (hue != null) {
+        args["hue"] = hue;
+      }
+
+      await _channel?.invokeMethod('play', args);
     } catch (e) {
-      print("AlphaPlayer Play Error: $e");
-      // 🟢 如果播放指令发送失败，立即触发结束，防止队列卡死
+      debugPrint("AlphaPlayer Play Error: $e");
+      // 出错时触发结束，防止队列卡死
       onFinish?.call();
     }
   }

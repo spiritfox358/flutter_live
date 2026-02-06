@@ -79,7 +79,7 @@ class _LevelBadgeState extends State<LevelBadge> {
             ),
             Positioned(
               top: -0.5,
-              right: widget.level < 10 ? 7 : 3.2,
+              right: widget.level < 10 ? 7 : 2.5,
               bottom: -0.5,
               child: Padding(
                 padding: const EdgeInsets.all(0.0),

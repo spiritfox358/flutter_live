@@ -70,6 +70,7 @@ class GiftItemData {
   final int price;
   final String iconUrl;
   final String? effectAsset; // 🟢 修改：改为可空，防止后端没配特效报错
+  final List<dynamic>? configJsonList;
   final String? tag;
   final String? expireTime;
   final String? tabId; // 🟢 新增：关联的 Tab ID
@@ -82,7 +83,8 @@ class GiftItemData {
     this.effectAsset, // 去掉 required
     this.tag,
     this.expireTime,
-    this.tabId, // 🟢 新增
+    this.tabId,
+    this.configJsonList, // 🟢 新增
   });
 
   factory GiftItemData.fromJson(Map<String, dynamic> json) {
@@ -97,6 +99,8 @@ class GiftItemData {
       // 后端叫 tagName
       // expireTime: json['expireTime'] // 如果后续有过期时间逻辑可开启
       tabId: json['tabId']?.toString() ?? "",
+      configJsonList: json['vibrationConfig'] is List ?
+      (json['vibrationConfig'] as List).cast<dynamic>() : []
     );
   }
 }

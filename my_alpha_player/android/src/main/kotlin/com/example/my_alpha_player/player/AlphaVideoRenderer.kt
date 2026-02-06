@@ -1,4 +1,4 @@
-package com.example.my_alpha_player
+package com.example.my_alpha_player.player
 
 import android.graphics.SurfaceTexture
 import android.opengl.GLES11Ext
@@ -13,37 +13,22 @@ class AlphaVideoRenderer(private val onSurfaceReady: (SurfaceTexture) -> Unit) {
     private var textureId: Int = 0
     private var vertexBuffer: FloatBuffer
     private var textureBuffer: FloatBuffer
-
-    // 强引用
     private var surfaceTexture: SurfaceTexture? = null
-    // 防鬼影
-    @Volatile
-    private var isClear: Boolean = true
 
-    private val vertexData = floatArrayOf(
-        -1.0f, -1.0f,  1.0f, -1.0f,
-        -1.0f,  1.0f,  1.0f,  1.0f
-    )
+    @Volatile var currentParams = FilterParams()
+    @Volatile var isClear: Boolean = true
 
-    // ✅ 正常版本的坐标：底部(V=1.0) -> 顶部(V=0.0)
-    // 确保画面是正的
-    private val textureData = floatArrayOf(
-        0.0f, 1.0f, 0.5f, 1.0f,
-        0.0f, 0.0f, 0.5f, 0.0f
-    )
+    // Shader 句柄
+    private var hHue = 0; private var hSat = 0; private var hVal = 0
+    private var hShadow = 0; private var hGamma = 0; private var hInLow = 0
+    private var hMix = 0; private var hOn = 0
+
+    private val vertexData = floatArrayOf(-1.0f, -1.0f, 1.0f, -1.0f, -1.0f, 1.0f, 1.0f, 1.0f)
+    private val textureData = floatArrayOf(0.0f, 1.0f, 0.5f, 1.0f, 0.0f, 0.0f, 0.5f, 0.0f)
 
     init {
-        vertexBuffer = ByteBuffer.allocateDirect(vertexData.size * 4)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer()
-            .put(vertexData).position(0) as FloatBuffer
-
-        textureBuffer = ByteBuffer.allocateDirect(textureData.size * 4)
-            .order(ByteOrder.nativeOrder()).asFloatBuffer()
-            .put(textureData).position(0) as FloatBuffer
-    }
-
-    fun setClear(clear: Boolean) {
-        this.isClear = clear
+        vertexBuffer = ByteBuffer.allocateDirect(vertexData.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(vertexData).position(0) as FloatBuffer
+        textureBuffer = ByteBuffer.allocateDirect(textureData.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(textureData).position(0) as FloatBuffer
     }
 
     fun onSurfaceCreated() {
@@ -55,6 +40,15 @@ class AlphaVideoRenderer(private val onSurfaceReady: (SurfaceTexture) -> Unit) {
             GLES20.glAttachShader(it, fragmentShader)
             GLES20.glLinkProgram(it)
         }
+
+        hHue = GLES20.glGetUniformLocation(programId, "uHue")
+        hSat = GLES20.glGetUniformLocation(programId, "uSat")
+        hVal = GLES20.glGetUniformLocation(programId, "uVal")
+        hShadow = GLES20.glGetUniformLocation(programId, "uShadow")
+        hGamma = GLES20.glGetUniformLocation(programId, "uGamma")
+        hInLow = GLES20.glGetUniformLocation(programId, "uInLow")
+        hMix = GLES20.glGetUniformLocation(programId, "uMixOrigin")
+        hOn = GLES20.glGetUniformLocation(programId, "uTintOn")
 
         val textures = IntArray(1)
         GLES20.glGenTextures(1, textures, 0)
@@ -74,7 +68,6 @@ class AlphaVideoRenderer(private val onSurfaceReady: (SurfaceTexture) -> Unit) {
         surfaceTexture?.let { st ->
             st.updateTexImage()
 
-            // 基础防鬼影
             if (isClear) {
                 GLES20.glClearColor(0f, 0f, 0f, 0f)
                 GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
@@ -84,13 +77,23 @@ class AlphaVideoRenderer(private val onSurfaceReady: (SurfaceTexture) -> Unit) {
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
             GLES20.glUseProgram(programId)
 
-            val aPositionHandle = GLES20.glGetAttribLocation(programId, "aPosition")
-            GLES20.glEnableVertexAttribArray(aPositionHandle)
-            GLES20.glVertexAttribPointer(aPositionHandle, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
+            val p = currentParams
+            GLES20.glUniform1f(hHue, p.hue)
+            GLES20.glUniform1f(hSat, p.sat)
+            GLES20.glUniform1f(hVal, p.value)
+            GLES20.glUniform1f(hShadow, p.shadow)
+            GLES20.glUniform1f(hGamma, p.gamma)
+            GLES20.glUniform1f(hInLow, p.inLow)
+            GLES20.glUniform1f(hMix, p.mixOrigin)
+            GLES20.glUniform1f(hOn, if (p.isOn) 1.0f else 0.0f)
 
-            val aTexCoordHandle = GLES20.glGetAttribLocation(programId, "aTexCoord")
-            GLES20.glEnableVertexAttribArray(aTexCoordHandle)
-            GLES20.glVertexAttribPointer(aTexCoordHandle, 2, GLES20.GL_FLOAT, false, 0, textureBuffer)
+            val aPos = GLES20.glGetAttribLocation(programId, "aPosition")
+            GLES20.glEnableVertexAttribArray(aPos)
+            GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 0, vertexBuffer)
+
+            val aTex = GLES20.glGetAttribLocation(programId, "aTexCoord")
+            GLES20.glEnableVertexAttribArray(aTex)
+            GLES20.glVertexAttribPointer(aTex, 2, GLES20.GL_FLOAT, false, 0, textureBuffer)
 
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0)
             GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
@@ -98,12 +101,11 @@ class AlphaVideoRenderer(private val onSurfaceReady: (SurfaceTexture) -> Unit) {
 
             GLES20.glEnable(GLES20.GL_BLEND)
             GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA, GLES20.GL_ONE_MINUS_SRC_ALPHA)
-
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
 
             GLES20.glDisable(GLES20.GL_BLEND)
-            GLES20.glDisableVertexAttribArray(aPositionHandle)
-            GLES20.glDisableVertexAttribArray(aTexCoordHandle)
+            GLES20.glDisableVertexAttribArray(aPos)
+            GLES20.glDisableVertexAttribArray(aTex)
         }
     }
 

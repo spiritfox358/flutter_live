@@ -11,6 +11,9 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.platform.PlatformView
 import java.io.File
+// 🌟 必须导入这些
+import com.example.my_alpha_player.player.FilterParams
+import com.example.my_alpha_player.player.AlphaTextureView
 
 class NativeAlphaPlayerView(
     private val context: Context,
@@ -25,6 +28,18 @@ class NativeAlphaPlayerView(
     private var mediaPlayer: MediaPlayer? = null
     private var currentSurface: Surface? = null
     private var pendingUrl: String? = null
+
+    // 默认神仙参数
+    private val defaultBestParams = FilterParams(
+        hue = 0.0f,
+        sat = 1.0f,
+        value = 1.1f,
+        shadow = 0.15f,
+        gamma = 0.8f,
+        inLow = 0.0f,
+        mixOrigin = 0.0f,
+        isOn = true
+    )
 
     init {
         methodChannel.setMethodCallHandler(this)
@@ -45,8 +60,10 @@ class NativeAlphaPlayerView(
         when (call.method) {
             "play" -> {
                 val url = call.argument<String>("url")
+                val hue = call.argument<Double>("hue")?.toFloat()
+
                 if (url != null) {
-                    playVideo_Custom(url)
+                    playVideo_Custom(url, hue)
                     result.success(null)
                 } else {
                     result.error("ARGS_ERROR", "URL is null", null)
@@ -64,26 +81,23 @@ class NativeAlphaPlayerView(
         Log.i("AlphaPlayer", "✨ 初始化引擎...")
         customAlphaView = AlphaTextureView(context)
 
-        // ✅ 正常布局：填满屏幕，不强制居中
         container.addView(customAlphaView, FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
-
         container.alpha = 0f
 
-        customAlphaView?.setOnSurfaceTextureListener(object : AlphaTextureView.OnSurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(st: SurfaceTexture) {
-                st.setOnFrameAvailableListener {
-                    customAlphaView?.requestRender()
-                }
-
-                currentSurface?.release()
-                currentSurface = Surface(st)
-
-                pendingUrl?.let { url ->
-                    playVideo_Custom(url)
-                    pendingUrl = null
-                }
+        // 🌟 修正：使用 onSurfaceReady 回调，而不是 setOnSurfaceTextureListener
+        customAlphaView?.onSurfaceReady = { st ->
+            st.setOnFrameAvailableListener {
+                customAlphaView?.requestRender()
             }
-        })
+
+            currentSurface?.release()
+            currentSurface = Surface(st)
+
+            pendingUrl?.let { url ->
+                playVideo_Custom(url, null)
+                pendingUrl = null
+            }
+        }
     }
 
     private fun releaseMediaPlayer() {
@@ -99,7 +113,7 @@ class NativeAlphaPlayerView(
         } catch (e: Exception) {}
     }
 
-    private fun playVideo_Custom(path: String) {
+    private fun playVideo_Custom(path: String, hue: Float?) {
         val file = File(path)
         if (!file.exists()) return
 
@@ -108,7 +122,17 @@ class NativeAlphaPlayerView(
             return
         }
 
-        // 正常防鬼影
+        // 设置参数
+        if (hue != null) {
+            val newParams = defaultBestParams.copy(isOn = true, hue = hue)
+            customAlphaView?.setFilterParams(newParams)
+            Log.i("AlphaPlayer", "🎨 开启染色: Hue=$hue")
+        } else {
+            customAlphaView?.setFilterParams(FilterParams(isOn = false))
+            Log.i("AlphaPlayer", "🎞️ 原画模式")
+        }
+
+        // 防鬼影
         customAlphaView?.setClear(true)
         container.animate().cancel()
         container.alpha = 0f
@@ -122,7 +146,6 @@ class NativeAlphaPlayerView(
                 setDataSource(file.canonicalPath)
                 isLooping = false
 
-                // 宽高比修复 (width/2)
                 setOnVideoSizeChangedListener { _, width, height ->
                     val realWidth = width / 2
                     container.post {
@@ -134,7 +157,6 @@ class NativeAlphaPlayerView(
                     mp.start()
                 }
 
-                // 首帧渲染
                 setOnInfoListener { _, what, _ ->
                     if (what == MediaPlayer.MEDIA_INFO_VIDEO_RENDERING_START) {
                         Log.i("AlphaPlayer", "✨ 首帧显示")

@@ -3,23 +3,41 @@ import 'dart:async';
 import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_live/tools/GiftColorsTool.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:my_alpha_player/my_alpha_player.dart';
 import 'package:vibration/vibration.dart';
 
-/// 1. 定义震动时间点模型
+/// 1. 定义震动时间点模型 (适配后端 JSON)
 class VibrationPoint {
-  final double time; // 在第几秒触发
-  final int duration; // 震动持续时长 (毫秒)
-  VibrationPoint(this.time, this.duration);
+  final double time;    // 触发时间 (秒), 对应数据库 "time"
+  final int duration;   // 震动时长 (毫秒), 对应数据库 "duration"
+  final int level;      // 震动强度 (1-255), 对应数据库 "level"
+
+  VibrationPoint({
+    required this.time,
+    required this.duration,
+    this.level = 255 // 默认满强度
+  });
+
+  // 🏭 工厂方法：把后端传来的 Map 转成对象
+  factory VibrationPoint.fromJson(Map<String, dynamic> json) {
+    return VibrationPoint(
+      time: (json['time'] as num).toDouble(),
+      duration: (json['duration'] as num).toInt(),
+      level: (json['level'] as num?)?.toInt() ?? 255,
+    );
+  }
 }
 
 /// 2. 礼物任务模型
 class GiftTask {
   final String url;
-  final String giftId; // 礼物ID，用于匹配震动配置
+  final String giftId;
+  // 新增：携带震动配置列表
+  final List<VibrationPoint> vibrations;
 
-  GiftTask(this.url, this.giftId);
+  GiftTask(this.url, this.giftId, {this.vibrations = const []});
 }
 
 class GiftEffectLayer extends StatefulWidget {
@@ -49,10 +67,24 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
   }
 
   /// 🟢 [外部调用] 添加特效
-  /// 例如：addEffect("http://...", 32);
-  void addEffect(String url, String giftId) {
-    _effectQueue.add(GiftTask(url, giftId));
-    debugPrint("➕ 特效加入: $url (ID: $giftId)");
+  /// configJsonList: 从后端接口拿到的 vibration_config 字段 (List<dynamic>)
+  void addEffect(String url, String giftId, List<dynamic>? configJsonList) {
+    // 1. 解析后端数据
+    List<VibrationPoint> parsedVibrations = [];
+    if (configJsonList != null && configJsonList.isNotEmpty) {
+      try {
+        parsedVibrations = configJsonList
+            .map((e) => VibrationPoint.fromJson(e))
+            .toList();
+      } catch (e) {
+        debugPrint("❌ 震动配置解析失败: $e");
+      }
+    }
+
+    // 2. 存入队列
+    _effectQueue.add(GiftTask(url, giftId, vibrations: parsedVibrations));
+
+    debugPrint("➕ 特效加入: $url (含 ${parsedVibrations.length} 个震动点)");
 
     if (!_isEffectPlaying) {
       _playNextEffect();
@@ -98,33 +130,13 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
       if (mounted && _alphaPlayerController != null) {
         debugPrint("▶️ 开始播放: $localPath (ID: ${task.giftId})");
 
-        // =========================================================
-        // 📳 前端模拟配置中心 (Hardcode Mock)
-        // =========================================================
-        List<VibrationPoint> vibrations = [];
-
-        // 👉 针对 ID=32 的礼物，配置特殊的震动剧本
-        if (task.giftId == 32.toString()) {
-          debugPrint("⚡️ 命中 ID=32 特效配置，准备震动！");
-          vibrations = [
-            VibrationPoint(1.5, 1000), // 第1.5秒，震1秒
-            VibrationPoint(4.3, 1000), // 第5.0秒，震1秒
-            VibrationPoint(6.5, 600), // 第8.0秒，震1秒
-          ];
+        if (task.vibrations.isNotEmpty) {
+          debugPrint("⚡️ 加载后端震动配置: ${task.vibrations.length} 个触发点");
+          _scheduleVibrations(task.vibrations);
         }
-        // 你也可以加其他 ID 的配置
-        else if (task.giftId == 666) {
-          vibrations = [VibrationPoint(0.1, 500)]; // 简单震一下
-        }
-
-        // 启动震动调度器
-        if (vibrations.isNotEmpty) {
-          _scheduleVibrations(vibrations);
-        }
-        // =========================================================
 
         _startWatchdog(20);
-        await _alphaPlayerController!.play(localPath);
+        await _alphaPlayerController!.play(localPath, hue: GiftColorsTool.original);
       } else {
         _onEffectComplete();
       }
@@ -149,7 +161,7 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
           if (await Vibration.hasVibrator() ?? false) {
             debugPrint("📳 [${point.time}s] 触发震动，持续: ${point.duration}ms");
             // 这里 amplitude: 255 是最大强度 (1-255)
-            Vibration.vibrate(duration: point.duration, amplitude: 255);
+            Vibration.vibrate(duration: point.duration, amplitude: point.level);
           }
         }
       });
@@ -204,10 +216,7 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
       if (await file.exists() && await file.length() > 0) return savePath;
       if (await file.exists()) await file.delete();
 
-      final dio = Dio(BaseOptions(
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 10),
-      ));
+      final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 5), receiveTimeout: const Duration(seconds: 10)));
       await dio.download(url, savePath);
 
       if (await file.exists() && await file.length() > 0) return savePath;
@@ -229,10 +238,7 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
           child: SizedBox(
             width: size.width,
             height: size.width / _videoAspectRatio,
-            child: MyAlphaPlayerView(
-              key: const ValueKey('AlphaPlayer'),
-              onCreated: _onPlayerCreated,
-            ),
+            child: MyAlphaPlayerView(key: const ValueKey('AlphaPlayer'), onCreated: _onPlayerCreated),
           ),
         ),
       ),
