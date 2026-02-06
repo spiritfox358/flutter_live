@@ -92,13 +92,10 @@ class AlphaVideoRenderer(
     fun drawFrame() {
         // 1. 如果不是 Clear 模式，说明在播放视频，必须更新纹理
         // 如果是 Clear 模式，不需要更新纹理（因为没有视频流，或者是旧的）
-        if (!isClear) {
-            try {
-                surfaceTexture?.updateTexImage()
-                drawCount++ // 只有成功获取了新帧，才增加计数
-            } catch (e: Exception) {
-                return
-            }
+        try {
+            surfaceTexture?.updateTexImage()
+        } catch (e: Exception) {
+            // 忽略更新失败
         }
 
         // 2. 清屏透明
@@ -107,7 +104,7 @@ class AlphaVideoRenderer(
 
         // 3. 拦截
         if (isClear) return
-
+        drawCount++
         // 4. 丢帧保护：现在 drawCount 代表真实的“视频第几帧”
         // 丢弃前 5 帧，确保不闪黑
         if (drawCount <= 5) return
