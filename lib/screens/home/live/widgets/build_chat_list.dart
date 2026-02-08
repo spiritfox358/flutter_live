@@ -86,7 +86,7 @@ class _BuildChatListState extends State<BuildChatList> {
   @override
   Widget build(BuildContext context) {
     final transparentBlack = Colors.black.withValues(
-      red: 0, green: 0, blue: 0, alpha: 0.09,
+      red: 0, green: 0, blue: 0, alpha: 0.00,
     );
 
     return Container(

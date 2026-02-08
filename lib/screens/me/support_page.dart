@@ -52,8 +52,7 @@ class SupportPage extends StatelessWidget {
                     ),
                     SizedBox(height: 6),
                     Text(
-                      "这款 App 是我利用业余时间一点一滴搭建起来的。从每一行代码到每一个交互动画，都倾注了我的热情与心血。\n\n"
-                          "如果你喜欢这个 App，或者想支持服务器的维护费用，欢迎支持。你的支持是我持续更新的最大动力！",
+                      "这款 App 是我用热情以及汗水一点一滴搭建起来的。如果你喜欢这个 App，或者想支持服务器的维护费用，欢迎支持。你的支持是我持续更新的最大动力！",
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 14,

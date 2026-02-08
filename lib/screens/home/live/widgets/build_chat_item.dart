@@ -12,7 +12,7 @@ class BuildChatItem extends StatelessWidget {
     return Container(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2), // 稍微增加间距
+        padding: const EdgeInsets.symmetric(vertical: 1.3), // 稍微增加间距
         child: Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -100,7 +100,7 @@ class GiftItemData {
       // 后端叫 effectUrl
       tag: json['tagName'],
       // 后端叫 tagName
-      // expireTime: json['expireTime'] // 如果后续有过期时间逻辑可开启
+      expireTime: json['expireTime'], // 如果后续有过期时间逻辑可开启
       tabId: json['tabId']?.toString() ?? "",
       configJsonList: json['vibrationConfig'] is List ? (json['vibrationConfig'] as List).cast<dynamic>() : [],
       isLocked: json['isLocked'] as bool,

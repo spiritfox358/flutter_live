@@ -160,7 +160,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
                   valueListenable: widget.userStatusNotifier,
                   builder: (context, value, child) {
                     int nextLevel = value.level + 1;
-                    return Text("距离$nextLevel级 还差 ${value.coinsToNextLevelText}钻", style: const TextStyle(color: Colors.white54, fontSize: 10));
+                    return Text("距离$nextLevel级 还差${value.coinsToNextLevelText}钻", style: const TextStyle(color: Colors.white54, fontSize: 10));
                   },
                 ),
               ],
@@ -288,7 +288,13 @@ class _GiftItemWidget extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onSend;
 
-  const _GiftItemWidget({required this.gift, required this.isSelected, required this.onTap, required this.onSend});
+  const _GiftItemWidget({
+    Key? key,
+    required this.gift,
+    required this.isSelected,
+    required this.onTap,
+    required this.onSend,
+  }) : super(key: key);
 
   @override
   State<_GiftItemWidget> createState() => _GiftItemWidgetState();
@@ -321,13 +327,26 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
     super.dispose();
   }
 
+  /// 🟢 辅助方法：格式化时间为 "08/08 23:34过期"
+  String _formatDate(String? dateStr) {
+    if (dateStr == null || dateStr.isEmpty) return "";
+    try {
+      final DateTime dt = DateTime.parse(dateStr);
+      final String month = dt.month.toString().padLeft(2, '0');
+      final String day = dt.day.toString().padLeft(2, '0');
+      final String hour = dt.hour.toString().padLeft(2, '0');
+      final String minute = dt.minute.toString().padLeft(2, '0');
+      return "$month/$day $hour:$minute过期";
+    } catch (e) {
+      return "即将过期"; // 解析失败的兜底
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const double buttonHeight = 28.0;
     const double cardRadius = 8.0;
-    // 假设 null 表示“未锁定”
     final bool isLocked = widget.gift.isLocked ?? true;
-    // 🟢 1. 如果被锁住了，整体透明度降低一点
     final double opacity = isLocked ? 0.6 : 1.0;
 
     return AnimatedBuilder(
@@ -344,6 +363,7 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
             ),
             child: Stack(
               children: [
+                // 1. 内容区域
                 Positioned.fill(
                   child: Padding(
                     padding: EdgeInsets.only(bottom: widget.isSelected ? buttonHeight : 0),
@@ -357,63 +377,83 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // --- 图标区域 ---
+                            // --- 图标区域 (包含绝对定位的时间标签) ---
                             SizedBox(
                               height: 60,
+                              width: 60,
                               child: Stack(
-                                alignment: Alignment.bottomCenter,
+                                alignment: Alignment.center,
+                                clipBehavior: Clip.none,
                                 children: [
-                                  Container(
-                                    height: 60,
-                                    alignment: Alignment.center,
+                                  // 图片
+                                  Positioned.fill(
                                     child: Image.network(
                                       widget.gift.iconUrl,
-                                      width: 54,
-                                      height: 54,
                                       fit: BoxFit.contain,
                                       errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image, color: Colors.white24),
                                     ),
                                   ),
-                                  // 显示过期时间
+
+                                  // 🟢 过期时间：绝对定位 + 白色半透明背景 + 黑色文字
                                   if (widget.gift.expireTime != null)
-                                    Transform.translate(
-                                      offset: const Offset(0, 3),
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                        decoration: BoxDecoration(color: Colors.black.withOpacity(0.7), borderRadius: BorderRadius.circular(6)),
-                                        child: Text(
-                                          widget.gift.expireTime!,
-                                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w500),
-                                          softWrap: false,
+                                    Positioned(
+                                      bottom: 0,
+                                      left: -10, // 稍微给点负边距，防止文字太长被切
+                                      right: -10,
+                                      child: Center(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white70.withOpacity(0.3), // 白色半透明
+                                            borderRadius: BorderRadius.circular(8), // 圆角
+                                          ),
+                                          child: Text(
+                                            _formatDate(widget.gift.expireTime),
+                                            style: const TextStyle(
+                                                color: Colors.white, // 黑色文字
+                                                fontSize: 8,
+                                                fontWeight: FontWeight.bold
+                                            ),
+                                            maxLines: 1,
+                                          ),
                                         ),
                                       ),
                                     ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 4),
 
-                            // --- 名字 & 价格区域 ---
-                            if (widget.isSelected)
-                              Text(
-                                "${widget.gift.price} 钻",
-                                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                              )
-                            else ...[
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  // 🟢 2. 礼物名字左边加个锁
-                                  if (isLocked)
-                                    const Padding(
-                                      padding: EdgeInsets.only(right: 2),
-                                      child: Icon(Icons.lock, color: Colors.white70, size: 10),
+                            const SizedBox(height: 2),
+
+                            // --- 名字区域 (选中时不显示) ---
+                            if (!widget.isSelected)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (isLocked)
+                                      const Padding(
+                                        padding: EdgeInsets.only(right: 2),
+                                        child: Icon(Icons.lock, color: Colors.white70, size: 10),
+                                      ),
+                                    Text(
+                                      widget.gift.name,
+                                      style: const TextStyle(color: Colors.white70, fontSize: 12),
                                     ),
-                                  Text(widget.gift.name, style: const TextStyle(color: Colors.white70, fontSize: 12), maxLines: 1),
-                                ],
+                                  ],
+                                ),
                               ),
-                              Text("${widget.gift.price} 钻", style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10)),
-                            ],
+
+                            // --- 价格区域 ---
+                            Text(
+                              "${widget.gift.price} 钻",
+                              style: TextStyle(
+                                color: widget.isSelected ? Colors.white : Colors.white.withOpacity(0.4),
+                                fontSize: 10,
+                                fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -421,8 +461,8 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
                   ),
                 ),
 
-                // --- 标签 (Tag) ---
-                if (widget.gift.tag != null)
+                // --- 左上角标签 ---
+                if (widget.gift.tag != null && widget.gift.tag!.isNotEmpty)
                   Positioned(
                     left: 0,
                     top: 0,
@@ -443,40 +483,48 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
                     ),
                   ),
 
-                // --- 🟢 3. 赠送按钮 (处理锁定状态) ---
+                // --- 底部按钮 ---
                 if (widget.isSelected)
                   Positioned(
                     left: 0,
                     right: 0,
                     bottom: 0,
                     child: GestureDetector(
-                      // 如果锁了，点击无效
                       onTap: isLocked ? () => GiftUnlockDetails.show(context, widget.gift) : widget.onSend,
                       child: Container(
                         height: buttonHeight,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          // 如果锁了，显示灰色；没锁，显示渐变红
                           gradient: isLocked
                               ? const LinearGradient(colors: [Colors.grey, Colors.grey])
                               : const LinearGradient(
-                                  colors: [Color(0xFFFF0050), Color(0xFFFE2C55)],
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                ),
-                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(8.0)),
+                            colors: [Color(0xFFFF0050), Color(0xFFFE2C55)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(cardRadius)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.center, // 确保纵向居中
                           children: [
                             if (isLocked)
-                              const Padding(
-                                padding: EdgeInsets.only(right: 4),
-                                child: Icon(Icons.lock, size: 10, color: Colors.white),
+                              Padding(
+                                padding: const EdgeInsets.only(right: 4),
+                                child: Icon(
+                                    Icons.lock,
+                                    size: 11, // 稍微调大一点点，匹配 12 号字体的视觉重心
+                                    color: Colors.white.withOpacity(0.9)
+                                ),
                               ),
                             Text(
                               isLocked ? "未解锁" : "赠送",
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                height: -0.13, // 重要：设置行高可以压低文字基线，使其与图标中心对齐
+                              ),
                             ),
                           ],
                         ),
