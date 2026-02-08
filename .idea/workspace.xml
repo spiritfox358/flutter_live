@@ -5,19 +5,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_preview/gift_preview_loop_player.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/recharge_popup.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/widgets/shine_beam_effect.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/flutter_live.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/flutter_live.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gift_convert.md" beforeDir="false" afterPath="$PROJECT_DIR$/gift_convert.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_panel_state.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_item.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_item.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_list.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_chat_list.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_preview/gift_unlock_details.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_preview/gift_unlock_details.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/me/support_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/me/support_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -315,7 +303,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770399378565</updated>
     </task>
-    <option name="localTasksCounter" value="26" />
+    <task id="LOCAL-00026" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1770537554824</created>
+      <option name="number" value="00026" />
+      <option name="presentableId" value="LOCAL-00026" />
+      <option name="project" value="LOCAL" />
+      <updated>1770537554824</updated>
+    </task>
+    <option name="localTasksCounter" value="27" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
