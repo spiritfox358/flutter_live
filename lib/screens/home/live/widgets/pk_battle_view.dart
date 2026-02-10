@@ -4,7 +4,7 @@ import 'dart:math';
 
 import '../../../../services/ai_music_service.dart';
 import '../models/live_models.dart';
-import '../widgets/pk_widgets.dart';
+import '../widgets/pk_score_bar_widgets.dart';
 
 class PKBattleView extends StatefulWidget {
   final VideoPlayerController? leftVideoController;

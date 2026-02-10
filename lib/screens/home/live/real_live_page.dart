@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:async';
 import 'dart:collection';
 import 'dart:math';
@@ -9,8 +8,11 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
-import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
+import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
+import 'package:flutter_live/screens/home/live/widgets/room/video_room_content_view.dart';
+import 'package:flutter_live/screens/home/live/widgets/viewer_list.dart';
 import 'package:flutter_live/store/user_store.dart';
+import 'package:just_audio/just_audio.dart' hide AudioPlayer;
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -29,7 +31,7 @@ import 'package:flutter_live/screens/home/live/widgets/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_bottom_input_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_top_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/music_panel.dart';
-import 'package:flutter_live/screens/home/live/widgets/pk_widgets.dart';
+import 'package:flutter_live/screens/home/live/widgets/pk_score_bar_widgets.dart';
 import 'animate_gift_item.dart';
 import 'gift_panel.dart';
 
@@ -39,13 +41,12 @@ import 'widgets/gift_effect_layer.dart';
 // 引入 PK 匹配管理器
 import 'widgets/pk_match_manager.dart';
 
-class EntranceEvent {
-  final String userName;
-  final int level;
-  final String avatarUrl;
-  final String? frameUrl;
-
-  EntranceEvent({required this.userName, required this.level, required this.avatarUrl, this.frameUrl});
+// 1. 定义房间类型枚举
+enum LiveRoomType {
+  normal, // 普通直播
+  music, // 听歌房
+  game, // 游戏房
+  video, // 🟢 新增：视频放映厅
 }
 
 class RealLivePage extends StatefulWidget {
@@ -57,6 +58,9 @@ class RealLivePage extends StatefulWidget {
   final String roomId;
   final Map<String, dynamic>? initialRoomData;
 
+  // 2. 新增房间类型参数
+  final LiveRoomType roomType;
+
   const RealLivePage({
     super.key,
     required this.userId,
@@ -66,6 +70,7 @@ class RealLivePage extends StatefulWidget {
     required this.isHost,
     required this.roomId,
     this.initialRoomData,
+    this.roomType = LiveRoomType.normal, // 默认为普通模式
   });
 
   @override
@@ -88,6 +93,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late String _myAvatar;
   late String _roomId;
   final GlobalKey<ChatInputOverlayState> _inputOverlayKey = GlobalKey();
+
+  // 🟢 1. 定义一个 GlobalKey 用来控制榜单组件
+  final GlobalKey<ViewerListState> _viewerListKey = GlobalKey<ViewerListState>();
+
+  //控制进场组件的 Key
+  final GlobalKey<LiveUserEntranceState> _entranceKey = GlobalKey<LiveUserEntranceState>();
 
   // 用于控制特效层的 Key
   final GlobalKey<GiftEffectLayerState> _giftEffectKey = GlobalKey();
@@ -162,11 +173,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late Animation<double> _pkRightAnimation;
   late Animation<double> _pkFadeAnimation;
 
-  late AnimationController _welcomeBannerController;
-  late Animation<Offset> _welcomeBannerAnimation;
-  final Queue<EntranceEvent> _entranceQueue = Queue();
-  bool _isEntranceBannerShowing = false;
-  EntranceEvent? _currentEntranceEvent;
   final ValueNotifier<UserModel> _userStatusNotifier = ValueNotifier(
     UserModel(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0),
   );
@@ -206,10 +212,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         });
       }
     });
-
-    _welcomeBannerController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _welcomeBannerAnimation = Tween<Offset>(begin: const Offset(1.5, 0), end: const Offset(0, 0)).animate(_welcomeBannerController);
-
     _startEnterRoomSequence();
   }
 
@@ -507,6 +509,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             senderId: msgUserId,
             count: data['giftCount'] ?? 1,
           );
+          _viewerListKey.currentState?.refresh();
           break;
         // 处理 PK 邀请
         case "PK_INVITE":
@@ -649,22 +652,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                   _pkMatchManagerKey.currentState?.startRandomMatch(context);
                 },
               ),
-              // const Divider(color: Colors.white10, height: 1),
-              //
-              // const Padding(
-              //   padding: EdgeInsets.all(8.0),
-              //   child: Text("—— 或邀请指定时长 ——", style: TextStyle(color: Colors.white24, fontSize: 12)),
-              // ),
-              //
-              // _buildDurationOption("2分钟", 120),
-              // const Divider(color: Colors.white10, height: 1),
-              //
-              // _buildDurationOption("5分钟", 300),
-              // const Divider(color: Colors.white10, height: 1),
-              //
-              // _buildDurationOption("10分钟", 600),
-              // const Divider(color: Colors.white10, height: 1),
-
               const SizedBox(height: 10),
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -746,6 +733,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _enterPunishmentPhase({int? timeLeft}) async {
+    _pkTimer?.cancel();
+    _pkTimer = null;
     setState(() {
       _pkStatus = PKStatus.punishment;
       _pkTimeLeft = (timeLeft != null && timeLeft > 0) ? timeLeft : _punishmentDuration;
@@ -754,8 +743,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     });
     if (_isHost && timeLeft == null) {
       try {
-        await HttpUtil().post("/api/room/enter_punishment", data: {"roomId": int.parse(_roomId)});
-        _sendSocketMessage("PK_PUNISHMENT");
+        // await HttpUtil().post("/api/room/enter_punishment", data: {"roomId": int.parse(_roomId)});
+        // _sendSocketMessage("PK_PUNISHMENT");
       } catch (e) {}
     }
     _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -834,6 +823,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _startPromoTimer() {
     _promoTimer?.cancel();
+    _promoTimer = null;
     _promoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       setState(() {
@@ -874,7 +864,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
   }
 
-  // 🟢 核心修改：统一处理退出逻辑（物理返回 or 点击按钮）
+  // 统一处理退出逻辑（物理返回 or 点击按钮）
   void _handleExitLogic() {
     _dismissKeyboard();
 
@@ -886,15 +876,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     // 2. 如果是主播：根据状态决定行为
     if (_pkStatus != PKStatus.idle) {
-      // 🟢 A. 如果正在 PK/连麦中 -> 弹出断开连接选项（不关播）
+      // A. 如果正在 PK/连麦中 -> 弹出断开连接选项（不关播）
       _showDisconnectDialog();
     } else {
-      // 🟢 B. 如果是单人闲置状态 -> 弹出结束直播确认框（关播）
+      // B. 如果是单人闲置状态 -> 弹出结束直播确认框（关播）
       _showCloseRoomDialog();
     }
   }
 
-  // 🟢 显示断开连接的弹窗（原 PK 结束逻辑）
+  // 显示断开连接的弹窗（原 PK 结束逻辑）
   void _showDisconnectDialog() {
     showModalBottomSheet(
       context: context,
@@ -930,7 +920,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
-  // 🟢 显示结束直播的确认框
+  // 显示结束直播的确认框
   void _showCloseRoomDialog() {
     showDialog(
       context: context,
@@ -1097,7 +1087,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     // 改为调用特效层组件
     if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
-      _giftEffectKey.currentState?.addEffect(giftData.effectAsset!,giftData.id,giftData.configJsonList);
+      _giftEffectKey.currentState?.addEffect(giftData.effectAsset!, giftData.id, giftData.configJsonList);
     }
 
     if (isMe) _triggerComboMode();
@@ -1263,44 +1253,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       avatarUrl: overrideAvatar ?? "https://picsum.photos/seed/${888 + randomIdx}/200",
       frameUrl: "https://cdn-icons-png.flaticon.com/512/8313/8313626.png",
     );
-    _entranceQueue.add(event);
-    if (!_isEntranceBannerShowing) _playNextEntrance();
+    _entranceKey.currentState?.addEvent(event);
     if (mounted) {
       _chatController.addMessage(
         ChatMessage(name: "", content: "$name 加入直播间！", level: overrideLevel, levelColor: const Color(0xFFFFD700), isAnchor: isHost),
       );
     }
-  }
-
-  void _playNextEntrance() async {
-    if (_entranceQueue.isEmpty) return;
-    _isEntranceBannerShowing = true;
-    final event = _entranceQueue.removeFirst();
-    if (mounted) {
-      setState(() {
-        _currentEntranceEvent = event;
-        _welcomeBannerAnimation = Tween<Offset>(
-          begin: const Offset(1.5, 0),
-          end: const Offset(0, 0),
-        ).animate(CurvedAnimation(parent: _welcomeBannerController, curve: Curves.easeOutQuart));
-      });
-    }
-    _welcomeBannerController.reset();
-    await _welcomeBannerController.forward();
-    await Future.delayed(const Duration(milliseconds: 2000));
-    if (mounted) {
-      setState(() {
-        _welcomeBannerAnimation = Tween<Offset>(
-          begin: const Offset(0, 0),
-          end: const Offset(-1.5, 0),
-        ).animate(CurvedAnimation(parent: _welcomeBannerController, curve: Curves.easeInQuart));
-      });
-    }
-    _welcomeBannerController.reset();
-    await _welcomeBannerController.forward();
-    _isEntranceBannerShowing = false;
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (mounted) _playNextEntrance();
   }
 
   // 简单的加载视图，替代复杂的骨架屏
@@ -1370,17 +1328,140 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
+  // 🟢 核心修改：根据类型分发中间视图
+  Widget _buildSingleModeContent(double topPadding) {
+    // 🟢 复用 PK 模式中的 TopBar，确保统一
+    final topBar = Container(
+      margin: EdgeInsets.only(top: topPadding),
+      height: 50, // 与 PK 模式一致
+      child: BuildTopBar(
+        key: const ValueKey("TopBar"),
+        // 可选
+        viewerListKey: _viewerListKey,
+        // 🟢 传入 Key
+        roomId: _roomId,
+        onlineCount: _onlineCount <= 0 ? 1 : _onlineCount,
+        title: "直播间",
+        name: _currentName,
+        avatar: _currentAvatar,
+        onClose: _handleCloseButton,
+      ),
+    );
+
+    switch (widget.roomType) {
+      case LiveRoomType.video:
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. 底层：视频内容 (背景已在内部处理)
+            VideoRoomContentView(
+              videoUrl:
+                  "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/video/%E8%B7%A8%E4%B8%8D%E9%81%8E%E7%9A%84%E8%B7%9D%E9%9B%A2%E3%80%90DJ%E3%80%91%20-%20%E4%B8%83%E5%85%83%E3%80%8E%E6%88%91%E6%98%8E%E6%98%8E%E9%82%84%E6%98%AF%E6%9C%83%E7%AA%81%E7%84%B6%E6%83%B3%E8%B5%B7%E4%BD%A0%EF%BC%8C%E9%82%84%E6%98%AF%E6%9C%83%E5%81%B7%E5%81%B7%E9%97%9C%E5%BF%83%E4%BD%A0.mp4",
+              // 使用左侧流地址作为视频源
+              bgUrl: _currentBgImage,
+              // 🟢 传入 personalPkBg
+              isMuted: false,
+              roomId: _roomId,
+            ),
+            // 2. 顶层：叠加 TopBar
+            Positioned(top: 0, left: 0, right: 0, child: topBar),
+          ],
+        );
+      case LiveRoomType.music:
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. 底层：听歌房内容
+            VideoRoomContentView(
+              videoUrl:
+                  "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/video/%E8%B7%A8%E4%B8%8D%E9%81%8E%E7%9A%84%E8%B7%9D%E9%9B%A2%E3%80%90DJ%E3%80%91%20-%20%E4%B8%83%E5%85%83%E3%80%8E%E6%88%91%E6%98%8E%E6%98%8E%E9%82%84%E6%98%AF%E6%9C%83%E7%AA%81%E7%84%B6%E6%83%B3%E8%B5%B7%E4%BD%A0%EF%BC%8C%E9%82%84%E6%98%AF%E6%9C%83%E5%81%B7%E5%81%B7%E9%97%9C%E5%BF%83%E4%BD%A0.mp4",
+              // 使用左侧流地址作为视频源
+              bgUrl: _currentBgImage,
+              // 🟢 传入 personalPkBg
+              isMuted: false,
+              roomId: _roomId,
+            ),
+            // 2. 顶层：强行叠加顶部栏（因为 MusicRoomContentView 是纯净的）
+            Positioned(top: 0, left: 0, right: 0, child: topBar),
+          ],
+        );
+      case LiveRoomType.normal:
+      default:
+        // 普通模式下，SingleModeView 通常自带了顶部栏或背景处理
+        return Stack(
+          children: [
+            SingleModeView(
+              roomId: _roomId,
+              onlineCount: _onlineCount,
+              isVideoBackground: _isVideoBackground,
+              isBgInitialized: _isBgInitialized,
+              bgController: _bgController,
+              currentBgImage: _currentBgImage,
+              title: "直播间",
+              name: _currentName,
+              avatar: _currentAvatar,
+              onClose: _handleCloseButton,
+            ),
+            Positioned(
+              top: MediaQuery.of(context).size.height * 0.2,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: AvatarAnimation(avatarUrl: _currentAvatar, name: _currentName, isSpeaking: true, isRotating: true),
+              ),
+            ),
+          ],
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final padding = MediaQuery.of(context).padding;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     const double topBarHeight = 50.0;
+
+    double chatListHeight = 460.0; // 默认高度 (普通单人模式)
+
+    if (_pkStatus != PKStatus.idle) {
+      // PK 模式下，高度通常由视频区域决定，保持原样
+      final double pkVideoHeight = size.width * 0.85;
+      final double pkVideoBottomY = padding.top + topBarHeight + 105.0 + pkVideoHeight + 18;
+      chatListHeight = size.height - pkVideoBottomY - 30;
+    } else {
+      // 单人模式下，根据房间类型自定义高度
+      switch (widget.roomType) {
+        case LiveRoomType.music:
+          chatListHeight = 320.0; // 🎵 听歌房弹幕高度 (稍微矮一点，给歌词留位置)
+          break;
+        case LiveRoomType.video:
+          const double myVideoHeight = 240.0;
+          const double headerHeight = 8;
+          double topContentEndY = padding.top + topBarHeight + headerHeight + myVideoHeight;
+          // 公式：屏幕总高 - 顶部内容结束位置 - 底部输入栏 - 底部安全区
+          chatListHeight = size.height - topContentEndY - bottomInset - padding.bottom;
+          // 🛡️ 安全保护：防止在极小屏幕上高度变成负数，给一个最小高度
+          if (chatListHeight < 150) chatListHeight = 150;
+          // chatListHeight = 460.0; // 视频房弹幕矮一点，避免遮挡字幕
+          break;
+        case LiveRoomType.game:
+          chatListHeight = 200.0; // 🎮 游戏房可能需要更矮
+          break;
+        case LiveRoomType.normal:
+        default:
+          chatListHeight = 460.0; // 普通房间默认高度
+          break;
+      }
+    }
+
     const double gap1 = 105.0;
     final double pkVideoHeight = size.width * 0.85;
     final double pkVideoBottomY = padding.top + topBarHeight + gap1 + pkVideoHeight + 18;
     double entranceTop = pkVideoBottomY + 4;
-
+    if (_pkStatus == PKStatus.idle) {
+      // entranceTop = padding.top + topBarHeight + 20;
+    }
     final bool showPromoBanner = _isFirstGiftPromoActive && _pkStatus == PKStatus.playing;
     final bool iHaveUsedPromo = _usersWhoUsedPromo.contains(_myUserId);
     final double safeBottom = MediaQuery.of(context).viewPadding.bottom;
@@ -1410,49 +1491,39 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                       Positioned.fill(
                         child: Stack(
                           children: [
-                            if (_pkStatus != PKStatus.idle)
-                              Positioned.fill(
-                                child: Container(
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [Color(0xFF100101), Color(0xFF141E28)],
+                            Positioned.fill(
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  image: DecorationImage(
+                                    image: NetworkImage(
+                                      _pkStatus == PKStatus.idle
+                                          ? _currentBgImage // 单人模式兜底图
+                                          : "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_10.jpg",
                                     ),
+                                    fit: BoxFit.cover, // 铺满全屏
+                                  ),
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [Color(0xFF100101), Color(0xFF141E28)],
                                   ),
                                 ),
                               ),
+                            ),
+
+                            // 🟢 核心：根据 PK 状态决定显示 单人模式(分发) 还是 PK 模式
                             _pkStatus == PKStatus.idle
-                                ? Stack(
-                                    children: [
-                                      SingleModeView(
-                                        roomId: _roomId,
-                                        onlineCount: _onlineCount,
-                                        isVideoBackground: _isVideoBackground,
-                                        isBgInitialized: _isBgInitialized,
-                                        bgController: _bgController,
-                                        currentBgImage: _currentBgImage,
-                                        title: "直播间",
-                                        name: _currentName,
-                                        avatar: _currentAvatar,
-                                        onClose: _handleCloseButton,
-                                      ),
-                                      Positioned(
-                                        top: MediaQuery.of(context).size.height * 0.2,
-                                        left: 0,
-                                        right: 0,
-                                        child: Center(
-                                          child: AvatarAnimation(avatarUrl: _currentAvatar, name: _currentName, isSpeaking: true, isRotating: true),
-                                        ),
-                                      ),
-                                    ],
-                                  )
+                                ? _buildSingleModeContent(padding.top) // 传入 padding.top
                                 : Column(
                                     children: [
                                       Container(
                                         margin: EdgeInsets.only(top: padding.top),
                                         height: topBarHeight,
                                         child: BuildTopBar(
+                                          key: const ValueKey("TopBar"),
+                                          // 可选
+                                          viewerListKey: _viewerListKey,
+                                          // 🟢 传入 Key
                                           roomId: _roomId,
                                           onlineCount: _onlineCount <= 0 ? 1 : _onlineCount,
                                           title: "直播间",
@@ -1553,7 +1624,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                               left: 0,
                               right: 0,
                               bottom: safeBottom > 0 ? safeBottom : 0,
-                              height: _pkStatus == PKStatus.idle ? 460 : (size.height - pkVideoBottomY - 30),
+                              height: chatListHeight,
                               child: RepaintBoundary(
                                 child: Container(
                                   color: Colors.transparent,
@@ -1628,37 +1699,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                             Positioned(
                               top: entranceTop,
                               left: 0,
-                              child: SlideTransition(
-                                position: _welcomeBannerAnimation,
-                                child: _currentEntranceEvent != null
-                                    ? Container(
-                                        margin: const EdgeInsets.only(left: 5),
-                                        height: 25,
-                                        padding: const EdgeInsets.symmetric(horizontal: 5),
-                                        decoration: BoxDecoration(
-                                          gradient: const LinearGradient(
-                                            colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)],
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                          ),
-                                          borderRadius: BorderRadius.circular(12.5),
-                                          border: Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            LevelBadge(level: _currentEntranceEvent!.level),
-                                            const SizedBox(width: 6),
-                                            Text(
-                                              "${_currentEntranceEvent!.userName} 加入了直播间",
-                                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500, height: 1.1),
-                                            ),
-                                            const SizedBox(width: 10),
-                                          ],
-                                        ),
-                                      )
-                                    : const SizedBox(),
-                              ),
+                              child: LiveUserEntrance(key: _entranceKey),
                             ),
 
                             // 挂载特效层
@@ -1830,7 +1871,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                         child: ChatInputOverlay(
                           key: _inputOverlayKey,
                           onSend: (text) {
-                            _sendSocketMessage("CHAT", content: text, userName: _myUserName, level: _myLevel,isHost: _isHost);
+                            _sendSocketMessage("CHAT", content: text, userName: _myUserName, level: _myLevel, isHost: _isHost);
                           },
                         ),
                       ),
@@ -1879,7 +1920,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _comboScaleController.dispose();
     _countdownController.dispose();
     _pkStartAnimationController.dispose();
-    _welcomeBannerController.dispose();
     _pkTimer?.cancel();
     _promoTimer?.cancel();
     super.dispose();

@@ -1,5 +1,8 @@
 ### FZXT FLUTTER
 
+web deploy command 
+> flutter build web --base-href /live_app/
+
 - Download dependencies
 
 `flutter pub get`

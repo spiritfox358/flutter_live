@@ -9,7 +9,8 @@ class BuildTopBar extends StatelessWidget {
   final String roomId;
   final int onlineCount;
   final String avatar;
-
+// 🟢 1. 新增：接收 ViewerList 的 Key
+  final GlobalKey<ViewerListState>? viewerListKey;
   // 🟢 1. 新增：定义点击回调
   final VoidCallback? onClose;
 
@@ -21,6 +22,7 @@ class BuildTopBar extends StatelessWidget {
     required this.onlineCount,
     required this.avatar,
     this.onClose, // 🟢 2. 加入构造函数
+    this.viewerListKey, // 🟢 2. 加入构造函数
   });
 
   @override
@@ -33,7 +35,7 @@ class BuildTopBar extends StatelessWidget {
           children: [
             ProfilePill(name: name, avatar: avatar),
             const Spacer(),
-            ViewerList(roomId: roomId, onlineCount: onlineCount),
+            ViewerList(key: viewerListKey,roomId: roomId, onlineCount: onlineCount),
             const SizedBox(width: 8),
             // 🟢 3. 包裹 GestureDetector 添加点击事件
             GestureDetector(

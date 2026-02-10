@@ -285,6 +285,9 @@
       <excludeFolder url="file://$MODULE_DIR$/windows/flutter/ephemeral/.plugin_symlinks/open_file_windows/.dart_tool" />
       <excludeFolder url="file://$MODULE_DIR$/windows/flutter/ephemeral/.plugin_symlinks/open_file_windows/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/windows/flutter/ephemeral/.plugin_symlinks/open_file_windows/build" />
+      <excludeFolder url="file://$MODULE_DIR$/my_alpha_player/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/my_alpha_player/.pub" />
+      <excludeFolder url="file://$MODULE_DIR$/my_alpha_player/build" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

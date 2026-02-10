@@ -25,7 +25,7 @@ import 'package:flutter_live/screens/home/live/widgets/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_bottom_input_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_top_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/music_panel.dart';
-import 'package:flutter_live/screens/home/live/widgets/pk_widgets.dart';
+import 'package:flutter_live/screens/home/live/widgets/pk_score_bar_widgets.dart';
 import 'animate_gift_item.dart';
 import 'gift_panel.dart';
 

@@ -19,6 +19,7 @@ class AnchorInfo {
   final int opScore;
   final int bossIndex;
   final int bgIndex;
+  final int roomType;
 
   AnchorInfo({
     required this.roomId,
@@ -34,17 +35,18 @@ class AnchorInfo {
     this.opScore = 0,
     this.bossIndex = 0,
     this.bgIndex = 0,
+    this.roomType = 0,
   });
 
   factory AnchorInfo.fromJson(Map<String, dynamic> json) {
     return AnchorInfo(
       roomId: json['id'].toString(),
       name: json['title'] ?? "未知主播",
-      avatarUrl: json['coverImg'] ??
-          "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.jpg",
+      avatarUrl: json['coverImg'] ?? "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.jpg",
       title: json['aiPersona'] ?? "暂无介绍",
       isLive: (json['status'] == 1 || json['status'] == "1"),
       roomMode: int.tryParse(json['roomMode']?.toString() ?? "0") ?? 0,
+      roomType: int.tryParse(json['roomType']?.toString() ?? "0") ?? 0,
     );
   }
 }
@@ -62,8 +64,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
   bool _isInitLoading = true; // 初始加载状态
 
   // 使用 GlobalKey 来控制 RefreshIndicator
-  final GlobalKey<RefreshIndicatorState> _refreshKey =
-  GlobalKey<RefreshIndicatorState>();
+  final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
 
   // 2. 重写 wantKeepAlive 返回 true
   @override
@@ -82,9 +83,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
       var responseData = await HttpUtil().get("/api/room/list");
       if (mounted) {
         setState(() {
-          _anchors = (responseData as List)
-              .map((json) => AnchorInfo.fromJson(json))
-              .toList();
+          _anchors = (responseData as List).map((json) => AnchorInfo.fromJson(json)).toList();
           _isInitLoading = false; // 数据加载完毕
         });
       }
@@ -99,18 +98,13 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (c) => const Center(
-          child: CircularProgressIndicator(color: Color(0xFFFF0050))),
+      builder: (c) => const Center(child: CircularProgressIndicator(color: Color(0xFFFF0050))),
     );
 
     try {
       final res = await HttpUtil().post(
         "/api/room/start_live",
-        data: {
-          "anchorId": int.tryParse(myUserId) ?? 0,
-          "title": UserStore.to.nickname,
-          "coverImg": UserStore.to.avatar
-        },
+        data: {"anchorId": int.tryParse(myUserId) ?? 0, "title": UserStore.to.nickname, "coverImg": UserStore.to.avatar},
       );
       if (mounted) {
         Navigator.pop(context); // 关loading
@@ -125,6 +119,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
                 level: 0,
                 isHost: true,
                 roomId: assignedRoomId,
+                roomType: LiveRoomType.normal,
               ),
             ),
           );
@@ -132,8 +127,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text("开播失败: $e")));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开播失败: $e")));
     }
   }
 
@@ -152,10 +146,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
         backgroundColor: theme.scaffoldBackgroundColor,
         title: Text(
           "直播列表",
-          style: TextStyle(
-              color: theme.textTheme.titleLarge?.color,
-              fontWeight: FontWeight.bold,
-              fontSize: 18),
+          style: TextStyle(color: theme.textTheme.titleLarge?.color, fontWeight: FontWeight.bold, fontSize: 18),
         ),
         centerTitle: true,
         iconTheme: IconThemeData(color: theme.textTheme.titleLarge?.color),
@@ -187,32 +178,24 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
         onRefresh: _handleRefresh,
         // 4. 根据状态显示不同内容，解决闪烁问题
         child: _isInitLoading
-            ? const Center(
-            child: CircularProgressIndicator(color: Color(0xFFFF0050)))
+            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF0050)))
             : _anchors.isEmpty
             ? const Center(
-            child: Text("暂无直播", style: TextStyle(color: Colors.grey)))
+                child: Text("暂无直播", style: TextStyle(color: Colors.grey)),
+              )
             : ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(
-              parent: ClampingScrollPhysics()),
-          padding: const EdgeInsets.only(top: 5, bottom: 80),
-          itemCount: _anchors.length,
-          separatorBuilder: (ctx, i) => Divider(
-              height: 1,
-              thickness: 0.5,
-              indent: 100,
-              endIndent: 16,
-              color: dividerColor.withOpacity(0.1)),
-          itemBuilder: (context, index) =>
-              _buildCustomListItem(_anchors[index], theme),
-        ),
+                physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+                padding: const EdgeInsets.only(top: 5, bottom: 80),
+                itemCount: _anchors.length,
+                separatorBuilder: (ctx, i) => Divider(height: 1, thickness: 0.5, indent: 100, endIndent: 16, color: dividerColor.withOpacity(0.1)),
+                itemBuilder: (context, index) => _buildCustomListItem(_anchors[index], theme),
+              ),
       ),
     );
   }
 
   Widget _buildCustomListItem(AnchorInfo anchor, ThemeData theme) {
-    final bool isMyRoom =
-    (UserStore.to.userAccountId == "2039" && anchor.roomId == "1001");
+    final bool isMyRoom = (UserStore.to.userAccountId == "2039" && anchor.roomId == "1001");
     String modeText = "直播中";
     IconData modeIcon = Icons.bar_chart_rounded;
 
@@ -243,10 +226,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
                 children: [
                   Text(
                     anchor.name,
-                    style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: theme.textTheme.titleMedium?.color),
+                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -260,11 +240,9 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
             ),
             if (anchor.isLive)
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                      colors: [Color(0xFFFF0050), Color(0xFFFF0080)]),
+                  gradient: const LinearGradient(colors: [Color(0xFFFF0050), Color(0xFFFF0080)]),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -273,23 +251,16 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
                     const SizedBox(width: 4),
                     Text(
                       modeText,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold),
+                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
               )
             else
               Container(
-                padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12)),
-                child: Text("离线",
-                    style: TextStyle(color: Colors.grey, fontSize: 11)),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
+                child: Text("离线", style: TextStyle(color: Colors.grey, fontSize: 11)),
               ),
           ],
         ),
@@ -307,6 +278,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
           level: 0,
           isHost: isHost,
           roomId: anchor.roomId,
+          roomType: anchor.roomType == 3 ? LiveRoomType.video : LiveRoomType.normal,
         ),
       ),
     );
@@ -324,15 +296,13 @@ class _RippleAvatar extends StatefulWidget {
   State<_RippleAvatar> createState() => _RippleAvatarState();
 }
 
-class _RippleAvatarState extends State<_RippleAvatar>
-    with SingleTickerProviderStateMixin {
+class _RippleAvatarState extends State<_RippleAvatar> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 2000));
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000));
     if (widget.isLive) _controller.repeat();
   }
 
@@ -367,8 +337,7 @@ class _RippleAvatarState extends State<_RippleAvatar>
         ),
         child: ClipOval(
           child: ColorFiltered(
-            colorFilter:
-            const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+            colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
             child: Image.network(widget.avatarUrl, fit: BoxFit.cover),
           ),
         ),
@@ -382,11 +351,10 @@ class _RippleAvatarState extends State<_RippleAvatar>
         children: [
           ...List.generate(
             3,
-                (index) => AnimatedBuilder(
+            (index) => AnimatedBuilder(
               animation: _controller,
               builder: (ctx, child) {
-                double t = Curves.easeOutQuad
-                    .transform((_controller.value + index * 0.33) % 1.0);
+                double t = Curves.easeOutQuad.transform((_controller.value + index * 0.33) % 1.0);
                 return Transform.scale(
                   scale: 1.0 + t * 0.3,
                   child: Container(
@@ -395,8 +363,7 @@ class _RippleAvatarState extends State<_RippleAvatar>
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFFFF0050)
-                            .withOpacity((1.0 - t).clamp(0.0, 1.0) * 0.6),
+                        color: const Color(0xFFFF0050).withOpacity((1.0 - t).clamp(0.0, 1.0) * 0.6),
                         width: 3.0 * (1.0 - t).clamp(0.5, 3.0),
                       ),
                     ),
@@ -411,8 +378,7 @@ class _RippleAvatarState extends State<_RippleAvatar>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFFF0050), width: 2.0),
-              image: DecorationImage(
-                  image: NetworkImage(widget.avatarUrl), fit: BoxFit.cover),
+              image: DecorationImage(image: NetworkImage(widget.avatarUrl), fit: BoxFit.cover),
             ),
           ),
         ],

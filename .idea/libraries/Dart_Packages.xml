@@ -289,13 +289,6 @@
             </list>
           </value>
         </entry>
-        <entry key="flutter_driver">
-          <value>
-            <list>
-              <option value="$PROJECT_DIR$/../../../sdks/flutter/packages/flutter_driver/lib" />
-            </list>
-          </value>
-        </entry>
         <entry key="flutter_lints">
           <value>
             <list>
@@ -321,13 +314,6 @@
           <value>
             <list>
               <option value="$PROJECT_DIR$/../../../sdks/flutter/packages/flutter_web_plugins/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="fuchsia_remote_debug_protocol">
-          <value>
-            <list>
-              <option value="$PROJECT_DIR$/../../../sdks/flutter/packages/fuchsia_remote_debug_protocol/lib" />
             </list>
           </value>
         </entry>
@@ -419,13 +405,6 @@
           <value>
             <list>
               <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/image_picker_windows-0.2.2/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="integration_test">
-          <value>
-            <list>
-              <option value="$PROJECT_DIR$/../../../sdks/flutter/packages/integration_test/lib" />
             </list>
           </value>
         </entry>
@@ -737,13 +716,6 @@
             </list>
           </value>
         </entry>
-        <entry key="process">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/process-5.0.5/lib" />
-            </list>
-          </value>
-        </entry>
         <entry key="qr">
           <value>
             <list>
@@ -877,13 +849,6 @@
             </list>
           </value>
         </entry>
-        <entry key="sync_http">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/sync_http-0.3.1/lib" />
-            </list>
-          </value>
-        </entry>
         <entry key="synchronized">
           <value>
             <list>
@@ -1014,13 +979,6 @@
           <value>
             <list>
               <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/web_socket_channel-3.0.3/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="webdriver">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/webdriver-3.1.0/lib" />
             </list>
           </value>
         </entry>
@@ -1182,7 +1140,6 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/plugin_platform_interface-2.1.8/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/posix-6.0.3/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/printing-5.14.2/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/process-5.0.5/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/qr-3.0.2/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/rxdart-0.28.0/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/shared_preferences-2.5.4/lib" />
@@ -1201,7 +1158,6 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/stack_trace-1.12.1/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/stream_channel-2.1.4/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/string_scanner-1.4.1/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/sync_http-0.3.1/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/synchronized-3.4.0/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/term_glyph-1.2.2/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/test_api-0.7.7/lib" />
@@ -1221,7 +1177,6 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/web-1.1.1/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/web_socket-1.0.1/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/web_socket_channel-3.0.3/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/webdriver-3.1.0/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/webview_flutter-4.13.1/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/webview_flutter_android-4.10.11/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/webview_flutter_platform_interface-2.14.0/lib" />
@@ -1232,11 +1187,8 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/xml-6.6.1/lib" />
       <root url="file://$PROJECT_DIR$/../../../sdks/flutter/bin/cache/pkg/sky_engine/lib" />
       <root url="file://$PROJECT_DIR$/../../../sdks/flutter/packages/flutter/lib" />
-      <root url="file://$PROJECT_DIR$/../../../sdks/flutter/packages/flutter_driver/lib" />
       <root url="file://$PROJECT_DIR$/../../../sdks/flutter/packages/flutter_test/lib" />
       <root url="file://$PROJECT_DIR$/../../../sdks/flutter/packages/flutter_web_plugins/lib" />
-      <root url="file://$PROJECT_DIR$/../../../sdks/flutter/packages/fuchsia_remote_debug_protocol/lib" />
-      <root url="file://$PROJECT_DIR$/../../../sdks/flutter/packages/integration_test/lib" />
     </CLASSES>
     <JAVADOC />
     <SOURCES />

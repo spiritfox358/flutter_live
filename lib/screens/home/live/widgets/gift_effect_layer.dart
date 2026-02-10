@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'dart:collection';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_live/tools/GiftColorsTool.dart';
@@ -10,14 +11,14 @@ import 'package:vibration/vibration.dart';
 
 /// 1. 定义震动时间点模型 (适配后端 JSON)
 class VibrationPoint {
-  final double time;    // 触发时间 (秒), 对应数据库 "time"
-  final int duration;   // 震动时长 (毫秒), 对应数据库 "duration"
-  final int level;      // 震动强度 (1-255), 对应数据库 "level"
+  final double time; // 触发时间 (秒), 对应数据库 "time"
+  final int duration; // 震动时长 (毫秒), 对应数据库 "duration"
+  final int level; // 震动强度 (1-255), 对应数据库 "level"
 
   VibrationPoint({
     required this.time,
     required this.duration,
-    this.level = 255 // 默认满强度
+    this.level = 255, // 默认满强度
   });
 
   // 🏭 工厂方法：把后端传来的 Map 转成对象
@@ -34,6 +35,7 @@ class VibrationPoint {
 class GiftTask {
   final String url;
   final String giftId;
+
   // 新增：携带震动配置列表
   final List<VibrationPoint> vibrations;
 
@@ -73,9 +75,7 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
     List<VibrationPoint> parsedVibrations = [];
     if (configJsonList != null && configJsonList.isNotEmpty) {
       try {
-        parsedVibrations = configJsonList
-            .map((e) => VibrationPoint.fromJson(e))
-            .toList();
+        parsedVibrations = configJsonList.map((e) => VibrationPoint.fromJson(e)).toList();
       } catch (e) {
         debugPrint("❌ 震动配置解析失败: $e");
       }
@@ -119,24 +119,30 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
     } catch (e) {}
 
     try {
-      debugPrint("⏳ 开始下载: ${task.url}");
-      String? localPath = await _downloadGiftFile(task.url);
+      String playPath = task.url;
 
-      if (localPath == null || !mounted) {
-        _onEffectComplete();
-        return;
+      // 🟢 核心修改：如果是 Web，直接播放网络地址；如果是 App，才去下载
+      if (!kIsWeb) {
+        debugPrint("⏳ (App) 开始下载: ${task.url}");
+        String? localPath = await _downloadGiftFile(task.url);
+        if (localPath == null || !mounted) {
+          _onEffectComplete();
+          return;
+        }
+        playPath = localPath;
+      } else {
+        debugPrint("🌐 (Web) 直接播放网络地址: ${task.url}");
       }
 
       if (mounted && _alphaPlayerController != null) {
-        debugPrint("▶️ 开始播放: $localPath (ID: ${task.giftId})");
+        debugPrint("▶️ 开始播放: $playPath (ID: ${task.giftId})");
 
         if (task.vibrations.isNotEmpty) {
-          debugPrint("⚡️ 加载后端震动配置: ${task.vibrations.length} 个触发点");
           _scheduleVibrations(task.vibrations);
         }
 
         _startWatchdog(20);
-        await _alphaPlayerController!.play(localPath, hue: GiftColorsTool.original);
+        await _alphaPlayerController!.play(playPath, hue: GiftColorsTool.original);
       } else {
         _onEffectComplete();
       }
@@ -148,6 +154,7 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
 
   /// ⏰ 核心调度逻辑：根据时间点设置定时器
   void _scheduleVibrations(List<VibrationPoint> timeline) {
+    if (kIsWeb) return;
     // 双重保险：先清理
     _cancelVibrations();
 
@@ -180,8 +187,14 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
       }
       _activeVibrationTimers.clear();
     }
-    // 同时也停止当前正在震的马达（防止震到一半视频停了，手机还在震）
-    Vibration.cancel();
+    if (!kIsWeb) {
+      try {
+        // 同时也停止当前正在震的马达（防止震到一半视频停了，手机还在震）
+        Vibration.cancel();
+      } catch (e) {
+        // 忽略错误
+      }
+    }
   }
 
   void _onEffectComplete() {
@@ -207,6 +220,7 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
   }
 
   Future<String?> _downloadGiftFile(String url) async {
+    if (kIsWeb) return null;
     try {
       final dir = await getApplicationDocumentsDirectory();
       String fileName = "gift_${url.hashCode}.mp4";

@@ -28,10 +28,10 @@ class ViewerList extends StatefulWidget {
   });
 
   @override
-  State<ViewerList> createState() => _ViewerListState();
+  State<ViewerList> createState() => ViewerListState();
 }
 
-class _ViewerListState extends State<ViewerList> {
+class ViewerListState extends State<ViewerList> {
   List<ViewerModel> _topViewers = [];
 
   @override
@@ -47,7 +47,10 @@ class _ViewerListState extends State<ViewerList> {
       _fetchTopViewers();
     }
   }
-
+  void refresh() {
+    print("🔄 ViewerList 收到刷新指令，正在更新榜单...");
+    _fetchTopViewers();
+  }
   void _fetchTopViewers() async {
     if (widget.roomId.isEmpty) return;
     try {

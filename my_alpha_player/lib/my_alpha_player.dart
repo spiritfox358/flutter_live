@@ -1,22 +1,38 @@
-import 'dart:io';
+// lib/my_alpha_player.dart
+
+import 'package:flutter/foundation.dart'; // 🟢 1. 用 foundation 代替 dart:io
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+// 🟢 2. 条件导入：如果是 Web 环境导入真身，否则导入替身(Stub)
+import 'web/my_alpha_player_web_stub.dart'
+if (dart.library.js_interop) 'web/my_alpha_player_web.dart';
+
 class MyAlphaPlayerController {
+  // 原有逻辑保持不变
   MethodChannel? _channel;
-  bool _isDisposed = false; // 🟢 增加销毁标记
+  bool _isDisposed = false;
+
+  // 🟢 新增：Web 控制器引用
+  MyAlphaPlayerWebController? _webController;
 
   VoidCallback? onFinish;
   Function(double width, double height)? onVideoSize;
-  // 🟢 增加错误回调，方便上层处理异常
   Function(String error)? onError;
 
+  // 绑定 Web 控制器 (供 Web 端调用)
+  void bindWeb(MyAlphaPlayerWebController webCtrl) {
+    _webController = webCtrl;
+  }
+
   void bind(int viewId) {
-    if (_isDisposed) return;
+    // 🟢 如果是 Web，直接跳过 MethodChannel 绑定
+    if (kIsWeb || _isDisposed) return;
+
     _channel = MethodChannel('com.example.live/alpha_player_$viewId');
     _channel!.setMethodCallHandler((call) async {
-      if (_isDisposed) return; // 如果已销毁，不再处理回调
+      if (_isDisposed) return;
 
       try {
         if (call.method == "onPlayFinished") {
@@ -31,9 +47,7 @@ class MyAlphaPlayerController {
             }
           }
         } else if (call.method == "onError") {
-          // 🟢 假设原生层会发 onError，这里接一下，防止死锁
           onError?.call(call.arguments?.toString() ?? "Native Error");
-          // 出错时也视为结束，解开队列锁
           onFinish?.call();
         }
       } catch (e) {
@@ -42,29 +56,36 @@ class MyAlphaPlayerController {
     });
   }
 
-// ✨ 修改后的 play 方法：支持传入可选的 hue (0.0 ~ 1.0)
   Future<void> play(String url, {double? hue}) async {
     if (_isDisposed) return;
-    try {
-      // 1. 构建参数 Map
-      final Map<String, dynamic> args = {"url": url};
 
-      // 2. 如果传入了 hue，则添加到参数中
-      // Native 端收到 hue 后会开启染色模式，否则保持原画
+    // 🟢 分发逻辑：Web 走 Web，原生走 Channel
+    if (kIsWeb) {
+      _webController?.play(url, hue: hue);
+      return;
+    }
+
+    // --- 以下是原有的原生逻辑 ---
+    try {
+      final Map<String, dynamic> args = {"url": url};
       if (hue != null) {
         args["hue"] = hue;
       }
-
       await _channel?.invokeMethod('play', args);
     } catch (e) {
       debugPrint("AlphaPlayer Play Error: $e");
-      // 出错时触发结束，防止队列卡死
       onFinish?.call();
     }
   }
 
   Future<void> stop() async {
     if (_isDisposed) return;
+
+    if (kIsWeb) {
+      _webController?.stop();
+      return;
+    }
+
     try {
       await _channel?.invokeMethod('stop');
     } catch (e) {
@@ -72,11 +93,11 @@ class MyAlphaPlayerController {
     }
   }
 
-  // 🟢 新增：销毁方法
   void dispose() {
     _isDisposed = true;
-    _channel?.setMethodCallHandler(null); // 断开监听
+    _channel?.setMethodCallHandler(null);
     _channel = null;
+    _webController = null; // 清理 Web 引用
     onFinish = null;
     onVideoSize = null;
     onError = null;
@@ -86,8 +107,6 @@ class MyAlphaPlayerController {
 class MyAlphaPlayerView extends StatefulWidget {
   final void Function(MyAlphaPlayerController controller)? onCreated;
 
-  // 🟢 强烈建议：在使用此组件时，必须传入一个 GlobalKey 或者 ValueKey
-  // 否则父组件 setState 时，View 会被销毁重建，导致上一条特效中断！
   const MyAlphaPlayerView({Key? key, this.onCreated}) : super(key: key);
 
   @override
@@ -95,29 +114,50 @@ class MyAlphaPlayerView extends StatefulWidget {
 }
 
 class _MyAlphaPlayerViewState extends State<MyAlphaPlayerView> {
-  // 🟢 持有 Controller 的引用，以便在 dispose 时清理
   MyAlphaPlayerController? _controller;
 
   @override
   Widget build(BuildContext context) {
     const String viewType = 'com.example.live/alpha_player';
 
-    if (Platform.isAndroid) {
+    // 🟢 1. 优先判断 Web (必须放在 Platform 判断之前)
+    if (kIsWeb) {
+      // 生成一个唯一 ID 给 Web 用
+      final int webViewId = DateTime.now().microsecondsSinceEpoch;
+
+      // 这里的 MyAlphaPlayerWeb 会根据环境自动切换文件
+      // 在 Android 上它就是 Stub (空壳)，在 Web 上它是真身
+      return MyAlphaPlayerWeb(
+        viewId: webViewId,
+        onFinish: () {
+          // 告诉上层逻辑（礼物队列）播放结束了，可以播下一个了
+          _controller?.onFinish?.call();
+        },
+        onCreated: (webCtrl) {
+          final controller = MyAlphaPlayerController();
+          controller.bindWeb(webCtrl);
+          _controller = controller;
+          widget.onCreated?.call(controller);
+        },
+      );
+    }
+
+    // 🟢 2. Android 判断 (不能用 Platform.isAndroid，要用 defaultTargetPlatform)
+    if (defaultTargetPlatform == TargetPlatform.android) {
       return AndroidView(
         viewType: viewType,
         onPlatformViewCreated: _onPlatformViewCreated,
         creationParamsCodec: const StandardMessageCodec(),
-        // 🟢 优化：避免重复创建，这在列表或频繁刷新页面中很重要
         hitTestBehavior: PlatformViewHitTestBehavior.transparent,
       );
-    } else if (Platform.isIOS) {
-      // 👇👇👇 新增 iOS 支持 👇👇👇
+    }
+
+    // 🟢 3. iOS 判断
+    else if (defaultTargetPlatform == TargetPlatform.iOS) {
       return UiKitView(
-        viewType: viewType, // 使用同一个 ID
+        viewType: viewType,
         onPlatformViewCreated: _onPlatformViewCreated,
         creationParamsCodec: const StandardMessageCodec(),
-        // 如果需要传递初始参数（例如为了预加载），可以在这里传
-        // creationParams: {"url": "xxx"},
       );
     }
 
@@ -125,9 +165,8 @@ class _MyAlphaPlayerViewState extends State<MyAlphaPlayerView> {
   }
 
   void _onPlatformViewCreated(int id) {
-    // 创建新的 Controller
     final controller = MyAlphaPlayerController();
-    _controller = controller; // 🟢 保存引用
+    _controller = controller;
     controller.bind(id);
 
     if (widget.onCreated != null) {
@@ -137,8 +176,6 @@ class _MyAlphaPlayerViewState extends State<MyAlphaPlayerView> {
 
   @override
   void dispose() {
-    // 🟢 页面销毁时，强制停止播放并清理 Controller
-    // 这能防止后台播放，或者回调空指针
     _controller?.stop();
     _controller?.dispose();
     super.dispose();
