@@ -7,15 +7,11 @@ import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 class EntranceEvent {
   final String userName;
   final int level;
+  final int monthLevel;
   final String avatarUrl;
   final String? frameUrl;
 
-  EntranceEvent({
-    required this.userName,
-    required this.level,
-    required this.avatarUrl,
-    this.frameUrl,
-  });
+  EntranceEvent({required this.userName, required this.level, required this.monthLevel, required this.avatarUrl, this.frameUrl});
 }
 
 class LiveUserEntrance extends StatefulWidget {
@@ -36,16 +32,10 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
 
     // 初始化状态：在屏幕右侧之外 (1.5倍宽度处)
-    _animation = Tween<Offset>(
-        begin: const Offset(1.5, 0),
-        end: const Offset(1.5, 0)
-    ).animate(_controller);
+    _animation = Tween<Offset>(begin: const Offset(1.5, 0), end: const Offset(1.5, 0)).animate(_controller);
   }
 
   @override
@@ -121,27 +111,18 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
         height: 25,
         padding: const EdgeInsets.symmetric(horizontal: 5),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
+          gradient: const LinearGradient(colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)], begin: Alignment.centerLeft, end: Alignment.centerRight),
           borderRadius: BorderRadius.circular(12.5),
           border: Border.all(color: Colors.cyanAccent.withOpacity(0.5), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            LevelBadge(level: _currentEvent!.level),
+            LevelBadge(level: _currentEvent!.level, monthLevel: _currentEvent!.monthLevel),
             const SizedBox(width: 6),
             Text(
               "${_currentEvent!.userName} 加入了直播间",
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                height: 1.1,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500, height: 1.1),
             ),
             const SizedBox(width: 10),
           ],

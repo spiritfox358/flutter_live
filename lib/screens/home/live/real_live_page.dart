@@ -8,9 +8,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
+import 'package:flutter_live/screens/home/live/widgets/chat/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
 import 'package:flutter_live/screens/home/live/widgets/room/video_room_content_view.dart';
-import 'package:flutter_live/screens/home/live/widgets/viewer_list.dart';
+import 'package:flutter_live/screens/home/live/widgets/top_bar/viewer_list.dart';
 import 'package:flutter_live/store/user_store.dart';
 import 'package:just_audio/just_audio.dart' hide AudioPlayer;
 import 'package:video_player/video_player.dart';
@@ -25,15 +26,14 @@ import '../../../tools/HttpUtil.dart';
 
 import '../../../tools/StringTool.dart';
 import 'models/live_models.dart';
-import 'widgets/pk_real_battle_view.dart';
-import 'widgets/single_mode_view.dart';
-import 'package:flutter_live/screens/home/live/widgets/build_chat_list.dart';
+import 'widgets/view_mode/pk_real_battle_view.dart';
+import 'widgets/view_mode/single_mode_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_bottom_input_bar.dart';
-import 'package:flutter_live/screens/home/live/widgets/build_top_bar.dart';
+import 'package:flutter_live/screens/home/live/widgets/top_bar/build_top_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/music_panel.dart';
 import 'package:flutter_live/screens/home/live/widgets/pk_score_bar_widgets.dart';
-import 'animate_gift_item.dart';
-import 'gift_panel.dart';
+import 'widgets/gift_banner/animate_gift_item.dart';
+import 'widgets/gift_panel/gift_panel.dart';
 
 // 引入新拆分的特效层
 import 'widgets/gift_effect_layer.dart';
@@ -54,6 +54,7 @@ class RealLivePage extends StatefulWidget {
   final String userName;
   final String avatarUrl;
   final int level;
+  final int monthLevel;
   final bool isHost;
   final String roomId;
   final Map<String, dynamic>? initialRoomData;
@@ -67,6 +68,7 @@ class RealLivePage extends StatefulWidget {
     required this.userName,
     required this.avatarUrl,
     required this.level,
+    required this.monthLevel,
     required this.isHost,
     required this.roomId,
     this.initialRoomData,
@@ -90,6 +92,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late String _myUserName;
   late String _myUserId;
   late int _myLevel;
+  late int _monthLevel;
   late String _myAvatar;
   late String _roomId;
   final GlobalKey<ChatInputOverlayState> _inputOverlayKey = GlobalKey();
@@ -174,7 +177,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late Animation<double> _pkFadeAnimation;
 
   final ValueNotifier<UserModel> _userStatusNotifier = ValueNotifier(
-    UserModel(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0),
+    UserModel(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0, monthLevel: 0),
   );
   final AudioPlayer _ttsPlayer = AudioPlayer();
 
@@ -186,6 +189,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _myUserId = widget.userId;
     _myUserName = widget.userName;
     _myLevel = widget.level;
+    _monthLevel = widget.monthLevel;
     _myAvatar = widget.avatarUrl;
     _roomId = widget.roomId;
 
@@ -256,6 +260,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         setState(() {
           _myCoins = _parseInt(res['coin']);
           _myLevel = _parseInt(res['level']);
+          _monthLevel = _parseInt(res['monthLevel']);
           int coinsToNextLevel = res['coinsToNextLevel'];
           int coinsNextLevelThreshold = res['coinsNextLevelThreshold'];
           String coinsToNextLevelText = res['coinsToNextLevelText'];
@@ -263,6 +268,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           _userStatusNotifier.value = UserModel(
             _myCoins,
             _myLevel,
+            monthLevel: _monthLevel,
             coinsToNextLevel: coinsToNextLevel,
             coinsNextLevelThreshold: coinsNextLevelThreshold,
             coinsToNextLevelText: coinsToNextLevelText,
@@ -294,7 +300,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         },
       );
 
-      _sendSocketMessage("ENTER", content: "进入了直播间", userName: _myUserName, avatar: _myAvatar, level: _myLevel, isHost: false);
+      _sendSocketMessage(
+        "ENTER",
+        content: "进入了直播间",
+        userName: _myUserName,
+        avatar: _myAvatar,
+        level: _myLevel,
+        monthLevel: _monthLevel,
+        isHost: false,
+      );
       _startHeartbeat();
     } catch (e) {
       debugPrint("❌ WS连接失败");
@@ -473,8 +487,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           final String joinerName = data['userName'] ?? "神秘人";
           final String joinerAvatar = data['avatar'] ?? "";
           final int joinerLevel = data['level'] ?? 1;
+          final int joinerMonthLevel = data['monthLevel'] ?? 0;
 
-          _simulateVipEnter(overrideName: joinerName, overrideAvatar: joinerAvatar, overrideLevel: joinerLevel, isHost: senderIsHost);
+          _simulateVipEnter(
+            overrideName: joinerName,
+            overrideAvatar: joinerAvatar,
+            overrideLevel: joinerLevel,
+            overrideMonthLevel: joinerMonthLevel,
+            isHost: senderIsHost,
+          );
           break;
         case "CHAT":
           _addSocketChatMessage(
@@ -482,6 +503,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             data['content'] ?? "",
             isMe ? Colors.amber : Colors.white,
             level: data["level"],
+            monthLevel: data["monthLevel"],
             isHost: senderIsHost,
           );
           break;
@@ -504,6 +526,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             data['userName'] ?? "神秘人",
             data['avatar'] ?? "神秘人",
             senderLevel: data['level'] ?? 1,
+            senderMonthLevel: data['monthLevel'] ?? 0,
             isMe,
             isHost: senderIsHost,
             senderId: msgUserId,
@@ -590,6 +613,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     bool? isHost,
     String? avatar,
     int? level,
+    int? monthLevel,
     int? score,
   }) {
     if (_channel == null) return;
@@ -600,6 +624,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       "userName": userName,
       "avatar": avatar,
       "level": level,
+      "monthLevel": monthLevel,
       "isHost": isHost,
       "score": score,
       "content": content,
@@ -1022,18 +1047,37 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           level: widget.level,
           isHost: false,
           roomId: opponent['roomId'].toString(),
+          monthLevel: _monthLevel,
         ),
       ),
     );
   }
 
-  void _addSocketChatMessage(String name, String content, Color color, {required int level, required bool isHost}) {
-    _chatController.addMessage(ChatMessage(name: name, content: content, level: level, levelColor: color, isGift: false, isAnchor: isHost));
+  void _addSocketChatMessage(String name, String content, Color color, {required int level, required int monthLevel, required bool isHost}) {
+    _chatController.addMessage(
+      ChatMessage(name: name, content: content, level: level, monthLevel: monthLevel, levelColor: color, isGift: false, isAnchor: isHost),
+    );
   }
 
-  void _addGiftMessage(String senderName, String giftName, int count, {String senderAvatar = "", required int senderLevel, required bool isHost}) {
+  void _addGiftMessage(
+    String senderName,
+    String giftName,
+    int count, {
+    String senderAvatar = "",
+    required int senderLevel,
+    required int senderMonthLevel,
+    required bool isHost,
+  }) {
     _chatController.addMessage(
-      ChatMessage(name: senderName, content: '送出了 $giftName x$count', level: senderLevel, levelColor: Colors.yellow, isGift: true, isAnchor: isHost),
+      ChatMessage(
+        name: senderName,
+        content: '送出了 $giftName x$count',
+        level: senderLevel,
+        monthLevel: senderMonthLevel,
+        levelColor: Colors.yellow,
+        isGift: true,
+        isAnchor: isHost,
+      ),
     );
   }
 
@@ -1046,6 +1090,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     int count = 1,
     bool isHost = false,
     int senderLevel = 1,
+    int senderMonthLevel = 0,
   }) {
     final comboKey = "${senderName}_${giftData.name}";
     if (isMe) _lastGiftSent = giftData;
@@ -1066,7 +1111,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           ),
         );
       }
-      _addGiftMessage(senderName, giftData.name, count, senderLevel: senderLevel, isHost: isHost);
+      _addGiftMessage(senderName, giftData.name, count, senderLevel: senderLevel, senderMonthLevel: senderMonthLevel, isHost: isHost);
 
       if (_pkStatus == PKStatus.playing) {
         int scoreToAdd = giftData.price * count;
@@ -1121,6 +1166,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         _userStatusNotifier.value = UserModel(
           _myCoins,
           _myLevel,
+          monthLevel: _parseInt(res['monthLevel']),
           coinsToNextLevel: _parseInt(res['coinsToNextLevel']),
           coinsToNextLevelText: res['coinsToNextLevelText'],
           coinsNextLevelThreshold: _parseInt(res['coinsNextLevelThreshold']),
@@ -1135,6 +1181,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         userName: _myUserName,
         avatar: _myAvatar,
         level: _myLevel,
+        monthLevel: _monthLevel,
         score: giftData.price,
       );
     } catch (e) {
@@ -1243,20 +1290,34 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     showModalBottomSheet(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, builder: (_) => const MusicPanel());
   }
 
-  void _simulateVipEnter({String? overrideName, String? overrideAvatar, required int overrideLevel, required bool isHost}) {
+  void _simulateVipEnter({
+    String? overrideName,
+    String? overrideAvatar,
+    required int overrideLevel,
+    required int overrideMonthLevel,
+    required bool isHost,
+  }) {
     final names = ["顾北", "王校长", "阿特", "小柠檬"];
     final randomIdx = Random().nextInt(names.length);
     final name = overrideName ?? names[randomIdx];
     final event = EntranceEvent(
       userName: name,
       level: overrideLevel,
+      monthLevel: overrideMonthLevel,
       avatarUrl: overrideAvatar ?? "https://picsum.photos/seed/${888 + randomIdx}/200",
       frameUrl: "https://cdn-icons-png.flaticon.com/512/8313/8313626.png",
     );
     _entranceKey.currentState?.addEvent(event);
     if (mounted) {
       _chatController.addMessage(
-        ChatMessage(name: "", content: "$name 加入直播间！", level: overrideLevel, levelColor: const Color(0xFFFFD700), isAnchor: isHost),
+        ChatMessage(
+          name: "",
+          content: "$name 加入直播间！",
+          level: overrideLevel,
+          monthLevel: overrideMonthLevel,
+          levelColor: const Color(0xFFFFD700),
+          isAnchor: isHost,
+        ),
       );
     }
   }
@@ -1871,7 +1932,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                         child: ChatInputOverlay(
                           key: _inputOverlayKey,
                           onSend: (text) {
-                            _sendSocketMessage("CHAT", content: text, userName: _myUserName, level: _myLevel, isHost: _isHost);
+                            _sendSocketMessage(
+                              "CHAT",
+                              content: text,
+                              userName: _myUserName,
+                              level: _myLevel,
+                              monthLevel: _monthLevel,
+                              isHost: _isHost,
+                            );
                           },
                         ),
                       ),

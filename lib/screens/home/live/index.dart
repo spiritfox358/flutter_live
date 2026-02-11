@@ -20,14 +20,12 @@ import '../../../services/ai_music_service.dart';
 import '../../../tools/HttpUtil.dart';
 import 'models/live_models.dart';
 import 'widgets/pk_battle_view.dart';
-import 'widgets/single_mode_view.dart';
-import 'package:flutter_live/screens/home/live/widgets/build_chat_list.dart';
-import 'package:flutter_live/screens/home/live/widgets/build_bottom_input_bar.dart';
-import 'package:flutter_live/screens/home/live/widgets/build_top_bar.dart';
+import 'widgets/view_mode/single_mode_view.dart';
+import 'package:flutter_live/screens/home/live/widgets/top_bar/build_top_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/music_panel.dart';
 import 'package:flutter_live/screens/home/live/widgets/pk_score_bar_widgets.dart';
-import 'animate_gift_item.dart';
-import 'gift_panel.dart';
+import 'widgets/gift_banner/animate_gift_item.dart';
+import 'widgets/gift_panel/gift_panel.dart';
 
 class EntranceEvent {
   final String userName;
@@ -103,7 +101,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
   bool _isRightVideoMode = false;
 
   final ValueNotifier<UserModel> _userStatusNotifier = ValueNotifier(
-    UserModel(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0),
+    UserModel(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0, monthLevel: 2),
   );
 
   String _opponentBgImage = "";

@@ -1,8 +1,8 @@
 // --- 礼物面板 ---
 import 'package:flutter/cupertino.dart';
-import '../../../models/user_models.dart';
+import '../../../../../models/user_models.dart';
 import 'gift_panel_state.dart';
-import 'models/live_models.dart';
+import '../../models/live_models.dart';
 
 class GiftPanel extends StatefulWidget {
   final Function(GiftItemData) onSend;

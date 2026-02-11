@@ -5,13 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 // 🟢 2. 改为 StatefulWidget，为了保持随机图片在当前页面生命周期内不变
 class LevelBadge extends StatefulWidget {
   final int level;
+  final int monthLevel;
   final bool showConsumption;
 
-  const LevelBadge({
-    super.key,
-    required this.level,
-    this.showConsumption = false,
-  });
+  const LevelBadge({super.key, required this.level, required this.monthLevel, this.showConsumption = false});
 
   @override
   State<LevelBadge> createState() => _LevelBadgeState();
@@ -71,11 +68,7 @@ class _LevelBadgeState extends State<LevelBadge> {
               _getBadgeUrl(widget.level), // 注意：StatefulWidget 中访问参数要加 widget.
               height: 15,
               fit: BoxFit.contain,
-              errorBuilder: (context, error, stackTrace) => Container(
-                width: 15,
-                height: 15,
-                color: Colors.grey[300],
-              ),
+              errorBuilder: (context, error, stackTrace) => Container(width: 15, height: 15, color: Colors.grey[300]),
             ),
             Positioned(
               top: -0.5,
@@ -86,11 +79,7 @@ class _LevelBadgeState extends State<LevelBadge> {
                 child: Text(
                   widget.level.toString(),
                   style: GoogleFonts.roboto(
-                    textStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 11,
-                    ),
+                    textStyle: TextStyle(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w900, fontSize: 11),
                   ),
                 ),
               ),
@@ -99,11 +88,11 @@ class _LevelBadgeState extends State<LevelBadge> {
         ),
 
         // --- 2. ✨ 追加的消费图标 (随机显示 1-4) ---
-        if (widget.showConsumption) ...[
+        if (widget.showConsumption && widget.monthLevel > 0) ...[
           const SizedBox(width: 4),
           Image.network(
             // 🎯 4. 使用初始化时生成的随机后缀
-            "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/user_level/consumption_level_$_randomConsumptionIndex.png",
+            "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/user_level/consumption_level_${widget.monthLevel}.png",
             height: 15,
             fit: BoxFit.contain,
           ),

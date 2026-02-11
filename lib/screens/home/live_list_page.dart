@@ -120,6 +120,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
                 isHost: true,
                 roomId: assignedRoomId,
                 roomType: LiveRoomType.normal,
+                monthLevel: 0,
               ),
             ),
           );
@@ -279,6 +280,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
           isHost: isHost,
           roomId: anchor.roomId,
           roomType: anchor.roomType == 3 ? LiveRoomType.video : LiveRoomType.normal,
+          monthLevel: 0,
         ),
       ),
     );

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../profile_pill.dart';
+import 'profile_pill.dart';
 import 'viewer_list.dart';
 
 class BuildTopBar extends StatelessWidget {

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/viewer_panel.dart';
-import '../../../../tools/HttpUtil.dart';
+import '../../../../../tools/HttpUtil.dart';
 
 // 数据模型
 class ViewerModel {

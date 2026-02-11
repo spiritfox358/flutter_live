@@ -63,6 +63,7 @@ class UserStore {
   String get avatar => profile?['avatar'] ?? "";
 
   int get userLevel => profile?['level'] ?? 1;
+  int get monthLevel => profile?['monthLevel'] ?? 0;
 
   int get coin => profile?['coin'] ?? 0;
 

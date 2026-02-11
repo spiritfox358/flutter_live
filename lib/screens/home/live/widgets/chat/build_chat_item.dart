@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
-import '../models/live_models.dart';
+import '../../models/live_models.dart';
 
 class BuildChatItem extends StatelessWidget {
   final ChatMessage msg;
@@ -34,7 +34,7 @@ class BuildChatItem extends StatelessWidget {
                         alignment: PlaceholderAlignment.middle,
                         child: Padding(
                           padding: const EdgeInsets.only(right: 6.0),
-                          child: LevelBadge(level: msg.level,showConsumption: true),
+                          child: LevelBadge(level: msg.level,showConsumption: true, monthLevel: msg.monthLevel),
                         ),
                       ),
 

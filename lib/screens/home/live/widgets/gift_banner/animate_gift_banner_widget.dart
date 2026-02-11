@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../../store/user_store.dart';
+
+import '../../models/live_models.dart';
 import 'animate_gift_item.dart';
-import 'models/live_models.dart';
 
 class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProviderStateMixin {
   late AnimationController _entryController;

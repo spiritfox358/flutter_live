@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'package:flutter_live/screens/home/live/widgets/build_top_bar.dart';
+import 'package:flutter_live/screens/home/live/widgets/top_bar/build_top_bar.dart';
 
 class SingleModeView extends StatelessWidget {
   final String title;

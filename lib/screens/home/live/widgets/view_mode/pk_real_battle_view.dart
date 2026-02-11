@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../../../services/ai_music_service.dart';
-import '../widgets/pk_score_bar_widgets.dart';
+import '../../../../../services/ai_music_service.dart';
+import '../pk_score_bar_widgets.dart';
 
 class PKRealBattleView extends StatefulWidget {
   // --- 左侧配置 (我方/主播) ---
@@ -70,7 +70,7 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
     _waveController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
 
     if (widget.pkStatus == PKStatus.playing) {
-      _safePlayMusic();
+      // _safePlayMusic();
     }
   }
 

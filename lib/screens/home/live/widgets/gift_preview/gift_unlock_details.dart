@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../tools/HttpUtil.dart'; // 请确保路径正确
 import '../../models/live_models.dart';
-import '../recharge_popup.dart';
+import '../recharge/recharge_popup.dart';
 import 'gift_preview_loop_player.dart';
 
 class GiftUnlockDetails extends StatefulWidget {

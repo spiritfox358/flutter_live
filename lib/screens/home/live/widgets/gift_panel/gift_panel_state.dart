@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_live/models/user_models.dart';
 import 'package:flutter_live/screens/home/live/widgets/gift_preview/gift_unlock_details.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
-import 'package:flutter_live/screens/home/live/widgets/live_profile_popup.dart';
-import '../../../services/gift_api.dart'; // ⚠️ 请确认路径
+import 'package:flutter_live/screens/home/live/widgets/profile/live_profile_popup.dart';
+import '../../../../../services/gift_api.dart'; // ⚠️ 请确认路径
 import 'gift_panel.dart';
-import 'models/live_models.dart';
+import '../../models/live_models.dart';
 
 class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
   int _selectedIndex = -1;
@@ -129,7 +129,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
               ValueListenableBuilder<UserModel>(
                 valueListenable: widget.userStatusNotifier,
                 builder: (context, value, child) {
-                  return LevelBadge(level: value.level);
+                  return LevelBadge(level: value.level, monthLevel: value.monthLevel);
                 },
               ),
             ],
@@ -160,7 +160,11 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
                   valueListenable: widget.userStatusNotifier,
                   builder: (context, value, child) {
                     int nextLevel = value.level + 1;
-                    return Text("距离$nextLevel级 还差${value.coinsToNextLevelText}钻", style: const TextStyle(color: Colors.white54, fontSize: 10));
+                    if (nextLevel >= 75) {
+                      return Text("你已满级，更多权益，敬请期待~", style: const TextStyle(color: Colors.white54, fontSize: 10));
+                    } else {
+                      return Text("距离$nextLevel级 还差${value.coinsToNextLevelText}钻", style: const TextStyle(color: Colors.white54, fontSize: 10));
+                    }
                   },
                 ),
               ],
@@ -288,13 +292,7 @@ class _GiftItemWidget extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onSend;
 
-  const _GiftItemWidget({
-    Key? key,
-    required this.gift,
-    required this.isSelected,
-    required this.onTap,
-    required this.onSend,
-  }) : super(key: key);
+  const _GiftItemWidget({Key? key, required this.gift, required this.isSelected, required this.onTap, required this.onSend}) : super(key: key);
 
   @override
   State<_GiftItemWidget> createState() => _GiftItemWidgetState();
@@ -410,9 +408,9 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
                                           child: Text(
                                             _formatDate(widget.gift.expireTime),
                                             style: const TextStyle(
-                                                color: Colors.white, // 黑色文字
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.bold
+                                              color: Colors.white, // 黑色文字
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.bold,
                                             ),
                                             maxLines: 1,
                                           ),
@@ -437,10 +435,7 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
                                         padding: EdgeInsets.only(right: 2),
                                         child: Icon(Icons.lock, color: Colors.white70, size: 10),
                                       ),
-                                    Text(
-                                      widget.gift.name,
-                                      style: const TextStyle(color: Colors.white70, fontSize: 12),
-                                    ),
+                                    Text(widget.gift.name, style: const TextStyle(color: Colors.white70, fontSize: 12)),
                                   ],
                                 ),
                               ),
@@ -498,10 +493,10 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
                           gradient: isLocked
                               ? const LinearGradient(colors: [Colors.grey, Colors.grey])
                               : const LinearGradient(
-                            colors: [Color(0xFFFF0050), Color(0xFFFE2C55)],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
+                                  colors: [Color(0xFFFF0050), Color(0xFFFE2C55)],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
                           borderRadius: const BorderRadius.vertical(bottom: Radius.circular(cardRadius)),
                         ),
                         child: Row(
@@ -512,9 +507,9 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
                               Padding(
                                 padding: const EdgeInsets.only(right: 4),
                                 child: Icon(
-                                    Icons.lock,
-                                    size: 11, // 稍微调大一点点，匹配 12 号字体的视觉重心
-                                    color: Colors.white.withOpacity(0.9)
+                                  Icons.lock,
+                                  size: 11, // 稍微调大一点点，匹配 12 号字体的视觉重心
+                                  color: Colors.white.withOpacity(0.9),
                                 ),
                               ),
                             Text(

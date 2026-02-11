@@ -4,6 +4,7 @@ class ChatMessage {
   final String name;
   final String content;
   final int level;
+  final int monthLevel;
   final Color levelColor;
   final bool isGift; // 🟢 添加一个字段来标识是否是礼物消息
   final bool isAnchor;
@@ -12,6 +13,7 @@ class ChatMessage {
     required this.name,
     required this.content,
     this.level = 0,
+    this.monthLevel = 0,
     this.levelColor = Colors.blue,
     this.isGift = false, // 默认不是礼物消息
     this.isAnchor = false,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../models/live_models.dart';
+import '../../../../../tools/HttpUtil.dart';
+import '../../models/live_models.dart';
 import 'build_chat_item.dart';
-import '../../../../tools/HttpUtil.dart';
 
 class ChatListController {
   void Function(ChatMessage msg)? _onNewMessageAdd;

@@ -7,11 +7,7 @@ class ViewerPanel extends StatefulWidget {
   final String roomId;
   final int realTimeOnlineCount;
 
-  const ViewerPanel({
-    super.key,
-    required this.roomId,
-    required this.realTimeOnlineCount,
-  });
+  const ViewerPanel({super.key, required this.roomId, required this.realTimeOnlineCount});
 
   @override
   State<ViewerPanel> createState() => _ViewerPanelState();
@@ -34,10 +30,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
 
   void _fetchOnlineUsers() async {
     try {
-      final res = await HttpUtil().get(
-        "/api/room/online_users",
-        params: {"roomId": widget.roomId},
-      );
+      final res = await HttpUtil().get("/api/room/online_users", params: {"roomId": widget.roomId});
 
       if (mounted) {
         List<dynamic> list = res ?? [];
@@ -84,10 +77,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
+        borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
       ),
       child: Column(
         children: [
@@ -99,12 +89,12 @@ class _ViewerPanelState extends State<ViewerPanel> {
                 : _viewers.isEmpty
                 ? _buildEmptyView()
                 : ListView.builder(
-              padding: EdgeInsets.zero,
-              itemCount: _viewers.length,
-              itemBuilder: (context, index) {
-                return _buildViewerItem(_viewers[index], index);
-              },
-            ),
+                    padding: EdgeInsets.zero,
+                    itemCount: _viewers.length,
+                    itemBuilder: (context, index) {
+                      return _buildViewerItem(_viewers[index], index);
+                    },
+                  ),
           ),
           // 4. 底部固定的“我”的信息栏
           _buildMyInfoBar(context),
@@ -132,11 +122,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
       alignment: Alignment.center,
       child: const Text(
         "在线观众",
-        style: TextStyle(
-          color: Colors.black,
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
+        style: TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -181,6 +167,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
     final String name = user['nickname'] ?? "神秘人";
     final String avatar = user['avatar'] ?? "";
     final int level = user['level'] ?? 1;
+    final int monthLevel = user['monthLevel'] ?? 0;
     final bool isAdmin = user['role'] == 'admin' || index == 0; // 注意：index==0这个逻辑可能要根据新排序调整，建议只看role
     final bool isVip = user['isVip'] ?? false;
     final int score = user['score'] ?? 0;
@@ -209,11 +196,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
               width: 30,
               child: Text(
                 "${index + 1}",
-                style: TextStyle(
-                  color: index < 3 ? rankColor : Colors.grey[400],
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: TextStyle(color: index < 3 ? rankColor : Colors.grey[400], fontSize: 18, fontWeight: FontWeight.bold),
                 textAlign: TextAlign.center,
               ),
             ),
@@ -236,26 +219,16 @@ class _ViewerPanelState extends State<ViewerPanel> {
                     child: Text(
                       // 🟢 如果离线，名字后面加个备注，或者不加只靠颜色区分
                       isOnline ? name : "$name (离线)",
-                      style: const TextStyle(
-                        color: Colors.black87,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: const TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 6),
-                  if (isAdmin) ...[
-                    _buildAdminBadge(),
-                    const SizedBox(width: 4),
-                  ],
-                  LevelBadge(level: level),
+                  if (isAdmin) ...[_buildAdminBadge(), const SizedBox(width: 4)],
+                  LevelBadge(level: level, monthLevel: monthLevel, showConsumption: true),
                   const SizedBox(width: 4),
-                  if (isVip) ...[
-                    _buildVipBadge(),
-                    const SizedBox(width: 4),
-                  ],
+                  if (isVip) ...[_buildVipBadge(), const SizedBox(width: 4)],
                   // ... 其他勋章
                 ],
               ),
@@ -266,7 +239,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
                 _formatScore(score),
                 style: const TextStyle(color: Colors.black87, fontSize: 12, fontWeight: FontWeight.bold),
               ),
-            )
+            ),
           ],
         ),
       ),
@@ -280,19 +253,14 @@ class _ViewerPanelState extends State<ViewerPanel> {
     // 从 UserStore 获取我的基本信息
     final myName = UserStore.to.nickname;
     final myLevel = UserStore.to.userLevel;
+    final monthLevel = UserStore.to.monthLevel;
     final myAvatar = UserStore.to.avatar;
 
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomPadding),
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            offset: const Offset(0, -2),
-            blurRadius: 5,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(0, -2), blurRadius: 5)],
       ),
       child: Row(
         children: [
@@ -321,14 +289,14 @@ class _ViewerPanelState extends State<ViewerPanel> {
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
               ),
               const SizedBox(height: 2),
-              LevelBadge(level: myLevel),
+              LevelBadge(level: myLevel, monthLevel: monthLevel, showConsumption: true),
             ],
           ),
           const Spacer(),
           // 🟢 显示我的总贡献分
           Text(
-              "本场贡献 ${_formatScore(_myScore)}",
-              style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold)
+            "本场贡献 ${_formatScore(_myScore)}",
+            style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ],
       ),
@@ -342,24 +310,15 @@ class _ViewerPanelState extends State<ViewerPanel> {
       width: 16,
       height: 16,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(
-        color: Color(0xFFFF4081),
-        shape: BoxShape.circle,
-      ),
-      child: const Text(
-        "管",
-        style: TextStyle(color: Colors.white, fontSize: 10, height: 1.0),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFFFF4081), shape: BoxShape.circle),
+      child: const Text("管", style: TextStyle(color: Colors.white, fontSize: 10, height: 1.0)),
     );
   }
 
   Widget _buildVipBadge() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFD6A66D),
-        borderRadius: BorderRadius.circular(4),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFD6A66D), borderRadius: BorderRadius.circular(4)),
       child: const Text(
         "V年",
         style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
@@ -370,10 +329,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
   Widget _buildFanBadge(String name, int level) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFAB40),
-        borderRadius: BorderRadius.circular(4),
-      ),
+      decoration: BoxDecoration(color: const Color(0xFFFFAB40), borderRadius: BorderRadius.circular(4)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
