@@ -11,19 +11,19 @@ import 'package:flutter_live/screens/home/live/widgets/gift_preview/gift_preview
 import 'package:flutter_live/store/user_store.dart';
 
 /// 弹出个人中心 (底部弹窗入口)
-void showLiveProfilePopup(BuildContext context, UserModel userModel) {
+void showLivePersonalCenterPopup(BuildContext context, UserModel userModel) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (context) => LiveProfilePopup(userModel: userModel),
+    builder: (context) => LivePersonalCenterPopup(userModel: userModel),
   );
 }
 
-class LiveProfilePopup extends StatelessWidget {
+class LivePersonalCenterPopup extends StatelessWidget {
   final UserModel userModel;
 
-  const LiveProfilePopup({super.key, required this.userModel});
+  const LivePersonalCenterPopup({super.key, required this.userModel});
 
   @override
   Widget build(BuildContext context) {

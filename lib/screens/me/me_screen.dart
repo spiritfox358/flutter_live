@@ -39,10 +39,7 @@ class _MeScreenState extends State<MeScreen> {
               Navigator.pop(ctx);
               await UserStore.to.logout();
               if (mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginPage()),
-                      (route) => false,
-                );
+                Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (_) => const LoginPage()), (route) => false);
               }
             },
             child: const Text("退出", style: TextStyle(color: Colors.redAccent)),
@@ -73,7 +70,10 @@ class _MeScreenState extends State<MeScreen> {
     return Scaffold(
       backgroundColor: backgroundColor,
       appBar: AppBar(
-        title: Text("个人中心", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+        title: Text(
+          "个人中心",
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: cardColor,
         elevation: 0,
         centerTitle: true,
@@ -82,7 +82,7 @@ class _MeScreenState extends State<MeScreen> {
           IconButton(
             icon: Icon(Icons.settings, color: iconColor),
             onPressed: () {},
-          )
+          ),
         ],
       ),
       body: SingleChildScrollView(
@@ -90,10 +90,7 @@ class _MeScreenState extends State<MeScreen> {
           children: [
             const SizedBox(height: 10),
             // 🟢 在这里调用头部构建方法
-            _buildUserHeader(
-                avatar, nickname, userId, level, vipLevel,
-                cardColor, textColor, subTextColor
-            ),
+            _buildUserHeader(userProfile, cardColor, textColor, subTextColor),
             const SizedBox(height: 16),
             _buildWalletCard(coin, diamond),
             const SizedBox(height: 16),
@@ -108,23 +105,12 @@ class _MeScreenState extends State<MeScreen> {
   }
 
   // 🟢 修改处：包裹 GestureDetector 并添加跳转逻辑
-// 🟢 修改后的头部构建方法
-  Widget _buildUserHeader(
-      String avatar, String nickname, String id, int level, int vipLevel,
-      Color cardColor, Color textColor, Color subTextColor
-      ) {
+  // 🟢 修改后的头部构建方法
+  Widget _buildUserHeader(Map<String, dynamic> userMap, Color cardColor, Color textColor, Color subTextColor) {
     return GestureDetector(
       onTap: () async {
         // 1. 跳转到编辑页面
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EditProfilePage(
-              currentAvatarUrl: avatar,
-              currentNickname: nickname,
-            ),
-          ),
-        );
+        await Navigator.push(context, MaterialPageRoute(builder: (context) => EditProfilePage(userMap: userMap)));
 
         // 🟢 2. 核心步骤：从编辑页回来后
         // 先等待最新的用户信息同步完成
@@ -156,7 +142,7 @@ class _MeScreenState extends State<MeScreen> {
                 // 🟢 4. 核心修改：使用 Store 里的 Key
                 // 原理：平时 key 不变 -> 命中缓存 -> 界面不闪烁
                 //      改完头像 key 变了 -> 视为新 URL -> 强制刷新图片
-                backgroundImage: NetworkImage(avatar),
+                backgroundImage: NetworkImage(userMap["avatar"]),
 
                 onBackgroundImageError: (exception, stackTrace) {
                   debugPrint("头像加载失败");
@@ -169,18 +155,11 @@ class _MeScreenState extends State<MeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    nickname,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
-                    ),
+                    userMap["nickname"],
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textColor),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    "ID: $id",
-                    style: TextStyle(color: subTextColor, fontSize: 13),
-                  ),
+                  Text("ID: ${userMap['id'].toString()}", style: TextStyle(color: subTextColor, fontSize: 13)),
                   const SizedBox(height: 8),
                   Row(
                     children: [
@@ -191,31 +170,28 @@ class _MeScreenState extends State<MeScreen> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          "Lv.$level",
+                          "Lv.${userMap['level']}",
                           style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                         ),
                       ),
                       const SizedBox(width: 8),
-                      if (vipLevel > 0)
+                      if (int.parse(userMap['vipLevel'].toString()) > 0)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFD700),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
+                          decoration: BoxDecoration(color: const Color(0xFFFFD700), borderRadius: BorderRadius.circular(4)),
                           child: Row(
                             children: [
                               const Icon(Icons.verified, size: 10, color: Colors.deepOrange),
                               const SizedBox(width: 2),
                               Text(
-                                "VIP$vipLevel",
+                                "VIP${userMap['vipLevel'].toString()}",
                                 style: const TextStyle(color: Colors.deepOrange, fontSize: 10, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                         ),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
@@ -231,15 +207,9 @@ class _MeScreenState extends State<MeScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF2E3192), Color(0xFF1BFFFF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        gradient: const LinearGradient(colors: [Color(0xFF2E3192), Color(0xFF1BFFFF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5)),
-        ],
+        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -259,7 +229,10 @@ class _MeScreenState extends State<MeScreen> {
           children: [
             Icon(icon, size: 16, color: iconColor),
             const SizedBox(width: 4),
-            Text(value, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         const SizedBox(height: 4),
@@ -271,10 +244,7 @@ class _MeScreenState extends State<MeScreen> {
   Widget _buildMenuSection(Color cardColor, Color textColor, Color iconColor) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
       child: Column(
         children: [
           _buildMenuItem(
@@ -284,10 +254,7 @@ class _MeScreenState extends State<MeScreen> {
             textColor,
             iconColor,
             onTap: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SupportPage())
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const SupportPage()));
             },
           ),
         ],
@@ -299,18 +266,14 @@ class _MeScreenState extends State<MeScreen> {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: Colors.grey.withOpacity(0.1),
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: Colors.grey.withOpacity(0.1), shape: BoxShape.circle),
         child: Icon(icon, color: iconColor, size: 20),
       ),
       title: Text(title, style: TextStyle(fontSize: 15, color: textColor)),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (trailingText != null)
-            Text(trailingText, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+          if (trailingText != null) Text(trailingText, style: const TextStyle(color: Colors.grey, fontSize: 12)),
           const SizedBox(width: 4),
           const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
         ],
@@ -340,10 +303,7 @@ class _MeScreenState extends State<MeScreen> {
               side: const BorderSide(color: Colors.redAccent, width: 1),
             ),
           ),
-          child: const Text(
-            "退出登录",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+          child: const Text("退出登录", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
       ),
     );

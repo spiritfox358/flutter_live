@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/home/live/models/user_decorations_model.dart';
+import 'package:flutter_live/screens/home/live/widgets/common/admin_badge_widget.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
-import 'package:flutter_live/store/user_store.dart'; // 🟢 引入 UserStore 用于比对ID
+import 'package:flutter_live/screens/home/live/widgets/profile/live_user_profile_popup.dart';
+import 'package:flutter_live/store/user_store.dart';
 import '../../../../tools/HttpUtil.dart';
 
 class ViewerPanel extends StatefulWidget {
@@ -18,7 +21,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
   bool _isLoading = true;
   int _currentTab = 0; // 0:贡献榜
 
-  // 🟢 新增：用于底部栏显示的“我的信息”
+  // 用于底部栏显示的“我的信息”
   int _myRank = 0; // 0 表示未上榜
   int _myScore = 0;
 
@@ -35,26 +38,24 @@ class _ViewerPanelState extends State<ViewerPanel> {
       if (mounted) {
         List<dynamic> list = res ?? [];
 
-        // 🟢 1. 核心逻辑：遍历列表，找到“我自己”
+        // 核心逻辑：遍历列表，找到“我自己”
         int myRankFound = 0;
         int myScoreFound = 0;
         final String myUserId = UserStore.to.userId; // 获取当前登录用户ID
 
         for (int i = 0; i < list.length; i++) {
-          // 后端返回的可能是 number 或 string，统一转 string 比对
           final String uid = list[i]['userId']?.toString() ?? "";
 
           if (uid == myUserId) {
             myRankFound = i + 1; // 排名从 1 开始
-            myScoreFound = list[i]['score'] ?? 0; // 获取分数
-            break; // 找到了就退出循环
+            myScoreFound = list[i]['score'] ?? 0;
+            break;
           }
         }
 
         setState(() {
           _viewers = list;
           _isLoading = false;
-          // 更新我的信息
           _myRank = myRankFound;
           _myScore = myScoreFound;
         });
@@ -64,7 +65,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
     }
   }
 
-  // 🟢 辅助方法：格式化分数 (例如 12500 -> 1.2w)
+  // 辅助方法：格式化分数
   String _formatScore(int score) {
     if (score == 0) return "0";
     if (score < 10000) return score.toString();
@@ -96,7 +97,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
                     },
                   ),
           ),
-          // 4. 底部固定的“我”的信息栏
+          // 底部固定的“我”的信息栏
           _buildMyInfoBar(context),
         ],
       ),
@@ -167,15 +168,17 @@ class _ViewerPanelState extends State<ViewerPanel> {
     final String name = user['nickname'] ?? "神秘人";
     final String avatar = user['avatar'] ?? "";
     final int level = user['level'] ?? 1;
+    final Map<String, dynamic>? rawDecorations = user['decorations'] as Map<String, dynamic>?;
+    final UserDecorationsModel decorations = UserDecorationsModel.fromMap(rawDecorations ?? {});
     final int monthLevel = user['monthLevel'] ?? 0;
-    final bool isAdmin = user['role'] == 'admin' || index == 0; // 注意：index==0这个逻辑可能要根据新排序调整，建议只看role
+    final bool isAdmin = user['role'] == 'admin' || index == 0;
     final bool isVip = user['isVip'] ?? false;
     final int score = user['score'] ?? 0;
 
-    // 🟢 1. 获取在线状态 (默认 true 防崩)
+    // 获取在线状态 (默认 true 防崩)
     final bool isOnline = user['isOnline'] ?? true;
 
-    // 🟢 2. 定义离线样式：整体透明度降低
+    // 定义离线样式：整体透明度降低
     final double opacity = isOnline ? 1.0 : 0.6;
 
     Color rankColor = Colors.grey;
@@ -183,11 +186,8 @@ class _ViewerPanelState extends State<ViewerPanel> {
     if (index == 1) rankColor = const Color(0xFFFFAB40);
     if (index == 2) rankColor = const Color(0xFFFFD740);
 
-    // 如果离线，前三名的颜色也可以变灰，看你需要不需要
-    // if (!isOnline) rankColor = Colors.grey[400]!;
-
     return Opacity(
-      opacity: opacity, // 🟢 整体置灰
+      opacity: opacity, // 整体置灰
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -202,22 +202,43 @@ class _ViewerPanelState extends State<ViewerPanel> {
             ),
             const SizedBox(width: 8),
 
-            // 头像
-            CircleAvatar(
-              radius: 20,
-              backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
-              backgroundColor: Colors.grey[200],
-              // 🟢 离线头像可以加个黑白滤镜，或者仅仅靠 Opacity 就够了
-              child: avatar.isEmpty ? const Icon(Icons.person, color: Colors.grey) : null,
+            // 🟢 修改处：使用 Stack 叠加头像框
+            GestureDetector(
+              onTap: () {
+                // final currentUser = widget.userStatusNotifier.value;
+                // Navigator.pop(context);
+                LiveUserProfilePopup.show(context, user);
+              },
+              child: Stack(
+                alignment: Alignment.center, // 确保居中对齐
+                clipBehavior: Clip.none, // 允许头像框略微超出边界
+                children: [
+                  // 1. 底层头像 (半径20)
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                    backgroundColor: Colors.grey[200],
+                    child: avatar.isEmpty ? const Icon(Icons.person, color: Colors.grey) : null,
+                  ),
+                  // 2. 上层头像框
+                  // 这里的 55x55 是相对于头像直径40调整的，可根据实际视觉效果微调
+                  if (decorations.hasAvatarFrame)
+                    Positioned(
+                      top: -5, // 👈 向下偏移
+                      left: -5, // 👈 向右偏移
+                      child: SizedBox(width: 50, height: 50, child: Image.network(decorations.avatarFrame!, fit: BoxFit.contain)),
+                    ),
+                ],
+              ),
             ),
 
+            // 🟢 修改结束
             const SizedBox(width: 12),
             Expanded(
               child: Row(
                 children: [
                   Flexible(
                     child: Text(
-                      // 🟢 如果离线，名字后面加个备注，或者不加只靠颜色区分
                       isOnline ? name : "$name (离线)",
                       style: const TextStyle(color: Colors.black87, fontSize: 15, fontWeight: FontWeight.w500),
                       maxLines: 1,
@@ -225,16 +246,15 @@ class _ViewerPanelState extends State<ViewerPanel> {
                     ),
                   ),
                   const SizedBox(width: 6),
-                  if (isAdmin) ...[_buildAdminBadge(), const SizedBox(width: 4)],
+                  if (isAdmin) ...[AdminBadgeWidget(), const SizedBox(width: 4)],
                   LevelBadge(level: level, monthLevel: monthLevel, showConsumption: true),
                   const SizedBox(width: 4),
                   if (isVip) ...[_buildVipBadge(), const SizedBox(width: 4)],
-                  // ... 其他勋章
                 ],
               ),
             ),
             Padding(
-              padding: const EdgeInsets.only(left: 30.0), // 设置左边的内边距为16.0逻辑像素
+              padding: const EdgeInsets.only(left: 30.0),
               child: Text(
                 _formatScore(score),
                 style: const TextStyle(color: Colors.black87, fontSize: 12, fontWeight: FontWeight.bold),
@@ -246,7 +266,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
     );
   }
 
-  // 4. 底部“我”的信息栏
+  // 底部“我”的信息栏
   Widget _buildMyInfoBar(BuildContext context) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
@@ -255,7 +275,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
     final myLevel = UserStore.to.userLevel;
     final monthLevel = UserStore.to.monthLevel;
     final myAvatar = UserStore.to.avatar;
-
+    UserDecorationsModel decorationsMap = UserDecorationsModel.fromMap(UserStore.to.decorations);
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomPadding),
       decoration: BoxDecoration(
@@ -264,7 +284,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
       ),
       child: Row(
         children: [
-          // 🟢 显示我的排名 (0 或 -1 表示未上榜)
+          // 显示我的排名 (0 或 -1 表示未上榜)
           SizedBox(
             width: 30,
             child: Text(
@@ -274,12 +294,37 @@ class _ViewerPanelState extends State<ViewerPanel> {
             ),
           ),
           const SizedBox(width: 8),
-          CircleAvatar(
-            radius: 18,
-            backgroundColor: Colors.grey,
-            backgroundImage: myAvatar.isNotEmpty ? NetworkImage(myAvatar) : null,
-            child: myAvatar.isEmpty ? const Icon(Icons.person, color: Colors.white, size: 20) : null,
+
+          GestureDetector(
+            onTap: () {
+              Map<String, dynamic>? userMap = UserStore.to.profile;
+              userMap?["userId"] = UserStore.to.userId;
+              LiveUserProfilePopup.show(context, userMap);
+            },
+            // 🟢 修改处：底部栏头像也加框
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                // 1. 底层头像 (半径18)
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.grey,
+                  backgroundImage: myAvatar.isNotEmpty ? NetworkImage(myAvatar) : null,
+                  child: myAvatar.isEmpty ? const Icon(Icons.person, color: Colors.white, size: 20) : null,
+                ),
+                // 2. 上层头像框 (尺寸稍微调小适配半径18)
+                if (decorationsMap.hasAvatarFrame)
+                  Positioned(
+                    top: -5, // 👈 向下偏移
+                    left: -5, // 👈 向右偏移
+                    child: SizedBox(width: 45, height: 45, child: Image.network(decorationsMap.avatarFrame!, fit: BoxFit.contain)),
+                  ),
+              ],
+            ),
           ),
+
+          // 🟢 修改结束
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -293,25 +338,13 @@ class _ViewerPanelState extends State<ViewerPanel> {
             ],
           ),
           const Spacer(),
-          // 🟢 显示我的总贡献分
+          // 显示我的总贡献分
           Text(
             "本场贡献 ${_formatScore(_myScore)}",
             style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ],
       ),
-    );
-  }
-
-  // --- 小组件封装 ---
-
-  Widget _buildAdminBadge() {
-    return Container(
-      width: 16,
-      height: 16,
-      alignment: Alignment.center,
-      decoration: const BoxDecoration(color: Color(0xFFFF4081), shape: BoxShape.circle),
-      child: const Text("管", style: TextStyle(color: Colors.white, fontSize: 10, height: 1.0)),
     );
   }
 

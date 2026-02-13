@@ -204,8 +204,8 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
         // 2. 背景模糊
         Positioned.fill(
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-            child: Container(color: Colors.black.withOpacity(0.4)),
+            filter: ImageFilter.blur(sigmaX: 1, sigmaY: 1),
+            child: Container(color: Colors.black.withOpacity(0.2)),
           ),
         ),
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_live/models/user_models.dart';
 import 'package:flutter_live/screens/home/live/widgets/gift_preview/gift_unlock_details.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
-import 'package:flutter_live/screens/home/live/widgets/profile/live_profile_popup.dart';
+import 'package:flutter_live/screens/home/live/widgets/profile/live_personal_center_popup.dart';
 import '../../../../../services/gift_api.dart'; // ⚠️ 请确认路径
 import 'gift_panel.dart';
 import '../../models/live_models.dart';
@@ -175,7 +175,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
             onTap: () {
               final currentUser = widget.userStatusNotifier.value;
               // Navigator.pop(context);
-              showLiveProfilePopup(context, currentUser);
+              showLivePersonalCenterPopup(context, currentUser);
             },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

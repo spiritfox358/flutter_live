@@ -1,4 +1,5 @@
 class UserModel {
+  final String? userId;
   final String? nickname;
   final String? avatar;
   final int coin;
@@ -9,5 +10,5 @@ class UserModel {
   final String coinsToNextLevelText;
   final int coinsNextLevelThreshold;
 
-  UserModel(this.coin, this.level, {required this.coinsToNextLevel,required this.coinsNextLevelThreshold, required this.coinsToNextLevelText, required this.coinsCurrentLevelThreshold, this.nickname, this.avatar, required this.monthLevel});
+  UserModel(this.coin, this.level, {required this.coinsToNextLevel,required this.coinsNextLevelThreshold, required this.coinsToNextLevelText, required this.coinsCurrentLevelThreshold, this.nickname, this.avatar, required this.monthLevel, this.userId});
 }

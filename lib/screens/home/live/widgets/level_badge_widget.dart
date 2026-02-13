@@ -66,20 +66,19 @@ class _LevelBadgeState extends State<LevelBadge> {
           children: [
             Image.network(
               _getBadgeUrl(widget.level), // 注意：StatefulWidget 中访问参数要加 widget.
-              height: 15,
+              height: 13,
               fit: BoxFit.contain,
               errorBuilder: (context, error, stackTrace) => Container(width: 15, height: 15, color: Colors.grey[300]),
             ),
             Positioned(
-              top: -0.5,
-              right: widget.level < 10 ? 7 : 2.5,
-              bottom: -0.5,
+              top: -1,
+              right: widget.level < 10 ? 7 : 2,
               child: Padding(
                 padding: const EdgeInsets.all(0.0),
                 child: Text(
                   widget.level.toString(),
                   style: GoogleFonts.roboto(
-                    textStyle: TextStyle(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w900, fontSize: 11),
+                    textStyle: TextStyle(color: Colors.white.withOpacity(0.8), fontWeight: FontWeight.w900, fontSize: 10),
                   ),
                 ),
               ),

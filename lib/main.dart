@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live_list_page.dart';
 import 'package:flutter_live/screens/login/login_page.dart';
+import 'package:flutter_live/screens/me/profile/user_profile_page.dart';
 import 'package:flutter_live/store/user_store.dart';
 import 'screens/me/me_screen.dart';
 
@@ -89,7 +90,7 @@ class _MainContainerState extends State<MainContainer> {
     // const CourseScreen(),
     // const DocScreen(),
     // const ExamListScreen(),
-    const MeScreen(),
+    const UserProfilePage(),
   ];
 
   @override

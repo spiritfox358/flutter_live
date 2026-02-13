@@ -59,10 +59,14 @@ class UserStore {
   String get userAccountId => profile?['accountId']?.toString() ?? "";
 
   String get nickname => profile?['nickname'] ?? "未知用户";
+  String get signature => profile?['signature'] ?? "";
 
   String get avatar => profile?['avatar'] ?? "";
 
+  Map<String, dynamic> get decorations => profile?['decorations'] ?? <String, dynamic>{};
+
   int get userLevel => profile?['level'] ?? 1;
+
   int get monthLevel => profile?['monthLevel'] ?? 0;
 
   int get coin => profile?['coin'] ?? 0;

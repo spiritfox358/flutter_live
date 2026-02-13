@@ -30,7 +30,7 @@ class BuildTopBar extends StatelessWidget {
     return Container(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
           children: [
             ProfilePill(name: name, avatar: avatar),

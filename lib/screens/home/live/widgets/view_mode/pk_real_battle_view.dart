@@ -268,7 +268,7 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
             Container(color: Colors.black),
 
           // 2. 黑色遮罩 (凸显头像)
-          Container(color: Colors.black.withOpacity(0.6)),
+          Container(color: Colors.black.withOpacity(0.2)),
 
           // 3. 🟢 复用的头像组件
           Center(

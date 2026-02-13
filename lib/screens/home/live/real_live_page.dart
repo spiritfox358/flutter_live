@@ -10,7 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
 import 'package:flutter_live/screens/home/live/widgets/chat/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
-import 'package:flutter_live/screens/home/live/widgets/room/video_room_content_view.dart';
+import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/viewer_list.dart';
 import 'package:flutter_live/store/user_store.dart';
 import 'package:just_audio/just_audio.dart' hide AudioPlayer;
@@ -122,7 +122,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   VideoPlayerController? _bgController;
   bool _isBgInitialized = false;
   bool _isVideoBackground = false;
-  String _currentBgImage = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_2.png";
+  String _currentBgImage = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_15.jpg";
   String _leftCurrentStreamUrl = "";
 
   // --- 右侧（对手）视频控制 ---
@@ -137,10 +137,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   String _currentAvatar = "";
   late String _leftVideoUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.MOV";
   final String _rightVideoUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/234.mp4";
-  final List<String> _bgImageUrls = [
-    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_1.jpg",
-    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/live_bg_2.jpg",
-  ];
 
   PKStatus _pkStatus = PKStatus.idle;
   int _myPKScore = 0;
@@ -260,6 +256,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         setState(() {
           _myCoins = _parseInt(res['coin']);
           _myLevel = _parseInt(res['level']);
+          Map<String, dynamic> userInfo = res;
+          UserStore.to.saveProfile(userInfo);
           _monthLevel = _parseInt(res['monthLevel']);
           int coinsToNextLevel = res['coinsToNextLevel'];
           int coinsNextLevelThreshold = res['coinsNextLevelThreshold'];
@@ -1489,7 +1487,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       // PK 模式下，高度通常由视频区域决定，保持原样
       final double pkVideoHeight = size.width * 0.85;
       final double pkVideoBottomY = padding.top + topBarHeight + 105.0 + pkVideoHeight + 18;
-      chatListHeight = size.height - pkVideoBottomY - 30;
+      chatListHeight = size.height - pkVideoBottomY - 3;
     } else {
       // 单人模式下，根据房间类型自定义高度
       switch (widget.roomType) {
@@ -1511,7 +1509,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           break;
         case LiveRoomType.normal:
         default:
-          chatListHeight = 460.0; // 普通房间默认高度
+          // chatListHeight = 460.0; // 普通房间默认高度
           break;
       }
     }
@@ -1556,11 +1554,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                               child: Container(
                                 decoration: BoxDecoration(
                                   image: DecorationImage(
-                                    image: NetworkImage(
-                                      _pkStatus == PKStatus.idle
-                                          ? _currentBgImage // 单人模式兜底图
-                                          : "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_10.jpg",
-                                    ),
+                                    image: NetworkImage(_currentBgImage),
                                     fit: BoxFit.cover, // 铺满全屏
                                   ),
                                   gradient: const LinearGradient(
@@ -1607,7 +1601,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                               child: PKRealBattleView(
                                                 leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
                                                 leftBgImage: _isVideoBackground ? null : _currentBgImage,
-                                                leftName: _myUserName,
+                                                leftName: _currentName,
                                                 leftAvatarUrl: _currentAvatar,
                                                 isRightVideoMode: _isRightVideoMode,
                                                 rightVideoController: (_isRightVideoMode && _isRightVideoInitialized) ? _rightVideoController : null,

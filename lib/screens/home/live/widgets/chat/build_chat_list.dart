@@ -88,7 +88,6 @@ class _BuildChatListState extends State<BuildChatList> {
     final transparentBlack = Colors.black.withValues(
       red: 0, green: 0, blue: 0, alpha: 0.00,
     );
-
     return Container(
       color: transparentBlack,
       child: Container(
@@ -105,7 +104,7 @@ class _BuildChatListState extends State<BuildChatList> {
           blendMode: BlendMode.dstIn,
           child: ListView.builder(
             controller: _scrollController,
-            padding: EdgeInsets.zero,
+            padding: const EdgeInsets.symmetric(horizontal: 0),
             reverse: true,
             itemCount: _messages.length,
             itemBuilder: (context, index) => BuildChatItem(msg: _messages[index]),

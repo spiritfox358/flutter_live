@@ -108,7 +108,7 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
       position: _animation,
       child: Container(
         margin: const EdgeInsets.only(left: 11),
-        height: 25,
+        height: 22,
         padding: const EdgeInsets.symmetric(horizontal: 5),
         decoration: BoxDecoration(
           gradient: const LinearGradient(colors: [Color(0xFF0D47A1), Color(0xFF42A5F5)], begin: Alignment.centerLeft, end: Alignment.centerRight),
@@ -117,6 +117,7 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             LevelBadge(level: _currentEvent!.level, monthLevel: _currentEvent!.monthLevel),
             const SizedBox(width: 6),

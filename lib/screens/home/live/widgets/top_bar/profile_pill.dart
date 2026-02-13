@@ -9,24 +9,28 @@ class ProfilePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(3),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.3),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
         children: [
-          CircleAvatar(radius: 16, backgroundImage: NetworkImage(avatar)),
+          CircleAvatar(radius: 18, backgroundImage: NetworkImage(avatar)),
           const SizedBox(width: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+              Padding(
+                padding: const EdgeInsets.only(top: 4), // 👈 上边距
+                child: Text(
+                  name,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const Text(
