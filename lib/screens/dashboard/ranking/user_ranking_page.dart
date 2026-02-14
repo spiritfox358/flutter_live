@@ -1,0 +1,498 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
+import 'package:flutter_live/store/user_store.dart';
+import '../../../tools/HttpUtil.dart';
+import '../../home/live/widgets/profile/live_user_profile_popup.dart'; // 确保路径正确
+
+// 🟢 1. 补全 MyRankInfo 类
+class MyRankInfo {
+  final int score;
+  final int rank;
+  final int gap;
+
+  MyRankInfo({required this.score, required this.rank, required this.gap});
+}
+
+class UserRankingPage extends StatefulWidget {
+  const UserRankingPage({super.key});
+
+  @override
+  State<UserRankingPage> createState() => _UserRankingPageState();
+}
+
+class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
+  // 🟢 2. 新增状态：存储当前 Tab 计算出的“我的排名信息”
+  MyRankInfo? _myRankInfo;
+
+  final String _frameUrl =
+      "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/duke_rose/%E7%8E%AB%E7%91%B0%E5%85%AC%E7%88%B5.png";
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  String _formatScore(int score) {
+    if (score > 10000) {
+      return "${(score / 10000).toStringAsFixed(1)}w";
+    }
+    return score.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      extendBodyBehindAppBar: false,
+      appBar: null,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildTabBar(),
+            const SizedBox(height: 10),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  // 🟢 3. 传递 onLoaded 回调，更新页面状态
+                  RankingTabLoader(
+                    type: 1,
+                    onLoaded: (info) => setState(() => _myRankInfo = info),
+                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh),
+                  ),
+                  RankingTabLoader(
+                    type: 2,
+                    onLoaded: (info) => setState(() => _myRankInfo = info),
+                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh),
+                  ),
+                  RankingTabLoader(
+                    type: 3,
+                    onLoaded: (info) => setState(() => _myRankInfo = info),
+                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      // 🟢 4. 将状态传递给底部栏
+      bottomNavigationBar: _buildMyRankBar(_myRankInfo),
+    );
+  }
+
+  Widget _buildTabBar() {
+    return TabBar(
+      controller: _tabController,
+      dividerHeight: 0,
+      labelColor: Colors.black,
+      unselectedLabelColor: Colors.grey,
+      tabs: const [
+        Tab(text: "日榜"),
+        Tab(text: "周榜"),
+        Tab(text: "月榜"),
+      ],
+    );
+  }
+
+  Widget _buildRankingListView(List<RankModel> data, VoidCallback onRefresh) {
+    if (data.isEmpty) {
+      return Center(
+        child: GestureDetector(
+          onTap: onRefresh,
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("暂无数据", style: TextStyle(color: Colors.grey)),
+              SizedBox(height: 8),
+              Text("点击刷新", style: TextStyle(color: Colors.blue, fontSize: 12)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (data.length < 3) {
+      return Expanded(
+        child: ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: data.length,
+          itemBuilder: (context, index) {
+            int diff = 0;
+            if (index > 0) {
+              diff = data[index - 1].score - data[index].score;
+            }
+            return _buildListItem(data[index], index + 1, diff);
+          },
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 5),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [_buildPodiumItem(data[1], 2), _buildPodiumItem(data[0], 1), _buildPodiumItem(data[2], 3)],
+          ),
+        ),
+
+        Expanded(
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: ListView.builder(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(top: 10, bottom: 20),
+              itemCount: data.length - 3,
+              itemBuilder: (context, index) {
+                final item = data[index + 3];
+                int diff = data[index + 2].score - item.score;
+                return _buildListItem(item, index + 4, diff);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPodiumItem(RankModel item, int rank) {
+    final bool isFirst = rank == 1;
+    final double avatarSize = isFirst ? 100 : 80;
+    final Color color = rank == 1 ? const Color(0xFFFFD700) : (rank == 2 ? const Color(0xFFC0C0C0) : const Color(0xFFCD7F32));
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        children: [
+          // 🟢 修改处：添加 GestureDetector 包裹头像区域
+          GestureDetector(
+            onTap: () {
+              print("点击了前三名用户: ${item.name}, ID: ${item.userId}");
+              Map<String, dynamic> user = {"userId": item.userId};
+              LiveUserProfilePopup.show(context, user);
+              // 在这里处理跳转逻辑，例如：
+              // Get.toNamed(AppRoutes.UserProfile, arguments: item.userId);
+            },
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: avatarSize + 6,
+                  height: avatarSize + 6,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: color, width: 3),
+                    boxShadow: [BoxShadow(color: color.withOpacity(0.5), blurRadius: 10, spreadRadius: 1)],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(2.0),
+                    child: CircleAvatar(backgroundImage: NetworkImage(item.avatar)),
+                  ),
+                ),
+                if (item.avatarFrame.isNotEmpty)
+                  Positioned(top: -8, left: -8, right: -8, bottom: -8, child: Image.network(item.avatarFrame, fit: BoxFit.contain)),
+                Positioned(
+                  bottom: -10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+                    child: Text(
+                      rank.toString(),
+                      style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            item.name,
+            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 14),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          LevelBadge(level: item.level, monthLevel: 0),
+          const SizedBox(height: 4),
+          Text("${_formatScore(item.score)} 贡献", style: const TextStyle(color: Colors.grey, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildListItem(RankModel item, int rank, int diff) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 30,
+            child: Text(
+              "$rank",
+              style: TextStyle(color: Colors.grey[600], fontSize: 18, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // 🟢 修改处：添加 GestureDetector 包裹列表头像
+          GestureDetector(
+            onTap: () {
+              print("点击了列表用户: ${item.name}, ID: ${item.userId}");
+              Map<String, dynamic> user = {"userId": item.userId};
+              LiveUserProfilePopup.show(context, user);
+            },
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                CircleAvatar(radius: 24, backgroundImage: NetworkImage(item.avatar)),
+                if (item.avatarFrame.isNotEmpty)
+                  Positioned(top: -4, left: -4, right: -4, bottom: -4, child: Image.network(item.avatarFrame, fit: BoxFit.contain)),
+              ],
+            ),
+          ),
+
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.name,
+                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 16),
+                ),
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    LevelBadge(level: item.level, monthLevel: 0),
+                    const SizedBox(width: 6),
+                    if (rank > 1) Text("距上一名 $diff", style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Text(
+            _formatScore(item.score),
+            style: const TextStyle(color: Color(0xFFFF5722), fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMyRankBar(MyRankInfo? myInfo) {
+    String rankStr = "50+";
+    String scoreStr = "0";
+    String descStr = "暂无数据";
+
+    if (myInfo != null) {
+      scoreStr = _formatScore(myInfo.score);
+      if (myInfo.rank > 0) {
+        rankStr = "${myInfo.rank}";
+        if (myInfo.rank == 1) {
+          descStr = "恭喜！您是榜首";
+        } else {
+          descStr = "距上一名差 ${_formatScore(myInfo.gap)}";
+        }
+      } else {
+        rankStr = "50+";
+        descStr = "差 ${_formatScore(myInfo.gap)} 上榜";
+      }
+    }
+    return Container(
+      height: 70,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), offset: const Offset(0, -2), blurRadius: 10)],
+      ),
+      child: Row(
+        children: [
+          Text(
+            rankStr, // 🟢 动态排名
+            style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(width: 12),
+          CircleAvatar(radius: 20, backgroundImage: NetworkImage(UserStore.to.avatar)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(UserStore.to.nickname, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(descStr, style: const TextStyle(color: Colors.grey, fontSize: 12)), // 🟢 动态描述
+              ],
+            ),
+          ),
+          if (1 == 2)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFFFF5722), Color(0xFFFF8A65)]),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                "去冲榜",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class RankModel {
+  final String userId; // 🟢 5. 新增 userId 用于匹配
+  final String name;
+  final String avatar;
+  final String avatarFrame;
+  final int level;
+  final int score;
+  final int rank;
+
+  RankModel({
+    required this.userId,
+    required this.name,
+    required this.avatar,
+    required this.score,
+    required this.rank,
+    required this.avatarFrame,
+    required this.level,
+  });
+
+  factory RankModel.fromJson(Map<String, dynamic> json) {
+    return RankModel(
+      // 🟢 映射后端字段
+      userId: (json['senderId'] ?? 0).toString(),
+      name: json['senderName'] ?? "未知用户",
+      avatar: json['senderAvatar'] ?? "https://api.multiavatar.com/default.png",
+      score: json['totalScore'] ?? 0,
+      rank: json['rank'] ?? 0,
+      avatarFrame: json['avatarFrame'] ?? "",
+      level: json['level'] ?? 0,
+    );
+  }
+}
+
+class RankingTabLoader extends StatefulWidget {
+  final int type;
+  final Widget Function(List<RankModel>, Future<void> Function()) builder;
+
+  // 🟢 6. 定义回调函数
+  final Function(MyRankInfo) onLoaded;
+
+  const RankingTabLoader({super.key, required this.type, required this.builder, required this.onLoaded});
+
+  @override
+  State<RankingTabLoader> createState() => _RankingTabLoaderState();
+}
+
+class _RankingTabLoaderState extends State<RankingTabLoader> with AutomaticKeepAliveClientMixin {
+  List<RankModel> _dataList = [];
+  bool _isLoading = true;
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
+  }
+
+  Future<void> _fetchData() async {
+    try {
+      if (!mounted) return;
+      if (_dataList.isEmpty) {
+        setState(() => _isLoading = true);
+      }
+
+      var results = await Future.wait([
+        HttpUtil().get('/api/giftLog/ranking', params: {"type": widget.type}),
+        HttpUtil().get('/api/giftLog/mine', params: {"type": widget.type}),
+      ]);
+
+      List<dynamic> rawList = results[0] ?? [];
+      List<RankModel> list = rawList.map((e) => RankModel.fromJson(e)).toList();
+
+      Map<String, dynamic> myData = results[1] ?? {};
+      int myScore = myData['score'] ?? 0;
+
+      // 🟢 7. 核心计算逻辑：使用 UserStore 进行 ID 匹配
+      String myUserId = UserStore.to.userId;
+
+      int myRank = 0;
+      int gap = 0;
+
+      // 使用 userId 匹配
+      int index = list.indexWhere((e) => e.userId == myUserId);
+
+      if (index != -1) {
+        myRank = index + 1;
+        if (index > 0) {
+          gap = list[index - 1].score - myScore;
+        } else {
+          gap = 0;
+        }
+        myScore = list[index].score;
+      } else {
+        myRank = 0;
+        if (list.isNotEmpty) {
+          int thresholdScore = list.last.score;
+          gap = thresholdScore - myScore;
+          if (gap < 0) gap = 0;
+        } else {
+          gap = 0;
+        }
+      }
+
+      if (mounted) {
+        // 🟢 8. 触发回调
+        widget.onLoaded(MyRankInfo(score: myScore, rank: myRank, gap: gap));
+
+        setState(() {
+          _dataList = list;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      debugPrint("Fetch ranking error: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return RefreshIndicator(onRefresh: _fetchData, color: const Color(0xFFFFD700), child: widget.builder(_dataList, _fetchData));
+  }
+}

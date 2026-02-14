@@ -11,6 +11,7 @@ import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
 import 'package:flutter_live/screens/home/live/widgets/chat/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_content_view.dart';
+import 'package:flutter_live/screens/home/live/widgets/room_mode/voice_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/viewer_list.dart';
 import 'package:flutter_live/store/user_store.dart';
 import 'package:just_audio/just_audio.dart' hide AudioPlayer;
@@ -45,6 +46,7 @@ import 'widgets/pk_match_manager.dart';
 enum LiveRoomType {
   normal, // 普通直播
   music, // 听歌房
+  voice, //语音房
   game, // 游戏房
   video, // 🟢 新增：视频放映厅
 }
@@ -96,6 +98,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late String _myAvatar;
   late String _roomId;
   final GlobalKey<ChatInputOverlayState> _inputOverlayKey = GlobalKey();
+  final GlobalKey<VoiceRoomContentViewState> _voiceRoomKey = GlobalKey();
 
   // 🟢 1. 定义一个 GlobalKey 用来控制榜单组件
   final GlobalKey<ViewerListState> _viewerListKey = GlobalKey<ViewerListState>();
@@ -594,6 +597,22 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
           if (audioData != null && audioData.toString().isNotEmpty) {
             _playBase64Audio(audioData);
+          }
+          break;
+        // 🟢 新增：处理主播语音消息
+        case "HOST_SPEAK":
+          // 只有在语音房模式下才处理，或者你希望任何模式都播放也可以
+          // 这里通过 Key 直接调用子组件的方法
+          if (_voiceRoomKey.currentState != null) {
+            _voiceRoomKey.currentState?.speakFromSocket(data);
+          } else {
+            // 如果当前不是 VoiceRoomContentView (例如在看 PK)，
+            // 你可以选择忽略，或者在这里直接用 _ttsPlayer 播放音频（但不显示动画）
+            // 简单的做法是只在语音房处理
+            debugPrint("收到语音消息，但当前不在语音房视图，跳过动画");
+
+            // 如果你希望在任何房间都能听到声音（只是没动画），可以解开下面这行：
+            // _playBase64Audio(data['audioData']);
           }
           break;
       }
@@ -1420,6 +1439,23 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               bgUrl: _currentBgImage,
               // 🟢 传入 personalPkBg
               isMuted: false,
+              roomId: _roomId,
+            ),
+            // 2. 顶层：叠加 TopBar
+            Positioned(top: 0, left: 0, right: 0, child: topBar),
+          ],
+        );
+      case LiveRoomType.voice:
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            // 1. 底层：视频内容 (背景已在内部处理)
+            VoiceRoomContentView(
+              key: _voiceRoomKey,
+              anchorAvatar: "",
+              currentBgImage: '234234',
+              roomTitle: '345345',
+              anchorName: 'werrwetert',
               roomId: _roomId,
             ),
             // 2. 顶层：叠加 TopBar

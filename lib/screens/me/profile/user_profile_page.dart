@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/me/me_screen.dart';
 import '../../../store/user_store.dart';
 import 'edit_profile_page.dart';
 
@@ -211,7 +212,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                                 iconColor,
                                 onTap: () {
                                   Map<String, dynamic> userProfile = UserStore.to.profile ?? {};
-                                  Navigator.push(context, MaterialPageRoute(builder: (context) => EditProfilePage(userMap: userProfile)));
+                                  Navigator.push(context, MaterialPageRoute(builder: (context) => MeScreen()));
                                 },
                               ),
                             ],

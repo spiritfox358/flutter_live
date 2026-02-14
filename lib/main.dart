@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/dashboard/ranking/user_ranking_page.dart';
 import 'package:flutter_live/screens/home/live_list_page.dart';
 import 'package:flutter_live/screens/login/login_page.dart';
 import 'package:flutter_live/screens/me/profile/user_profile_page.dart';
 import 'package:flutter_live/store/user_store.dart';
-import 'screens/me/me_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -87,7 +87,7 @@ class _MainContainerState extends State<MainContainer> {
 
   final List<Widget> _screens = [
     const LiveListPage(),
-    // const CourseScreen(),
+    const UserRankingPage(),
     // const DocScreen(),
     // const ExamListScreen(),
     const UserProfilePage(),
@@ -108,11 +108,12 @@ class _MainContainerState extends State<MainContainer> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: '榜单'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我'),
           // BottomNavigationBarItem(icon: Icon(Icons.school), label: '训练'),
           // BottomNavigationBarItem(icon: Icon(Icons.school), label: '课程'),
           // BottomNavigationBarItem(icon: Icon(Icons.description), label: '文档'),
           // BottomNavigationBarItem(icon: Icon(Icons.message), label: '消息'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我'),
         ],
       ),
     );

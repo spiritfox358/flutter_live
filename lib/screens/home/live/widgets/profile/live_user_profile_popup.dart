@@ -120,7 +120,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
   // ========== 以下子组件完全保持原样，无需变动 ==========
 
   Widget _buildTopSection() {
-    String avatarUrl = widget.user['avatar'] ?? "https://via.placeholder.com/150";
+    String avatarUrl = userInfo?['avatar'] ?? "https://via.placeholder.com/150";
     final Map<String, dynamic>? rawDecorations = userInfo?['decorations'] as Map<String, dynamic>?;
     final UserDecorationsModel decorations = UserDecorationsModel.fromMap(rawDecorations ?? {});
     return Padding(
@@ -130,7 +130,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
         children: [
           GestureDetector(
             onTap: () {
-              LiveUserProfilePopup.show(context, widget.user);
+              LiveUserProfilePopup.show(context, userInfo);
             },
             child: Stack(
               alignment: Alignment.center,
@@ -163,7 +163,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
                 // 👇 用 Expanded 包裹关注按钮，让它占满剩余空间
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => debugPrint("点击关注 ${widget.user["userId"]}"),
+                    onTap: () => debugPrint("点击关注 ${userInfo?["userId"]}"),
                     child: Container(
                       height: 35,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -211,9 +211,9 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
   }
 
   Widget _buildNameRow() {
-    String nickname = widget.user["nickname"];
-    int level = int.tryParse(widget.user['level'].toString() ?? "1") ?? 1;
-    int monthLevel = int.tryParse(widget.user['monthLevel'].toString() ?? "0") ?? 0;
+    String nickname = userInfo?["nickname"];
+    int level = int.tryParse(userInfo?['level'].toString() ?? "1") ?? 1;
+    int monthLevel = int.tryParse(userInfo?['monthLevel'].toString() ?? "0") ?? 0;
 
     return Row(
       children: [
@@ -232,9 +232,9 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
   }
 
   Widget _buildTagsRow() {
-    String age = widget.user['age']?.toString() ?? "18";
+    String age = userInfo?['age']?.toString() ?? "18";
     String city = userInfo?['city'] ?? "未知星球";
-    bool isFemale = widget.user['gender'].toString() == "2";
+    bool isFemale = userInfo?['gender'].toString() == "2";
 
     return Row(
       children: [
@@ -265,8 +265,8 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
   }
 
   Widget _buildStatsRow() {
-    String follow = widget.user['followCount']?.toString() ?? "0";
-    String fans = widget.user['fansCount']?.toString() ?? "0";
+    String follow = userInfo?['followCount']?.toString() ?? "0";
+    String fans = userInfo?['fansCount']?.toString() ?? "0";
 
     return Row(children: [_buildStatItem(follow, "关注"), const SizedBox(width: 20), _buildStatItem(fans, "粉丝")]);
   }

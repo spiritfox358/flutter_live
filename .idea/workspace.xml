@@ -5,35 +5,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/models/user_decorations_model.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/common/admin_badge_widget.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_personal_center_popup.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_user_profile_popup.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/me/profile/user_profile_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/dashboard/ranking/user_ranking_page.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/room_mode/voice_room_content_view.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/android/build/reports/problems/problems-report.html" beforeDir="false" afterPath="$PROJECT_DIR$/android/build/reports/problems/problems-report.html" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/models/user_models.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/models/user_models.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/chat/build_chat_item.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/chat/build_chat_item.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/chat/build_chat_list.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/chat/build_chat_list.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_panel/gift_panel_state.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_panel/gift_panel_state.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/level_badge_widget.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/level_badge_widget.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_profile_popup.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_my_level_benefit_popup.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/room/music_room_content_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/room_mode/music_room_content_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/room/video_room_content_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/room_mode/video_room_content_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/build_top_bar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/build_top_bar.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/profile_pill.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/profile_pill.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/viewer_list.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/viewer_list.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/pk_real_battle_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/pk_real_battle_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_panel.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/viewer_panel.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/me/me_screen.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/me/me_screen.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/me/profile/edit_profile_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/me/profile/edit_profile_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/store/user_store.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/store/user_store.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_user_profile_popup.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_user_profile_popup.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/me/profile/user_profile_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/me/profile/user_profile_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/tools/StringTool.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/StringTool.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -92,7 +73,7 @@
     "io.flutter.project.isFirstOpen": "true",
     "io.flutter.reload.alreadyRun": "true",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/luna/Documents/work/android/flutter_live/lib/screens/home/live/widgets/profile",
+    "last_opened_file_path": "/Users/luna/Documents/work/android/flutter_live/lib/screens/home/live/widgets/room_mode",
     "project.structure.last.edited": "Project",
     "project.structure.proportion": "0.0",
     "project.structure.side.proportion": "0.29564193",
@@ -102,11 +83,11 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/room_mode" />
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/profile" />
       <recent name="$PROJECT_DIR$/my_alpha_player/web" />
       <recent name="$PROJECT_DIR$/lib/widgets" />
       <recent name="$PROJECT_DIR$/lib/tools" />
-      <recent name="$PROJECT_DIR$" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode" />
@@ -365,7 +346,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770774749909</updated>
     </task>
-    <option name="localTasksCounter" value="30" />
+    <task id="LOCAL-00030" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1770995283025</created>
+      <option name="number" value="00030" />
+      <option name="presentableId" value="LOCAL-00030" />
+      <option name="project" value="LOCAL" />
+      <updated>1770995283025</updated>
+    </task>
+    <option name="localTasksCounter" value="31" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -399,17 +388,17 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>536</line>
+          <line>539</line>
           <option name="timeStamp" value="95" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1054</line>
+          <line>1073</line>
           <option name="timeStamp" value="106" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1942</line>
+          <line>1978</line>
           <option name="timeStamp" value="108" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -446,6 +435,16 @@
           <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_user_profile_popup.dart</url>
           <line>13</line>
           <option name="timeStamp" value="136" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
+          <line>605</line>
+          <option name="timeStamp" value="139" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/screens/dashboard/ranking/user_ranking_page.dart</url>
+          <line>421</line>
+          <option name="timeStamp" value="142" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>

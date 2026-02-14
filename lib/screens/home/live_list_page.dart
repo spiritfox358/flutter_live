@@ -270,6 +270,12 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
   }
 
   void _enterRoom(AnchorInfo anchor, {required bool isHost}) {
+    const Map<int, LiveRoomType> _dbValueToEnum = {
+      0: LiveRoomType.normal,   // 假设数据库 5 = 普通直播
+      1: LiveRoomType.voice,    // 你提到 7 = 语音房 ✅
+      2: LiveRoomType.music,    // 假设 8 = 听歌房
+      3: LiveRoomType.video,    // 假设 9 = 视频放映厅
+    };
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => RealLivePage(
@@ -279,7 +285,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
           level: 0,
           isHost: isHost,
           roomId: anchor.roomId,
-          roomType: anchor.roomType == 3 ? LiveRoomType.video : LiveRoomType.normal,
+          roomType: _dbValueToEnum[anchor.roomType]!,
           monthLevel: 0,
         ),
       ),
