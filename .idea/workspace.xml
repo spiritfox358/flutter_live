@@ -5,16 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/screens/dashboard/ranking/user_ranking_page.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/room_mode/voice_room_content_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_user_profile_popup.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_user_profile_popup.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/me/profile/user_profile_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/me/profile/user_profile_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/ranking/user_ranking_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/dashboard/ranking/user_ranking_page.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -354,7 +347,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770995283025</updated>
     </task>
-    <option name="localTasksCounter" value="31" />
+    <task id="LOCAL-00031" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1771075595542</created>
+      <option name="number" value="00031" />
+      <option name="presentableId" value="LOCAL-00031" />
+      <option name="project" value="LOCAL" />
+      <updated>1771075595542</updated>
+    </task>
+    <option name="localTasksCounter" value="32" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -443,7 +444,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/dashboard/ranking/user_ranking_page.dart</url>
-          <line>421</line>
+          <line>474</line>
           <option name="timeStamp" value="142" />
         </line-breakpoint>
       </breakpoints>

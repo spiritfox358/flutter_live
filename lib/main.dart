@@ -108,7 +108,7 @@ class _MainContainerState extends State<MainContainer> {
         onTap: (index) => setState(() => _currentIndex = index),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: '榜单'),
+          BottomNavigationBarItem(icon: Icon(Icons.leaderboard), label: '榜单'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '我'),
           // BottomNavigationBarItem(icon: Icon(Icons.school), label: '训练'),
           // BottomNavigationBarItem(icon: Icon(Icons.school), label: '课程'),

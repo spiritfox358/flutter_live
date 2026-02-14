@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 import 'package:flutter_live/store/user_store.dart';
 import '../../../tools/HttpUtil.dart';
-import '../../home/live/widgets/profile/live_user_profile_popup.dart'; // 确保路径正确
+import '../../home/live/widgets/profile/live_user_profile_popup.dart';
 
 // 🟢 1. 补全 MyRankInfo 类
 class MyRankInfo {
@@ -50,14 +50,18 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
 
   @override
   Widget build(BuildContext context) {
+    // 获取当前是否为深色模式
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+      // Dark模式背景
       extendBodyBehindAppBar: false,
       appBar: null,
       body: SafeArea(
         child: Column(
           children: [
-            _buildTabBar(),
+            _buildTabBar(isDark),
             const SizedBox(height: 10),
             Expanded(
               child: TabBarView(
@@ -68,17 +72,17 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
                   RankingTabLoader(
                     type: 1,
                     onLoaded: (info) => setState(() => _myRankInfo = info),
-                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh),
+                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh, isDark),
                   ),
                   RankingTabLoader(
                     type: 2,
                     onLoaded: (info) => setState(() => _myRankInfo = info),
-                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh),
+                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh, isDark),
                   ),
                   RankingTabLoader(
                     type: 3,
                     onLoaded: (info) => setState(() => _myRankInfo = info),
-                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh),
+                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh, isDark),
                   ),
                 ],
               ),
@@ -87,15 +91,16 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
         ),
       ),
       // 🟢 4. 将状态传递给底部栏
-      bottomNavigationBar: _buildMyRankBar(_myRankInfo),
+      bottomNavigationBar: _buildMyRankBar(_myRankInfo, isDark),
     );
   }
 
-  Widget _buildTabBar() {
+  Widget _buildTabBar(bool isDark) {
     return TabBar(
       controller: _tabController,
       dividerHeight: 0,
-      labelColor: Colors.black,
+      labelColor: isDark ? Colors.white : Colors.black,
+      // 适配文字颜色
       unselectedLabelColor: Colors.grey,
       tabs: const [
         Tab(text: "日榜"),
@@ -105,7 +110,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
     );
   }
 
-  Widget _buildRankingListView(List<RankModel> data, VoidCallback onRefresh) {
+  Widget _buildRankingListView(List<RankModel> data, VoidCallback onRefresh, bool isDark) {
     if (data.isEmpty) {
       return Center(
         child: GestureDetector(
@@ -132,7 +137,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
             if (index > 0) {
               diff = data[index - 1].score - data[index].score;
             }
-            return _buildListItem(data[index], index + 1, diff);
+            return _buildListItem(data[index], index + 1, diff, isDark);
           },
         ),
       );
@@ -145,15 +150,15 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.end,
-            children: [_buildPodiumItem(data[1], 2), _buildPodiumItem(data[0], 1), _buildPodiumItem(data[2], 3)],
+            children: [_buildPodiumItem(data[1], 2, isDark), _buildPodiumItem(data[0], 1, isDark), _buildPodiumItem(data[2], 3, isDark)],
           ),
         ),
 
         Expanded(
           child: Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E1E1E) : Colors.white, // 列表背景适配
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -162,7 +167,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
               itemBuilder: (context, index) {
                 final item = data[index + 3];
                 int diff = data[index + 2].score - item.score;
-                return _buildListItem(item, index + 4, diff);
+                return _buildListItem(item, index + 4, diff, isDark);
               },
             ),
           ),
@@ -171,7 +176,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
     );
   }
 
-  Widget _buildPodiumItem(RankModel item, int rank) {
+  Widget _buildPodiumItem(RankModel item, int rank, bool isDark) {
     final bool isFirst = rank == 1;
     final double avatarSize = isFirst ? 100 : 80;
     final Color color = rank == 1 ? const Color(0xFFFFD700) : (rank == 2 ? const Color(0xFFC0C0C0) : const Color(0xFFCD7F32));
@@ -186,33 +191,55 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
               print("点击了前三名用户: ${item.name}, ID: ${item.userId}");
               Map<String, dynamic> user = {"userId": item.userId};
               LiveUserProfilePopup.show(context, user);
-              // 在这里处理跳转逻辑，例如：
-              // Get.toNamed(AppRoutes.UserProfile, arguments: item.userId);
             },
             child: Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.center,
               children: [
+                // 1. 底层头像容器
                 Container(
+                  // 保持原有尺寸逻辑
                   width: avatarSize + 6,
                   height: avatarSize + 6,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: color, width: 3),
-                    boxShadow: [BoxShadow(color: color.withOpacity(0.5), blurRadius: 10, spreadRadius: 1)],
+                    // 🟢 关键修改1：如果有头像框，就不要显示底层的颜色边框和阴影，避免露白或超出
+                    border: item.avatarFrame.isNotEmpty ? null : Border.all(color: color, width: 2),
+                    boxShadow: item.avatarFrame.isNotEmpty ? [] : [BoxShadow(color: color.withOpacity(0.5), blurRadius: 10, spreadRadius: 1)],
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(2.0),
+                    // 🟢 关键修改2：如果有头像框，增加内边距(例如5.0)，让头像图片缩小一点，完全嵌入框的“洞”里
+                    padding: EdgeInsets.all(item.avatarFrame.isNotEmpty ? 3.0 : 2.0),
                     child: CircleAvatar(backgroundImage: NetworkImage(item.avatar)),
                   ),
                 ),
+
+                // 2. 头像框 (层级在头像之上)
                 if (item.avatarFrame.isNotEmpty)
-                  Positioned(top: -8, left: -8, right: -8, bottom: -8, child: Image.network(item.avatarFrame, fit: BoxFit.contain)),
+                  Positioned(
+                    // 🟢 关键修改3：根据框的素材情况，可能需要调整这个数值
+                    // 如果框比较厚，可以设为 -8 或 -10，让框显得更大，完全包住头像
+                    top: -5,
+                    left: -5,
+                    right: -5,
+                    bottom: -5,
+                    child: Image.network(
+                      item.avatarFrame,
+                      fit: BoxFit.contain, // 确保框按比例缩放
+                    ),
+                  ),
+
+                // 3. 排名标签
                 Positioned(
                   bottom: -10,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(10)),
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(10),
+                      // 可以给标签加个小描边，防止和头像框混在一起
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
                     child: Text(
                       rank.toString(),
                       style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
@@ -225,7 +252,11 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
           const SizedBox(height: 16),
           Text(
             item.name,
-            style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 14),
+            style: TextStyle(
+              color: isDark ? Colors.white70 : Colors.black87, // 名字颜色适配
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -238,7 +269,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
     );
   }
 
-  Widget _buildListItem(RankModel item, int rank, int diff) {
+  Widget _buildListItem(RankModel item, int rank, int diff, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
@@ -247,7 +278,12 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
             width: 30,
             child: Text(
               "$rank",
-              style: TextStyle(color: Colors.grey[600], fontSize: 18, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+              style: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[600], // 排名数字适配
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontStyle: FontStyle.italic,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
@@ -278,7 +314,11 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
               children: [
                 Text(
                   item.name,
-                  style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.w600, fontSize: 16),
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87, // 名字适配
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Row(
@@ -300,7 +340,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
     );
   }
 
-  Widget _buildMyRankBar(MyRankInfo? myInfo) {
+  Widget _buildMyRankBar(MyRankInfo? myInfo, bool isDark) {
     String rankStr = "50+";
     String scoreStr = "0";
     String descStr = "暂无数据";
@@ -323,14 +363,24 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
       height: 70,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), offset: const Offset(0, -2), blurRadius: 10)],
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white, // 底部栏背景适配
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.1), // 阴影适配
+            offset: const Offset(0, -2),
+            blurRadius: 10,
+          ),
+        ],
       ),
       child: Row(
         children: [
           Text(
             rankStr, // 🟢 动态排名
-            style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: isDark ? Colors.grey[400] : Colors.grey, // 排名文字适配
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const SizedBox(width: 12),
           CircleAvatar(radius: 20, backgroundImage: NetworkImage(UserStore.to.avatar)),
@@ -340,7 +390,10 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(UserStore.to.nickname, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(
+                  UserStore.to.nickname,
+                  style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black), // 昵称颜色适配
+                ),
                 Text(descStr, style: const TextStyle(color: Colors.grey, fontSize: 12)), // 🟢 动态描述
               ],
             ),
