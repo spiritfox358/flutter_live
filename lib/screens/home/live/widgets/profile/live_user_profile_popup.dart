@@ -3,6 +3,7 @@ import 'package:flutter_live/models/user_models.dart';
 import 'package:flutter_live/screens/home/live/widgets/common/admin_badge_widget.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 import '../../../../../tools/HttpUtil.dart';
+import '../../gift_gallery_page.dart';
 import '../../models/user_decorations_model.dart';
 
 class LiveUserProfilePopup extends StatefulWidget {
@@ -328,36 +329,55 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
           Row(
             children: [
               Expanded(
-                child: _buildCard(
-                  iconUrl: "",
-                  title: "礼物图鉴",
-                  subWidget: const Text(
-                    "0/6",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.grey, fontSize: 10),
+                child: GestureDetector(
+                  onTap: () {
+
+                    // 礼物图鉴点击事件
+                    print('点击了礼物图鉴');
+                    // 或者跳转页面：Navigator.push(...)
+                  },
+                  child: _buildCard(
+                    iconUrl: "",
+                    title: "礼物图鉴",
+                    subWidget: const Text(
+                      "0/6",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey, fontSize: 10),
+                    ),
                   ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildCard(
-                  iconUrl: "",
-                  title: "礼物展馆",
-                  subWidget: _buildTag("已集齐", const Color(0xFFE1BEE7), Colors.purple),
-                  rightWidget: const Text("28/28", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                child: GestureDetector(
+                  onTap: () {
+                    GiftGalleryPopup.show(context, userInfo);
+                  },
+                  child: _buildCard(
+                    iconUrl: "",
+                    title: "礼物展馆",
+                    subWidget: _buildTag("已集齐", const Color(0xFFE1BEE7), Colors.purple),
+                    rightWidget: const Text("28/28", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: _buildCard(
-                  iconUrl: "",
-                  title: "PK段位",
-                  subWidget: const Text(
-                    "钻石1星",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Color(0xFF5E35B1), fontSize: 10, fontWeight: FontWeight.bold),
+                child: GestureDetector(
+                  onTap: () {
+                    // PK段位点击事件
+                    print('点击了PK段位');
+                  },
+                  child: _buildCard(
+                    iconUrl: "",
+                    title: "PK段位",
+                    subWidget: const Text(
+                      "钻石1星",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Color(0xFF5E35B1), fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ),

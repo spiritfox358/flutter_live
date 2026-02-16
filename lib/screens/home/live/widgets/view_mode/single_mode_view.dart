@@ -8,6 +8,7 @@ class SingleModeView extends StatelessWidget {
   final String roomId;
   final int onlineCount;
   final String avatar;
+  final int anchorId;
   final bool isVideoBackground;
   final bool isBgInitialized;
   final VideoPlayerController? bgController;
@@ -25,7 +26,7 @@ class SingleModeView extends StatelessWidget {
     required this.isBgInitialized,
     required this.bgController,
     required this.currentBgImage,
-    this.onClose,
+    this.onClose, required this.anchorId,
   });
 
   @override
@@ -65,7 +66,7 @@ class SingleModeView extends StatelessWidget {
           left: 0,
           right: 0,
           child: SafeArea(
-            child: BuildTopBar(roomId: roomId, onlineCount: onlineCount, title: title, name: name, avatar: avatar, onClose: onClose),
+            child: BuildTopBar(roomId: roomId, onlineCount: onlineCount, title: title, name: name, avatar: avatar, onClose: onClose, anchorId: anchorId,),
           ),
         ),
       ],

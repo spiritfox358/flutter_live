@@ -107,6 +107,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   //控制进场组件的 Key
   final GlobalKey<LiveUserEntranceState> _entranceKey = GlobalKey<LiveUserEntranceState>();
   final GlobalKey<GiftTrayEffectLayerState> _trayLayerKey = GlobalKey();
+
   // 用于控制特效层的 Key
   final GlobalKey<GiftEffectLayerState> _giftEffectKey = GlobalKey();
 
@@ -1124,7 +1125,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             senderAvatar: senderAvatar,
             giftName: giftData.name,
             giftIconUrl: giftData.iconUrl,
-            trayEffectUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
+            trayEffectUrl:
+                "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
             count: count,
             senderLevel: senderLevel,
           ),
@@ -1158,7 +1160,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       senderAvatar: senderAvatar,
       giftName: giftData.name,
       giftIconUrl: giftData.iconUrl,
-      trayEffectUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
+      trayEffectUrl:
+          "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
       count: count,
       senderLevel: senderLevel,
       // 如果 model 支持，传入 trayEffectUrl: giftData.trayEffectUrl
@@ -1434,6 +1437,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         title: "直播间",
         name: _currentName,
         avatar: _currentAvatar,
+        anchorId: _currentUserId,
         onClose: _handleCloseButton,
       ),
     );
@@ -1507,7 +1511,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               title: "直播间",
               name: _currentName,
               avatar: _currentAvatar,
-              onClose: _handleCloseButton,
+              onClose: _handleCloseButton, anchorId: _currentUserId,
             ),
             Positioned(
               top: MediaQuery.of(context).size.height * 0.2,
@@ -1632,7 +1636,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                           title: "直播间",
                                           name: _currentName,
                                           avatar: _currentAvatar,
-                                          onClose: _handleCloseButton,
+                                          onClose: _handleCloseButton, anchorId: _currentUserId,
                                         ),
                                       ),
                                       SizedBox(height: gap1),

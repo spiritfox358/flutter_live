@@ -6,6 +6,7 @@ import 'viewer_list.dart';
 class BuildTopBar extends StatelessWidget {
   final String title;
   final String name;
+  final int anchorId;
   final String roomId;
   final int onlineCount;
   final String avatar;
@@ -18,6 +19,7 @@ class BuildTopBar extends StatelessWidget {
     super.key,
     required this.title,
     required this.name,
+    required this.anchorId,
     required this.roomId,
     required this.onlineCount,
     required this.avatar,
@@ -33,7 +35,7 @@ class BuildTopBar extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
           children: [
-            ProfilePill(name: name, avatar: avatar),
+            ProfilePill(name: name, avatar: avatar,anchorId:anchorId),
             const Spacer(),
             ViewerList(key: viewerListKey,roomId: roomId, onlineCount: onlineCount),
             const SizedBox(width: 8),
