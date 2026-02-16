@@ -178,7 +178,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
 
   Widget _buildPodiumItem(RankModel item, int rank, bool isDark) {
     final bool isFirst = rank == 1;
-    final double avatarSize = isFirst ? 100 : 80;
+    final double avatarSize = isFirst ? 80 : 60;
     final Color color = rank == 1 ? const Color(0xFFFFD700) : (rank == 2 ? const Color(0xFFC0C0C0) : const Color(0xFFCD7F32));
 
     return Container(
@@ -199,8 +199,8 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
                 // 1. 底层头像容器
                 Container(
                   // 保持原有尺寸逻辑
-                  width: avatarSize + 6,
-                  height: avatarSize + 6,
+                  width: avatarSize + 5,
+                  height: avatarSize + 5,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     // 🟢 关键修改1：如果有头像框，就不要显示底层的颜色边框和阴影，避免露白或超出
@@ -209,7 +209,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
                   ),
                   child: Padding(
                     // 🟢 关键修改2：如果有头像框，增加内边距(例如5.0)，让头像图片缩小一点，完全嵌入框的“洞”里
-                    padding: EdgeInsets.all(item.avatarFrame.isNotEmpty ? 3.0 : 2.0),
+                    padding: EdgeInsets.all(item.avatarFrame.isNotEmpty ? 2.0 : 2.0),
                     child: CircleAvatar(backgroundImage: NetworkImage(item.avatar)),
                   ),
                 ),
@@ -219,10 +219,10 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
                   Positioned(
                     // 🟢 关键修改3：根据框的素材情况，可能需要调整这个数值
                     // 如果框比较厚，可以设为 -8 或 -10，让框显得更大，完全包住头像
-                    top: -5,
-                    left: -5,
-                    right: -5,
-                    bottom: -5,
+                    top: -4,
+                    left: -4,
+                    right: -4,
+                    bottom: -4,
                     child: Image.network(
                       item.avatarFrame,
                       fit: BoxFit.contain, // 确保框按比例缩放
@@ -250,15 +250,19 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
             ),
           ),
           const SizedBox(height: 16),
-          Text(
-            item.name,
-            style: TextStyle(
-              color: isDark ? Colors.white70 : Colors.black87, // 名字颜色适配
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
+          SizedBox(
+            width: 85, // 根据你的头像大小调整这个宽度，例如 avatarSize + 20
+            child: Text(
+              item.name,
+              textAlign: TextAlign.center, // 名字居中显示
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black87,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis, // 必须配合 width 才会生效
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 4),
           LevelBadge(level: item.level, monthLevel: 0),

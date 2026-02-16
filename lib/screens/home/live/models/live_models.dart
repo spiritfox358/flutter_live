@@ -40,6 +40,7 @@ class GiftEvent {
   final int senderLevel;
   final String giftName;
   final String giftIconUrl;
+  final String trayEffectUrl;
   final String comboKey;
   int count;
 
@@ -49,6 +50,7 @@ class GiftEvent {
     required this.senderLevel,
     required this.giftName,
     required this.giftIconUrl,
+    required this.trayEffectUrl,
     this.count = 1,
     String? id,
   }) : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
@@ -56,13 +58,14 @@ class GiftEvent {
 
   GiftEvent copyWith({int? count}) {
     return GiftEvent(
-      id: id,
+      id: id ?? this.id,
       senderName: senderName,
       senderAvatar: senderAvatar,
+      senderLevel: senderLevel, // ✅ 保持原值
       giftName: giftName,
       giftIconUrl: giftIconUrl,
+      trayEffectUrl: trayEffectUrl, // ✅ 保持原值
       count: count ?? this.count,
-      senderLevel: 0,
     );
   }
 }

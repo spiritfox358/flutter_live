@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
 import 'package:flutter_live/screens/home/live/widgets/chat/build_chat_list.dart';
+import 'package:flutter_live/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart';
 import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/voice_room_content_view.dart';
@@ -105,7 +106,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   //控制进场组件的 Key
   final GlobalKey<LiveUserEntranceState> _entranceKey = GlobalKey<LiveUserEntranceState>();
-
+  final GlobalKey<GiftTrayEffectLayerState> _trayLayerKey = GlobalKey();
   // 用于控制特效层的 Key
   final GlobalKey<GiftEffectLayerState> _giftEffectKey = GlobalKey();
 
@@ -1123,6 +1124,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             senderAvatar: senderAvatar,
             giftName: giftData.name,
             giftIconUrl: giftData.iconUrl,
+            trayEffectUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
             count: count,
             senderLevel: senderLevel,
           ),
@@ -1151,7 +1153,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
       _giftEffectKey.currentState?.addEffect(giftData.effectAsset!, giftData.id, giftData.configJsonList);
     }
-
+    final event = GiftEvent(
+      senderName: senderName,
+      senderAvatar: senderAvatar,
+      giftName: giftData.name,
+      giftIconUrl: giftData.iconUrl,
+      trayEffectUrl: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
+      count: count,
+      senderLevel: senderLevel,
+      // 如果 model 支持，传入 trayEffectUrl: giftData.trayEffectUrl
+    );
+    _trayLayerKey.currentState?.addTrayGift(event);
     if (isMe) _triggerComboMode();
   }
 
@@ -1793,38 +1805,38 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                               child: LiveUserEntrance(key: _entranceKey),
                             ),
 
+                            GiftTrayEffectLayer(key: _trayLayerKey),
                             // 挂载特效层
                             Positioned.fill(child: GiftEffectLayer(key: _giftEffectKey)),
-
-                            if (bottomInset == 0)
-                              Positioned(
-                                left: 0,
-                                width: size.width,
-                                top: pkVideoBottomY - 160,
-                                height: 160,
-                                bottom: null,
-                                child: IgnorePointer(
-                                  child: Align(
-                                    alignment: Alignment.bottomLeft,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(left: 10),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: _activeGifts
-                                            .map(
-                                              (giftEvent) => AnimatedGiftItem(
-                                                key: ValueKey(giftEvent.id),
-                                                giftEvent: giftEvent,
-                                                onFinished: () => _onGiftFinished(giftEvent.id),
-                                              ),
-                                            )
-                                            .toList(),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                            // if (bottomInset == 0)
+                            //   Positioned(
+                            //     left: 0,
+                            //     width: size.width,
+                            //     top: pkVideoBottomY - 160,
+                            //     height: 160,
+                            //     bottom: null,
+                            //     child: IgnorePointer(
+                            //       child: Align(
+                            //         alignment: Alignment.bottomLeft,
+                            //         child: Padding(
+                            //           padding: const EdgeInsets.only(left: 10),
+                            //           child: Column(
+                            //             crossAxisAlignment: CrossAxisAlignment.start,
+                            //             mainAxisSize: MainAxisSize.min,
+                            //             children: _activeGifts
+                            //                 .map(
+                            //                   (giftEvent) => AnimatedGiftItem(
+                            //                     key: ValueKey(giftEvent.id),
+                            //                     giftEvent: giftEvent,
+                            //                     onFinished: () => _onGiftFinished(giftEvent.id),
+                            //                   ),
+                            //                 )
+                            //                 .toList(),
+                            //           ),
+                            //         ),
+                            //       ),
+                            //     ),
+                            //   ),
                             if (_showComboButton && _lastGiftSent != null)
                               Positioned(
                                 right: 16,

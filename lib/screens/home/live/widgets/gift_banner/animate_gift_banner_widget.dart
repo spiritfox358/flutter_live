@@ -98,17 +98,12 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
               mainAxisSize: MainAxisSize.min,
               children: [
                 // A. 头像
-                CircleAvatar(
-                  radius: 15,
-                  backgroundColor: Colors.white24,
-                  backgroundImage: NetworkImage(gift.senderAvatar),
-                ),
+                CircleAvatar(radius: 15, backgroundColor: Colors.white24, backgroundImage: NetworkImage(gift.senderAvatar)),
 
                 const SizedBox(width: 6), // 间距稍微拉大一点点
-
                 // B. 文字信息 (🟢 核心修改：增加宽度限制)
                 Container(
-                  constraints: const BoxConstraints(maxWidth: 85), // 🟢 限制最大宽度，防止名字太长
+                  constraints: const BoxConstraints(maxWidth: 80), // 🟢 限制最大宽度，防止名字太长
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -123,10 +118,7 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
                       // 送出礼物名
                       Text(
                         "送出 ${gift.giftName}",
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.95),
-                          fontSize: 9,
-                        ),
+                        style: TextStyle(color: Colors.white.withOpacity(0.95), fontSize: 9),
                         maxLines: 1, // 🟢 单行
                         overflow: TextOverflow.ellipsis, // 🟢 超出显示省略号
                       ),
@@ -150,17 +142,28 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
           ScaleTransition(
             scale: _scaleAnimation,
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                const Text(
-                  "x",
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Transform.translate(
+                    offset: const Offset(0, 1), // 向下移动1像素（按需调整）
+                    child: const Text(
+                      "x",
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 2),
-                Text(
-                  "${gift.count}",
-                  style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic),
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Transform.translate(
+                    offset: const Offset(0, 5), // 向下移动1像素（按需调整）
+                    child: Text(
+                      "${gift.count}",
+                      style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic),
+                    ),
+                  ),
                 ),
               ],
             ),

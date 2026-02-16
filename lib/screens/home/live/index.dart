@@ -741,7 +741,7 @@ class _LiveStreamingPageState extends State<LiveStreamingPage> with TickerProvid
         _activeGifts[existingIndex] = updatedGift.copyWith(count: finalCount);
       } else {
         _processNewGift(
-          GiftEvent(senderName: senderName, senderAvatar: senderAvatar, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: finalCount, senderLevel: 0),
+          GiftEvent(senderName: senderName, senderAvatar: senderAvatar, giftName: giftData.name, giftIconUrl: giftData.iconUrl, count: finalCount, senderLevel: 0, trayEffectUrl: ''),
         );
       }
       _addGiftMessage(senderName, giftData.name, finalCount);
