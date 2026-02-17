@@ -24,8 +24,9 @@ class VibrationPoint {
   // 🏭 工厂方法：把后端传来的 Map 转成对象
   factory VibrationPoint.fromJson(Map<String, dynamic> json) {
     return VibrationPoint(
-      time: (json['time'] as num).toDouble(),
-      duration: (json['duration'] as num).toInt(),
+      // 使用 as num? 防止直接 crash，并给默认值 0
+      time: (json['time'] as num?)?.toDouble() ?? 0.0,
+      duration: (json['duration'] as num?)?.toInt() ?? 0,
       level: (json['level'] as num?)?.toInt() ?? 255,
     );
   }
@@ -70,8 +71,9 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
 
   /// 🟢 [外部调用] 添加特效
   /// configJsonList: 从后端接口拿到的 vibration_config 字段 (List<dynamic>)
+  /// 🟢 [外部调用] 添加特效
   void addEffect(String url, String giftId, List<dynamic>? configJsonList) {
-    // 1. 解析后端数据
+    // 1. 解析后端数据 (保持原样)
     List<VibrationPoint> parsedVibrations = [];
     if (configJsonList != null && configJsonList.isNotEmpty) {
       try {
@@ -83,11 +85,17 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
 
     // 2. 存入队列
     _effectQueue.add(GiftTask(url, giftId, vibrations: parsedVibrations));
+    debugPrint("➕ 特效加入队列: $url");
 
-    debugPrint("➕ 特效加入: $url (含 ${parsedVibrations.length} 个震动点)");
-
-    if (!_isEffectPlaying) {
-      _playNextEffect();
+    // 🟢 修复点：使用 addPostFrameCallback 避开 "during build" 错误
+    // 只有当控制器存在且当前没在播放时，才尝试播放
+    if (!_isEffectPlaying && _alphaPlayerController != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // 再次检查 mounted，防止异步执行时组件已销毁
+        if (mounted) {
+          _playNextEffect();
+        }
+      });
     }
   }
 
@@ -106,49 +114,87 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
 
   Future<void> _playNextEffect() async {
     if (_effectQueue.isEmpty) return;
+
+    // 1. 基础校验
     if (_isEffectPlaying && _alphaPlayerController != null) return;
+    if (_alphaPlayerController == null) {
+      debugPrint("⚠️ [Effect] 播放器未就绪，暂停处理队列");
+      return;
+    }
 
-    final task = _effectQueue.removeFirst();
-    setState(() => _isEffectPlaying = true);
-
-    // 播放新视频前，清理上一场的残留震动
-    _cancelVibrations();
-
-    try {
-      await _alphaPlayerController?.stop();
-    } catch (e) {}
+    debugPrint("🎬 [Effect] 准备播放下一条，剩余队列: ${_effectQueue.length}");
 
     try {
+      final task = _effectQueue.removeFirst();
+
+      // 2. 更新状态
+      setState(() => _isEffectPlaying = true);
+      debugPrint("✅ [Effect] 状态已更新为 Playing");
+
+      // 3. 安全清理旧震动 (防止这里崩溃卡死)
+      try {
+        _cancelVibrations();
+        debugPrint("✅ [Effect] 旧震动已清理");
+      } catch (e) {
+        debugPrint("❌ [Effect] 清理震动出错(不影响播放): $e");
+      }
+
+      // 4. 停止上一个视频
+      try {
+        await _alphaPlayerController?.stop();
+        debugPrint("✅ [Effect] 上个视频已Stop");
+      } catch (e) {
+        debugPrint("⚠️ [Effect] Stop异常: $e");
+      }
+
       String playPath = task.url;
+      debugPrint("⬇️ [Effect] 准备处理资源: $playPath");
 
-      // 🟢 核心修改：如果是 Web，直接播放网络地址；如果是 App，才去下载
+      // 5. 下载逻辑 (App端)
       if (!kIsWeb) {
-        debugPrint("⏳ (App) 开始下载: ${task.url}");
-        String? localPath = await _downloadGiftFile(task.url);
-        if (localPath == null || !mounted) {
+        try {
+          // 这里的 _downloadGiftFile 内部必须有 try-catch，否则会崩在这里
+          String? localPath = await _downloadGiftFile(task.url);
+
+          if (localPath == null || !mounted) {
+            debugPrint("❌ [Effect] 下载失败或页面已销毁，跳过");
+            _onEffectComplete();
+            return;
+          }
+          playPath = localPath;
+          debugPrint("✅ [Effect] 下载完成: $playPath");
+        } catch (e) {
+          debugPrint("❌ [Effect] 下载过程严重崩溃: $e");
           _onEffectComplete();
           return;
         }
-        playPath = localPath;
-      } else {
-        debugPrint("🌐 (Web) 直接播放网络地址: ${task.url}");
       }
 
+      // 6. 开始播放
       if (mounted && _alphaPlayerController != null) {
-        debugPrint("▶️ 开始播放: $playPath (ID: ${task.giftId})");
-
+        // 设置震动定时器
         if (task.vibrations.isNotEmpty) {
           _scheduleVibrations(task.vibrations);
         }
 
-        _startWatchdog(20);
+        // 启动看门狗（防止视频播完不回调导致卡死）
+        _startWatchdog(45);
+
+        debugPrint("▶️ [Effect] 调用底层 play()");
         await _alphaPlayerController!.play(playPath, hue: GiftColorsTool.original);
       } else {
         _onEffectComplete();
       }
-    } catch (e) {
-      debugPrint("❌ 播放异常: $e");
-      _onEffectComplete();
+
+    } catch (e, stack) {
+      // 捕获所有未知的逻辑错误，防止队列卡死
+      debugPrint("❌ [Effect] _playNextEffect 发生致命错误: $e\n$stack");
+      // 遇到错误必须重置状态，否则队列永远不会继续
+      if (mounted) {
+        setState(() => _isEffectPlaying = false);
+      }
+      // 尝试播下一个，避免死锁
+      Future.delayed(const Duration(milliseconds: 500), _playNextEffect);
     }
   }
 

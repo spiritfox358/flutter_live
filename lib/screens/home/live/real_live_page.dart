@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
 import 'package:flutter_live/screens/home/live/widgets/chat/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart';
+import 'package:flutter_live/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart';
 import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/voice_room_content_view.dart';
@@ -100,6 +101,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late String _roomId;
   final GlobalKey<ChatInputOverlayState> _inputOverlayKey = GlobalKey();
   final GlobalKey<VoiceRoomContentViewState> _voiceRoomKey = GlobalKey();
+  final GlobalKey<UserEntranceEffectLayerState> _entranceEffectKey = GlobalKey();
 
   // 🟢 1. 定义一个 GlobalKey 用来控制榜单组件
   final GlobalKey<ViewerListState> _viewerListKey = GlobalKey<ViewerListState>();
@@ -306,6 +308,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       _sendSocketMessage(
         "ENTER",
         content: "进入了直播间",
+        userId: _myUserId,
         userName: _myUserName,
         avatar: _myAvatar,
         level: _myLevel,
@@ -487,18 +490,23 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
       switch (type) {
         case "ENTER":
+          final String joinerId = data['userId'] ?? "神秘人";
           final String joinerName = data['userName'] ?? "神秘人";
           final String joinerAvatar = data['avatar'] ?? "";
           final int joinerLevel = data['level'] ?? 1;
           final int joinerMonthLevel = data['monthLevel'] ?? 0;
 
-          _simulateVipEnter(
-            overrideName: joinerName,
-            overrideAvatar: joinerAvatar,
-            overrideLevel: joinerLevel,
-            overrideMonthLevel: joinerMonthLevel,
-            isHost: senderIsHost,
-          );
+          if (int.parse(joinerId) == 2) {
+            _entranceEffectKey.currentState?.addEntrance(EntranceModel(userName: joinerName, avatar: joinerAvatar));
+          } else {
+            _simulateVipEnter(
+              overrideName: joinerName,
+              overrideAvatar: joinerAvatar,
+              overrideLevel: joinerLevel,
+              overrideMonthLevel: joinerMonthLevel,
+              isHost: senderIsHost,
+            );
+          }
           break;
         case "CHAT":
           _addSocketChatMessage(
@@ -628,6 +636,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     String? content,
     String? giftId,
     int giftCount = 1,
+    String? userId,
     String? userName,
     bool? isHost,
     String? avatar,
@@ -1129,6 +1138,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                 "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
             count: count,
             senderLevel: senderLevel,
+            giftPrice: giftData.price,
+            giftEffectUrl: giftData.effectAsset!,
+            configJsonList: giftData.configJsonList,
           ),
         );
       }
@@ -1151,10 +1163,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       }
     });
 
-    // 改为调用特效层组件
-    if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
-      _giftEffectKey.currentState?.addEffect(giftData.effectAsset!, giftData.id, giftData.configJsonList);
-    }
     final event = GiftEvent(
       senderName: senderName,
       senderAvatar: senderAvatar,
@@ -1164,9 +1172,16 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
       count: count,
       senderLevel: senderLevel,
+      giftPrice: giftData.price,
+      giftEffectUrl: giftData.effectAsset!,
+      configJsonList: giftData.configJsonList,
       // 如果 model 支持，传入 trayEffectUrl: giftData.trayEffectUrl
     );
     _trayLayerKey.currentState?.addTrayGift(event);
+    // 改为调用特效层组件
+    // if (giftData.effectAsset != null && giftData.effectAsset!.isNotEmpty) {
+    //   _giftEffectKey.currentState?.addEffect(giftData.effectAsset!, giftData.id, giftData.configJsonList);
+    // }
     if (isMe) _triggerComboMode();
   }
 
@@ -1511,7 +1526,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               title: "直播间",
               name: _currentName,
               avatar: _currentAvatar,
-              onClose: _handleCloseButton, anchorId: _currentUserId,
+              onClose: _handleCloseButton,
+              anchorId: _currentUserId,
             ),
             Positioned(
               top: MediaQuery.of(context).size.height * 0.2,
@@ -1636,7 +1652,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                           title: "直播间",
                                           name: _currentName,
                                           avatar: _currentAvatar,
-                                          onClose: _handleCloseButton, anchorId: _currentUserId,
+                                          onClose: _handleCloseButton,
+                                          anchorId: _currentUserId,
                                         ),
                                       ),
                                       SizedBox(height: gap1),
@@ -1809,9 +1826,24 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                               child: LiveUserEntrance(key: _entranceKey),
                             ),
 
-                            GiftTrayEffectLayer(key: _trayLayerKey),
+                            UserEntranceEffectLayer(key: _entranceEffectKey),
                             // 挂载特效层
                             Positioned.fill(child: GiftEffectLayer(key: _giftEffectKey)),
+                            GiftTrayEffectLayer(
+                              key: _trayLayerKey,
+                              enableEffectDelay: false,
+                              onEffectTrigger: (GiftEvent event) {
+                                // 在这里调用 GiftEffectLayer 播放特效
+                                // 注意：你需要确保 GiftEvent 模型里有这两个字段，或者在这里根据 ID 查 giftData
+                                if (event.giftEffectUrl.isNotEmpty) {
+                                  _giftEffectKey.currentState?.addEffect(
+                                    event.giftEffectUrl,
+                                    event.id, // 或者 giftId
+                                    event.configJsonList, // 震动配置
+                                  );
+                                }
+                              },
+                            ),
                             // if (bottomInset == 0)
                             //   Positioned(
                             //     left: 0,

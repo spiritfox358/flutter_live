@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/dashboard/ranking/user_ranking_page.dart';
+import 'package:flutter_live/screens/home/home_tabs_page.dart';
 import 'package:flutter_live/screens/home/live_list_page.dart';
 import 'package:flutter_live/screens/login/login_page.dart';
 import 'package:flutter_live/screens/me/profile/user_profile_page.dart';
@@ -86,7 +87,7 @@ class _MainContainerState extends State<MainContainer> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    const LiveListPage(),
+    const HomeTabsPage(),
     const UserRankingPage(),
     // const DocScreen(),
     // const ExamListScreen(),

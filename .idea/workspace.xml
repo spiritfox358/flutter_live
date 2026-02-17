@@ -5,14 +5,21 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/gift_gallery_page.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/create_anchor_page.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/home_tabs_page.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/my_anchor_list_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/index.dart" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/gift_convert.md" beforeDir="false" afterPath="$PROJECT_DIR$/gift_convert.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_user_profile_popup.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_user_profile_popup.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/build_top_bar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/build_top_bar.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/profile_pill.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/top_bar/profile_pill.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/single_mode_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/single_mode_view.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page1.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_streaming_page2.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_streaming_page3.md" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -71,7 +78,7 @@
     "io.flutter.project.isFirstOpen": "true",
     "io.flutter.reload.alreadyRun": "true",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/luna/Documents/work/android/flutter_live/lib/screens/home/live/widgets/room_mode",
+    "last_opened_file_path": "/Users/luna/Documents/work/android/flutter_live/lib/screens/home/live/widgets/effect_player",
     "project.structure.last.edited": "Project",
     "project.structure.proportion": "0.0",
     "project.structure.side.proportion": "0.29564193",
@@ -81,11 +88,11 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player" />
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/room_mode" />
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/profile" />
       <recent name="$PROJECT_DIR$/my_alpha_player/web" />
       <recent name="$PROJECT_DIR$/lib/widgets" />
-      <recent name="$PROJECT_DIR$/lib/tools" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode" />
@@ -376,7 +383,23 @@
       <option name="project" value="LOCAL" />
       <updated>1771230526230</updated>
     </task>
-    <option name="localTasksCounter" value="34" />
+    <task id="LOCAL-00034" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1771250977841</created>
+      <option name="number" value="00034" />
+      <option name="presentableId" value="LOCAL-00034" />
+      <option name="project" value="LOCAL" />
+      <updated>1771250977841</updated>
+    </task>
+    <task id="LOCAL-00035" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1771251007205</created>
+      <option name="number" value="00035" />
+      <option name="presentableId" value="LOCAL-00035" />
+      <option name="project" value="LOCAL" />
+      <updated>1771251007205</updated>
+    </task>
+    <option name="localTasksCounter" value="36" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -410,23 +433,18 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>541</line>
+          <line>718</line>
           <option name="timeStamp" value="95" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1075</line>
+          <line>1050</line>
           <option name="timeStamp" value="106" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1994</line>
+          <line>2026</line>
           <option name="timeStamp" value="108" />
-        </line-breakpoint>
-        <line-breakpoint enabled="true" type="Dart">
-          <url>file://$PROJECT_DIR$/lib/services/user_service.dart</url>
-          <line>7</line>
-          <option name="timeStamp" value="110" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/recharge/recharge_popup.dart</url>
@@ -455,8 +473,43 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>607</line>
+          <line>738</line>
           <option name="timeStamp" value="139" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart</url>
+          <line>319</line>
+          <option name="timeStamp" value="145" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart</url>
+          <line>317</line>
+          <option name="timeStamp" value="146" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart</url>
+          <line>318</line>
+          <option name="timeStamp" value="147" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart</url>
+          <line>312</line>
+          <option name="timeStamp" value="149" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart</url>
+          <line>275</line>
+          <option name="timeStamp" value="151" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart</url>
+          <line>115</line>
+          <option name="timeStamp" value="154" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="Dart">
+          <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart</url>
+          <line>97</line>
+          <option name="timeStamp" value="156" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>

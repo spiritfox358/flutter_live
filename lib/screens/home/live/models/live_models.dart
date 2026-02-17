@@ -40,6 +40,9 @@ class GiftEvent {
   final int senderLevel;
   final String giftName;
   final String giftIconUrl;
+  final String giftEffectUrl;
+  List<dynamic>? configJsonList;
+  final int giftPrice;
   final String trayEffectUrl;
   final String comboKey;
   int count;
@@ -51,21 +54,28 @@ class GiftEvent {
     required this.giftName,
     required this.giftIconUrl,
     required this.trayEffectUrl,
+    required this.configJsonList,
     this.count = 1,
     String? id,
+    required this.giftPrice,
+    required this.giftEffectUrl,
   }) : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
        comboKey = "${senderName}_$giftName";
 
   GiftEvent copyWith({int? count}) {
     return GiftEvent(
-      id: id ?? this.id,
+      id: id,
       senderName: senderName,
       senderAvatar: senderAvatar,
-      senderLevel: senderLevel, // ✅ 保持原值
+      senderLevel: senderLevel,
+      // ✅ 保持原值
       giftName: giftName,
       giftIconUrl: giftIconUrl,
-      trayEffectUrl: trayEffectUrl, // ✅ 保持原值
+      trayEffectUrl: trayEffectUrl,
+      // ✅ 保持原值
       count: count ?? this.count,
+      giftPrice: giftPrice,
+      giftEffectUrl: giftEffectUrl, configJsonList: configJsonList,
     );
   }
 }
@@ -105,7 +115,8 @@ class GiftItemData {
       // 后端叫 effectUrl
       tag: json['tagName'],
       // 后端叫 tagName
-      expireTime: json['expireTime'], // 如果后续有过期时间逻辑可开启
+      expireTime: json['expireTime'],
+      // 如果后续有过期时间逻辑可开启
       tabId: json['tabId']?.toString() ?? "",
       configJsonList: json['vibrationConfig'] is List ? (json['vibrationConfig'] as List).cast<dynamic>() : [],
       isLocked: json['isLocked'] as bool,

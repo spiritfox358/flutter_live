@@ -142,25 +142,6 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: theme.scaffoldBackgroundColor,
-        title: Text(
-          "直播列表",
-          style: TextStyle(color: theme.textTheme.titleLarge?.color, fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        centerTitle: true,
-        iconTheme: IconThemeData(color: theme.textTheme.titleLarge?.color),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // 点击按钮，手动触发下拉刷新动画
-              _refreshKey.currentState?.show();
-            },
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _onStartLive,
         backgroundColor: const Color(0xFFFF0050),
