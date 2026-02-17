@@ -5,21 +5,11 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/create_anchor_page.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/home_tabs_page.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/my_anchor_list_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gift_convert.md" beforeDir="false" afterPath="$PROJECT_DIR$/gift_convert.md" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/main.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/main.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/models/live_models.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live_list_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_list_page1.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_streaming_page2.md" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live_streaming_page3.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/create_anchor_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/create_anchor_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/home_tabs_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/home_tabs_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/my_anchor_list_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/my_anchor_list_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -399,7 +389,15 @@
       <option name="project" value="LOCAL" />
       <updated>1771251007205</updated>
     </task>
-    <option name="localTasksCounter" value="36" />
+    <task id="LOCAL-00036" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1771336745631</created>
+      <option name="number" value="00036" />
+      <option name="presentableId" value="LOCAL-00036" />
+      <option name="project" value="LOCAL" />
+      <updated>1771336745631</updated>
+    </task>
+    <option name="localTasksCounter" value="37" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">

@@ -62,6 +62,7 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
       ),
       body: TabBarView(
         controller: _tabController,
+        physics: const NeverScrollableScrollPhysics(), // ← 添加这行，禁止滑动
         children: const [
           // Tab 1: 推荐
           LiveListPage(),
