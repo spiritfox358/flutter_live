@@ -1,17 +1,23 @@
+import 'package:flutter/gestures.dart'; // 1. 需要引入手势库
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 import '../../models/live_models.dart';
 
 class BuildChatItem extends StatelessWidget {
   final ChatMessage msg;
+  // 2. 新增点击回调，把被点击的消息或者是用户信息传出去
+  final Function(ChatMessage)? onNameTap;
 
-  const BuildChatItem({super.key, required this.msg});
+  const BuildChatItem({
+    super.key,
+    required this.msg,
+    this.onNameTap, // 构造函数接收回调
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: Colors.transparent,
-      // 增加一点垂直间距，防止弹幕太拥挤
       padding: const EdgeInsets.symmetric(vertical: 1.3, horizontal: 0.0),
       child: Align(
         alignment: Alignment.centerLeft,
@@ -21,18 +27,17 @@ class BuildChatItem extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-          // 限制最大宽度，防止弹幕撑爆屏幕
           constraints: BoxConstraints(
             maxWidth: MediaQuery.of(context).size.width * 0.8,
           ),
           child: Text.rich(
             TextSpan(
               children: [
-                // 1. 等级徽章 (使用 WidgetSpan 嵌入)
+                // 1. 等级徽章
                 WidgetSpan(
-                  alignment: PlaceholderAlignment.middle, // 关键：与文字垂直居中对齐
+                  alignment: PlaceholderAlignment.middle,
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 2.0,top: 1.3), // 右侧间距
+                    padding: const EdgeInsets.only(right: 2.0, top: 1.3),
                     child: LevelBadge(
                       level: msg.level,
                       showConsumption: true,
@@ -41,12 +46,12 @@ class BuildChatItem extends StatelessWidget {
                   ),
                 ),
 
-                // 2. 主播标签 (仅当 isAnchor 为 true 时显示)
+                // 2. 主播标签
                 if (msg.isAnchor)
                   WidgetSpan(
                     alignment: PlaceholderAlignment.middle,
                     child: Container(
-                      margin: const EdgeInsets.only(right: 4.0), // 右侧间距
+                      margin: const EdgeInsets.only(right: 4.0),
                       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
@@ -62,13 +67,13 @@ class BuildChatItem extends StatelessWidget {
                           color: Colors.white,
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          height: 1.0, // 防止标签内部文字撑高
+                          height: 1.0,
                         ),
                       ),
                     ),
                   ),
 
-                // 3. 名字
+                // 3. 名字 (在这里添加点击事件)
                 if (msg.name.isNotEmpty)
                   TextSpan(
                     text: "${msg.name}：",
@@ -78,8 +83,18 @@ class BuildChatItem extends StatelessWidget {
                           : Colors.lightBlueAccent,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      height: 1.4, // 调整行高以适应徽章高度
+                      height: 1.4,
                     ),
+                    // 核心修改：添加 recognizer
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () {
+                        // 触发回调
+                        if (onNameTap != null) {
+                          onNameTap!(msg);
+                        } else {
+                          debugPrint("点击了用户: ${msg.name}");
+                        }
+                      },
                   ),
 
                 // 4. 聊天内容
@@ -88,12 +103,11 @@ class BuildChatItem extends StatelessWidget {
                   style: TextStyle(
                     color: msg.isGift ? const Color(0xFFFFD700) : Colors.white,
                     fontSize: 12,
-                    height: 1.4, // 保持与名字一致的行高
+                    height: 1.4,
                   ),
                 ),
               ],
             ),
-            // 文本整体设置
             softWrap: true,
             maxLines: 5,
             overflow: TextOverflow.fade,

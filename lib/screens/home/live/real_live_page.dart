@@ -500,6 +500,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _entranceEffectKey.currentState?.addEntrance(EntranceModel(userName: joinerName, avatar: joinerAvatar));
           } else {
             _simulateVipEnter(
+              overrideUserId: joinerId,
               overrideName: joinerName,
               overrideAvatar: joinerAvatar,
               overrideLevel: joinerLevel,
@@ -516,6 +517,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             level: data["level"],
             monthLevel: data["monthLevel"],
             isHost: senderIsHost,
+            userId: msgUserId,
           );
           break;
         case "ONLINE_COUNT":
@@ -602,7 +604,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           final audioData = data['audio'];
 
           _chatController.addMessage(
-            ChatMessage(name: data['userName'], content: content, level: 17, levelColor: Colors.purpleAccent, isAnchor: _isHost),
+            ChatMessage(
+              name: data['userName'],
+              content: content,
+              level: 17,
+              monthLevel: _monthLevel,
+              levelColor: Colors.purpleAccent,
+              isAnchor: _isHost,
+              userId: msgUserId,
+            ),
           );
 
           if (audioData != null && audioData.toString().isNotEmpty) {
@@ -1081,9 +1091,26 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
-  void _addSocketChatMessage(String name, String content, Color color, {required int level, required int monthLevel, required bool isHost}) {
+  void _addSocketChatMessage(
+    String name,
+    String content,
+    Color color, {
+    required int level,
+    required String userId,
+    required int monthLevel,
+    required bool isHost,
+  }) {
     _chatController.addMessage(
-      ChatMessage(name: name, content: content, level: level, monthLevel: monthLevel, levelColor: color, isGift: false, isAnchor: isHost),
+      ChatMessage(
+        name: name,
+        content: content,
+        level: level,
+        monthLevel: monthLevel,
+        levelColor: color,
+        isGift: false,
+        isAnchor: isHost,
+        userId: userId,
+      ),
     );
   }
 
@@ -1091,6 +1118,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     String senderName,
     String giftName,
     int count, {
+    String senderId = "",
     String senderAvatar = "",
     required int senderLevel,
     required int senderMonthLevel,
@@ -1105,6 +1133,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         levelColor: Colors.yellow,
         isGift: true,
         isAnchor: isHost,
+        userId: senderId,
       ),
     );
   }
@@ -1144,7 +1173,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           ),
         );
       }
-      _addGiftMessage(senderName, giftData.name, count, senderLevel: senderLevel, senderMonthLevel: senderMonthLevel, isHost: isHost);
+      _addGiftMessage(
+        senderName,
+        giftData.name,
+        count,
+        senderId: senderId,
+        senderLevel: senderLevel,
+        senderMonthLevel: senderMonthLevel,
+        isHost: isHost,
+      );
 
       if (_pkStatus == PKStatus.playing) {
         int scoreToAdd = giftData.price * count;
@@ -1338,6 +1375,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _simulateVipEnter({
+    required String overrideUserId,
     String? overrideName,
     String? overrideAvatar,
     required int overrideLevel,
@@ -1358,6 +1396,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     if (mounted) {
       _chatController.addMessage(
         ChatMessage(
+          userId: overrideUserId,
           name: "",
           content: "$name 加入直播间！",
           level: overrideLevel,

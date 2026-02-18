@@ -227,7 +227,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
           ),
         ),
         const SizedBox(width: 8),
-        LevelBadge(level: level, monthLevel: monthLevel),
+        LevelBadge(level: level, monthLevel: monthLevel, showConsumption: true),
       ],
     );
   }

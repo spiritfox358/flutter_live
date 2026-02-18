@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class ChatMessage {
+  final String userId;
   final String name;
   final String content;
   final int level;
@@ -10,6 +11,7 @@ class ChatMessage {
   final bool isAnchor;
 
   ChatMessage({
+    required this.userId,
     required this.name,
     required this.content,
     this.level = 0,

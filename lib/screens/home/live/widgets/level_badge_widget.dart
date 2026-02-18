@@ -54,6 +54,23 @@ class _LevelBadgeState extends State<LevelBadge> {
     return "$baseUrl$iconName";
   }
 
+  String _getConsumptionLevelUrl(int level) {
+    const String baseUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/user_level/";
+    String iconName = "consumption_level_1.png";
+
+    if (level == 1) {
+      iconName = "consumption_level_1.png";
+    } else if (level == 2) {
+      iconName = "consumption_level_2.png";
+    } else if (level == 3) {
+      iconName = "consumption_level_3.png";
+    } else if (level == 4) {
+      iconName = "consumption_level_4.gif";
+    }
+
+    return "$baseUrl$iconName";
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -89,12 +106,7 @@ class _LevelBadgeState extends State<LevelBadge> {
         // --- 2. ✨ 追加的消费图标 (随机显示 1-4) ---
         if (widget.showConsumption && widget.monthLevel > 0) ...[
           const SizedBox(width: 4),
-          Image.network(
-            // 🎯 4. 使用初始化时生成的随机后缀
-            "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/user_level/consumption_level_${widget.monthLevel}.png",
-            height: 15,
-            fit: BoxFit.contain,
-          ),
+          Image.network(_getConsumptionLevelUrl(widget.monthLevel), height: 12.5, fit: BoxFit.contain),
         ],
       ],
     );

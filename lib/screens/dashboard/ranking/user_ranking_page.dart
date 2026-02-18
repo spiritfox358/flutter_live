@@ -255,17 +255,13 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
             child: Text(
               item.name,
               textAlign: TextAlign.center, // 名字居中显示
-              style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.black87,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.bold, fontSize: 14),
               maxLines: 1,
               overflow: TextOverflow.ellipsis, // 必须配合 width 才会生效
             ),
           ),
           const SizedBox(height: 4),
-          LevelBadge(level: item.level, monthLevel: 0),
+          LevelBadge(level: item.level, monthLevel: item.monthLevel, showConsumption: true),
           const SizedBox(height: 4),
           Text("${_formatScore(item.score)} 贡献", style: const TextStyle(color: Colors.grey, fontSize: 11)),
         ],
@@ -327,7 +323,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    LevelBadge(level: item.level, monthLevel: 0),
+                    LevelBadge(level: item.level, monthLevel: item.monthLevel, showConsumption: true),
                     const SizedBox(width: 6),
                     if (rank > 1) Text("距上一名 $diff", style: const TextStyle(color: Colors.grey, fontSize: 11)),
                   ],
@@ -426,6 +422,7 @@ class RankModel {
   final String avatar;
   final String avatarFrame;
   final int level;
+  final int monthLevel;
   final int score;
   final int rank;
 
@@ -437,6 +434,7 @@ class RankModel {
     required this.rank,
     required this.avatarFrame,
     required this.level,
+    required this.monthLevel,
   });
 
   factory RankModel.fromJson(Map<String, dynamic> json) {
@@ -449,6 +447,7 @@ class RankModel {
       rank: json['rank'] ?? 0,
       avatarFrame: json['avatarFrame'] ?? "",
       level: json['level'] ?? 0,
+      monthLevel: json['monthLevel'] ?? 0,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../../tools/HttpUtil.dart';
 import '../../models/live_models.dart';
+import '../profile/live_user_profile_popup.dart';
 import 'build_chat_item.dart';
 
 class ChatListController {
@@ -16,12 +17,7 @@ class BuildChatList extends StatefulWidget {
   final String roomId;
   final ChatListController? controller;
 
-  const BuildChatList({
-    super.key,
-    required this.bottomInset,
-    required this.roomId,
-    this.controller,
-  });
+  const BuildChatList({super.key, required this.bottomInset, required this.roomId, this.controller});
 
   @override
   State<BuildChatList> createState() => _BuildChatListState();
@@ -48,17 +44,16 @@ class _BuildChatListState extends State<BuildChatList> {
 
   Future<void> _fetchChatHistory() async {
     try {
-      final res = await HttpUtil().get(
-          "/api/chat/history",
-          params: {"roomId": int.parse(widget.roomId)}
-      );
+      final res = await HttpUtil().get("/api/chat/history", params: {"roomId": int.parse(widget.roomId)});
 
       if (res != null && res is List && mounted) {
         setState(() {
           for (var item in res) {
             final String name = item['userName'] ?? "神秘人";
             final String content = item['content'] ?? "";
+            final String userId = item['userId'].toString();
             final int level = int.tryParse(item['level']?.toString() ?? "0") ?? 0;
+            final int monthLevel = int.tryParse(item['monthLevel']?.toString() ?? "0") ?? 0;
             // 🟢 解析主播身份 (假设后端返回字段叫 isAnchor 或 role)
             // 你可能需要根据实际后端字段调整，比如 item['role'] == 'anchor'
             final bool isAnchor = item['isAnchor'] ?? false;
@@ -67,14 +62,18 @@ class _BuildChatListState extends State<BuildChatList> {
             final bool isGift = (type == 2);
             final Color msgColor = isGift ? Colors.yellow : Colors.white;
 
-            _messages.add(ChatMessage(
-              name: name,
-              content: content,
-              level: level,
-              levelColor: msgColor,
-              isGift: isGift,
-              isAnchor: isAnchor, // 🟢 传入 isAnchor
-            ));
+            _messages.add(
+              ChatMessage(
+                name: name,
+                content: content,
+                level: level,
+                monthLevel: monthLevel,
+                levelColor: msgColor,
+                isGift: isGift,
+                isAnchor: isAnchor,
+                userId: userId,
+              ),
+            );
           }
         });
       }
@@ -85,9 +84,7 @@ class _BuildChatListState extends State<BuildChatList> {
 
   @override
   Widget build(BuildContext context) {
-    final transparentBlack = Colors.black.withValues(
-      red: 0, green: 0, blue: 0, alpha: 0.00,
-    );
+    final transparentBlack = Colors.black.withValues(red: 0, green: 0, blue: 0, alpha: 0.00);
     return Container(
       color: transparentBlack,
       child: Container(
@@ -107,7 +104,13 @@ class _BuildChatListState extends State<BuildChatList> {
             padding: const EdgeInsets.symmetric(horizontal: 0),
             reverse: true,
             itemCount: _messages.length,
-            itemBuilder: (context, index) => BuildChatItem(msg: _messages[index]),
+            itemBuilder: (context, index) => BuildChatItem(
+              msg: _messages[index],
+              onNameTap: (msg) {
+                Map<String, dynamic> user = {"userId": msg.userId};
+                LiveUserProfilePopup.show(context, user);
+              },
+            ),
           ),
         ),
       ),
