@@ -41,6 +41,7 @@ dependencies:
   google_fonts: ^8.0.1
   vibration: ^3.1.5
   web: ^1.1.1
+  palette_generator: ^0.3.3+7
 
 dev_dependencies:
   flutter_test:

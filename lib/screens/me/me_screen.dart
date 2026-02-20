@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/me/profile/edit_profile_bg_page.dart';
 import 'package:flutter_live/screens/me/profile/edit_profile_page.dart';
 import 'package:flutter_live/services/user_service.dart';
 import '../../../store/user_store.dart';
@@ -94,7 +95,7 @@ class _MeScreenState extends State<MeScreen> {
             const SizedBox(height: 16),
             _buildWalletCard(coin, diamond),
             const SizedBox(height: 16),
-            _buildMenuSection(cardColor, textColor, iconColor),
+            _buildMenuSection(userProfile,cardColor, textColor, iconColor),
             const SizedBox(height: 30),
             _buildLogoutButton(cardColor),
             const SizedBox(height: 50),
@@ -241,12 +242,36 @@ class _MeScreenState extends State<MeScreen> {
     );
   }
 
-  Widget _buildMenuSection(Color cardColor, Color textColor, Color iconColor) {
+  Widget _buildMenuSection(Map<String, dynamic> userMap,Color cardColor, Color textColor, Color iconColor) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(12),),
       child: Column(
         children: [
+          _buildMenuItem(
+            Icons.image,
+            "个人信息背景",
+            null,
+            textColor,
+            iconColor,
+            onTap: () async {
+              Navigator.push(context, MaterialPageRoute(builder: (context) =>  EditProfileBgPage(userMap: userMap)));
+              // 🟢 2. 核心步骤：从编辑页回来后
+              // 先等待最新的用户信息同步完成
+              await UserService.syncUserInfo();
+
+              // 🟢 3. 关键：手动更新头像版本号
+              // 告诉 UserStore：“我刚才改了头像，请生成一个新的 Key，让图片强制刷新”
+              UserStore.to.forceUpdateAvatar();
+
+              // 4. 刷新当前 UI
+              if (mounted) {
+                setState(() {
+                  // 触发 build，UI 会读取到最新的 UserStore.to.profile 和 UserStore.to.avatarKey
+                });
+              }
+            },
+          ),
           _buildMenuItem(
             Icons.favorite,
             "赞赏支持",

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_live/models/user_models.dart';
+import 'package:flutter_live/screens/home/live/subpages/pk_rank/pk_rank_index.dart';
 import 'package:flutter_live/screens/home/live/widgets/common/admin_badge_widget.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
+import 'package:flutter_live/screens/me/profile/user_profile_page.dart';
 import '../../../../../tools/HttpUtil.dart';
-import '../../gift_gallery_page.dart';
 import '../../models/user_decorations_model.dart';
+import '../../subpages/gift_gallery/gift_gallery_index.dart';
 
 class LiveUserProfilePopup extends StatefulWidget {
   final Map<String, dynamic> user;
@@ -131,7 +132,8 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
         children: [
           GestureDetector(
             onTap: () {
-              LiveUserProfilePopup.show(context, userInfo);
+              Navigator.push(context, MaterialPageRoute(builder: (context) => UserProfilePage(userInfo: userInfo)));
+              // LiveUserProfilePopup.show(context, userInfo);
             },
             child: Stack(
               alignment: Alignment.center,
@@ -331,7 +333,6 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-
                     // 礼物图鉴点击事件
                     print('点击了礼物图鉴');
                     // 或者跳转页面：Navigator.push(...)
@@ -366,8 +367,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    // PK段位点击事件
-                    print('点击了PK段位');
+                    PkRankIndex.show(context);
                   },
                   child: _buildCard(
                     iconUrl: "",

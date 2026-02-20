@@ -487,16 +487,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       final String msgUserId = data['userId']?.toString() ?? "";
       final bool isMe = (msgUserId == _myUserId);
       final bool senderIsHost = StringTool.parseBool(data['isHost']);
-
+      final String joinerId = data['userId'] ?? "神秘人";
+      final String joinerName = data['userName'] ?? "神秘人";
+      final String joinerAvatar = data['avatar'] ?? "";
+      final int joinerLevel = int.tryParse(data['level']?.toString() ?? '') ?? 0;
+      final int joinerMonthLevel = int.tryParse(data['monthLevel']?.toString() ?? '') ?? 0;
       switch (type) {
         case "ENTER":
-          final String joinerId = data['userId'] ?? "神秘人";
-          final String joinerName = data['userName'] ?? "神秘人";
-          final String joinerAvatar = data['avatar'] ?? "";
-          final int joinerLevel = data['level'] ?? 1;
-          final int joinerMonthLevel = data['monthLevel'] ?? 0;
-
-          if (int.parse(joinerId) == 2) {
+          if ([2, 163].contains(int.parse(joinerId))) {
             _entranceEffectKey.currentState?.addEntrance(EntranceModel(userName: joinerName, avatar: joinerAvatar));
           } else {
             _simulateVipEnter(
@@ -511,11 +509,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           break;
         case "CHAT":
           _addSocketChatMessage(
-            data['userName'] ?? "神秘人",
+            joinerName,
             data['content'] ?? "",
             isMe ? Colors.amber : Colors.white,
-            level: data["level"],
-            monthLevel: data["monthLevel"],
+            level: joinerLevel,
+            monthLevel: joinerMonthLevel,
             isHost: senderIsHost,
             userId: msgUserId,
           );
@@ -536,14 +534,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
           _processGiftEvent(
             targetGift,
-            data['userName'] ?? "神秘人",
-            data['avatar'] ?? "神秘人",
-            senderLevel: data['level'] ?? 1,
-            senderMonthLevel: data['monthLevel'] ?? 0,
+            joinerName,
+            joinerAvatar,
+            senderLevel: joinerLevel,
+            senderMonthLevel: joinerMonthLevel,
             isMe,
             isHost: senderIsHost,
             senderId: msgUserId,
-            count: data['giftCount'] ?? 1,
+            count: int.tryParse(data['giftCount']?.toString() ?? '') ?? 1,
           );
           _viewerListKey.currentState?.refresh();
           break;
@@ -565,7 +563,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         case "PK_START":
           _pkMatchManagerKey.currentState?.stopMatching();
           if (data['duration'] != null) {
-            _pkDuration = _parseInt(data['duration']);
+            _pkDuration = _parseInt(data['duration'].toString());
           }
           _startPKRound();
           _fetchRoomDetailAndSyncState();
@@ -581,7 +579,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           setState(() {
             for (var item in scoreList) {
               String roomId = item['roomId'].toString();
-              int score = item['score'];
+              int score = int.tryParse(item['score'].toString() ?? '') ?? 0;
               if (roomId == _roomId) {
                 _myPKScore = score;
               } else {
@@ -605,7 +603,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
           _chatController.addMessage(
             ChatMessage(
-              name: data['userName'],
+              name: joinerName,
               content: content,
               level: 17,
               monthLevel: _monthLevel,

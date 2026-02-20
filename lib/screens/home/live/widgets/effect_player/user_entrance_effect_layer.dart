@@ -12,6 +12,7 @@ import 'package:path_provider/path_provider.dart';
 class EntranceModel {
   final String userName;
   final String avatar;
+
   EntranceModel({required this.userName, required this.avatar});
 }
 
@@ -29,14 +30,16 @@ class UserEntranceEffectLayerState extends State<UserEntranceEffectLayer> {
 
   // 1. 尺寸调整 (建议根据 MP4 原始比例调整)
   final double _effectWidth = 400.0;
-  final double _effectHeight = 630.0;
+  final double _effectHeight = 640.0;
 
   // 2. 位置调整
   final double _topPosition = 250.0;
 
   // 3. 视频地址
-  final String _baseVideoUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/entrance/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E5%BA%95%E5%BA%A7.mp4";
-  final String _floatVideoUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/entrance/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E6%BC%82%E6%B5%AE.mp4";
+  final String _baseVideoUrl =
+      "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/entrance/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E5%BA%95%E5%BA%A7.mp4";
+  final String _floatVideoUrl =
+      "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/entrance/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E6%BC%82%E6%B5%AE.mp4";
 
   // =======================================================
 
@@ -50,8 +53,6 @@ class UserEntranceEffectLayerState extends State<UserEntranceEffectLayer> {
 
   /// 外部调用此方法添加进场特效
   void addEntrance(EntranceModel data) {
-    // 简单的去重逻辑（可选）：如果队列里已经有这个人了，就不加了
-    // 这里暂时不做，允许重复排队
     if (_isPlaying) {
       _waitingQueue.add(data);
     } else {
@@ -65,7 +66,6 @@ class UserEntranceEffectLayerState extends State<UserEntranceEffectLayer> {
       _currentData = data;
       _isPlaying = true;
       // 🟢 只有在这里才更新 Key！
-      // 这样无论外部怎么重绘，只要 _currentUniqueKey 不变，子组件就不会重建
       _currentUniqueKey = UniqueKey();
     });
   }
@@ -95,13 +95,10 @@ class UserEntranceEffectLayerState extends State<UserEntranceEffectLayer> {
       return const SizedBox();
     }
 
-    // 🟢 修正：Positioned 必须放在最外层！
     return Positioned(
-      top: _topPosition, // ✅ 现在这个参数会生效了
+      top: _topPosition,
       left: 0,
       right: 0,
-      // 🟢 RepaintBoundary 放在 Positioned 内部
-      // 这样既能隔离重绘，又能准确定位
       child: RepaintBoundary(
         child: Center(
           child: SizedBox(
@@ -145,7 +142,8 @@ class _DualVideoItemState extends State<_DualVideoItem> {
   MyAlphaPlayerController? _floatController;
 
   bool _filesReady = false;
-  // 控制可见性，默认为 false (透明)
+
+  // 控制整体可见性，默认为 false (透明)
   bool _isVisible = false;
 
   String? _basePath;
@@ -154,16 +152,35 @@ class _DualVideoItemState extends State<_DualVideoItem> {
   // 防止多次调用结束回调
   bool _hasTriggeredFinish = false;
 
+  // =======================================================
+  // 🎨🎨🎨 进场动效参数调节 🎨🎨🎨
+  // =======================================================
+  final double _avatarRadius = 15.0; // 头像大小 (半径15)
+  final double _barHeight = 40.0; // 昵称渐变长条的高度
+  final double _barWidth = 240.0; // 整体信息条的总宽度 (含头像)
+  final int _slideDurationMs = 1200; // 整体组件从右侧匀速滑入的时间 (毫秒)
+
+  // 📝 动态文字位移参数
+  final int _textMoveDelayMs = 3000; // 视频播放后多久开始位移 (毫秒，例如3000=3秒)
+  final int _textMoveDurationMs = 500; // 文字滑动的动画时长 (毫秒，越短越快)
+  final double _initialTextPadding = 0.0; // 文字初始的左侧边距
+  final double _targetTextPadding = 53.0; // 文字最终的左侧边距
+
+  // 内部状态，用于触发位移动画
+  late double _currentTextPadding;
+  // =======================================================
+
   @override
   void initState() {
     super.initState();
+    _currentTextPadding = _initialTextPadding; // 初始化 padding
     _prepareAndPlay();
   }
 
   Future<void> _prepareAndPlay() async {
     final results = await Future.wait([
       _downloadFile(widget.baseVideoUrl),
-      _downloadFile(widget.floatVideoUrl),
+      _downloadFile(widget.floatVideoUrl)
     ]);
 
     if (!mounted) return;
@@ -190,7 +207,6 @@ class _DualVideoItemState extends State<_DualVideoItem> {
 
     _floatController?.onFinish = () {
       debugPrint("🎬 进场特效播放结束");
-      // 结束时，先渐隐再通知结束
       if (mounted) {
         setState(() => _isVisible = false);
         Future.delayed(const Duration(milliseconds: 300), () {
@@ -205,13 +221,12 @@ class _DualVideoItemState extends State<_DualVideoItem> {
   }
 
   void _checkAndPlay() {
-    // 双重检查：确保文件好了，控制器好了，且没有正在播放(防止重入)
     if (_baseController != null && _floatController != null && _filesReady) {
       try {
         _baseController?.play(_basePath!);
         _floatController?.play(_floatPath!);
 
-        // 延迟显示，消除闪烁
+        // 1. 整体 UI 延迟显示，消除闪烁
         Future.delayed(const Duration(milliseconds: 100), () {
           if (mounted) {
             setState(() {
@@ -219,6 +234,16 @@ class _DualVideoItemState extends State<_DualVideoItem> {
             });
           }
         });
+
+        // 2. 触发文字位移动画 (比如第3秒)
+        Future.delayed(Duration(milliseconds: _textMoveDelayMs), () {
+          if (mounted) {
+            setState(() {
+              _currentTextPadding = _targetTextPadding;
+            });
+          }
+        });
+
       } catch (e) {
         debugPrint("❌ 播放异常: $e");
         _triggerFinish();
@@ -269,46 +294,85 @@ class _DualVideoItemState extends State<_DualVideoItem> {
           // 1. 底座
           Positioned.fill(
             child: MyAlphaPlayerView(
-              key: const ValueKey("BasePlayer"),
-              onCreated: _onBasePlayerCreated,
-            ),
+                key: const ValueKey("BasePlayer"),
+                onCreated: _onBasePlayerCreated),
           ),
 
           // 2. 用户信息
-          // 如果需要调整头像位置，可以把 Center 换成 Positioned
           Positioned(
-            // 这里可以微调头像的垂直位置，防止被底座挡住
-            top: 0,
-            bottom: 40, // 往上顶一点
-            left: 0,
+            top: 6,
+            bottom: 40,
+            left: 8,
             right: 0,
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.amber, width: 2),
-                      image: DecorationImage(
-                        image: NetworkImage(widget.userData.avatar),
-                        fit: BoxFit.cover,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: AnimatedSlide(
+                offset: _isVisible ? Offset.zero : const Offset(1.5, 0),
+                duration: Duration(milliseconds: _slideDurationMs),
+                curve: Curves.easeIn,
+                child: SizedBox(
+                  width: _barWidth,
+                  height: _avatarRadius * 2,
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      // 底层：昵称渐变长条
+                      Positioned(
+                        left: _avatarRadius,
+                        right: 0,
+                        height: _barHeight,
+                        child: Container(
+                          padding: EdgeInsets.only(
+                            left: _avatarRadius + 10,
+                            right: 8,
+                          ),
+                          alignment: Alignment.centerLeft,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Colors.transparent, Colors.transparent],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.horizontal(
+                                left: Radius.circular(_barHeight / 2)),
+                          ),
+                          // 🟢 动态变化的 Padding 包裹 Text
+                          child: AnimatedPadding(
+                            padding: EdgeInsets.only(left: _currentTextPadding,top: 1),
+                            duration: Duration(milliseconds: _textMoveDurationMs),
+                            curve: Curves.easeOutCubic, // 平滑减速动画曲线
+                            child: Text(
+                              widget.userData.userName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+
+                      // 顶层：头像
+                      Positioned(
+                        left: 0,
+                        child: Container(
+                          width: _avatarRadius * 2,
+                          height: _avatarRadius * 2,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.amber, width: 2),
+                            image: DecorationImage(
+                                image: NetworkImage(widget.userData.avatar),
+                                fit: BoxFit.cover),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "${widget.userData.userName} 驾到",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      shadows: [Shadow(color: Colors.black, blurRadius: 4)],
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -316,9 +380,8 @@ class _DualVideoItemState extends State<_DualVideoItem> {
           // 3. 漂浮
           Positioned.fill(
             child: MyAlphaPlayerView(
-              key: const ValueKey("FloatPlayer"),
-              onCreated: _onFloatPlayerCreated,
-            ),
+                key: const ValueKey("FloatPlayer"),
+                onCreated: _onFloatPlayerCreated),
           ),
         ],
       ),

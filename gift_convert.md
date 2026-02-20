@@ -1,4 +1,4 @@
-ffmpeg -i 御龙游侠底座.mov \
+ffmpeg -i 抖音1号_new.mov \
 -filter_complex "
 [0:v]format=rgba,split=2[rgb][a];
 [a]alphaextract,format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2[a_gray];
@@ -12,7 +12,7 @@ ffmpeg -i 御龙游侠底座.mov \
 -crf 14 \
 -preset slow \
 -movflags +faststart \
-御龙游侠底座.mp4
+抖音1号_new.mp4
 
 
 

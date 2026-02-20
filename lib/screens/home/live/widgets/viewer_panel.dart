@@ -131,8 +131,10 @@ class _ViewerPanelState extends State<ViewerPanel> {
   Widget _buildTabBar() {
     final tabs = ["贡献榜 (${widget.realTimeOnlineCount})", "高等级", "千钻贡献", "星守护"];
     return Container(
-      height: 40,
+      height: 28,
+      alignment: Alignment.center,
       margin: const EdgeInsets.only(bottom: 8),
+
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
@@ -147,7 +149,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: isSelected ? const Color(0xFFF3E5F5) : const Color(0xFFF5F5F5),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(3),
               ),
               child: Text(
                 tabs[index],

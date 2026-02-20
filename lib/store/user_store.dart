@@ -62,6 +62,7 @@ class UserStore {
   String get signature => profile?['signature'] ?? "";
 
   String get avatar => profile?['avatar'] ?? "";
+  String get profileBg => profile?['profileBg'] ?? "";
 
   Map<String, dynamic> get decorations => profile?['decorations'] ?? <String, dynamic>{};
 

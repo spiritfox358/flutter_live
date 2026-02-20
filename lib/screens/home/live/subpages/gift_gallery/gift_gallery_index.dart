@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../../store/user_store.dart';
-import '../../../tools/HttpUtil.dart';
+import '../../../../../store/user_store.dart';
+import '../../../../../tools/HttpUtil.dart';
 
 // ⚠️ 请根据你的实际项目结构调整 HttpUtil 的引入路径
 // ===========================================================================
@@ -110,7 +110,7 @@ class _GiftGalleryPopupState extends State<GiftGalleryPopup> {
     GiftItemModel(
       name: "大啤酒",
       icon:
-          "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E8%B7%91%E8%BD%A6%20%C3%97%20%28%E7%BB%8F%E5%85%B8%29%20%C3%97%201200.png",
+          "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/2_%E5%A4%A7%E5%95%A4%E9%85%92.png",
       iconColor: Colors.amber,
       isLit: true,
       remainingCount: 3,
