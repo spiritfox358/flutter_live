@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/dashboard/ranking/user_ranking_page.dart';
 import 'package:flutter_live/screens/home/home_tabs_page.dart';
-import 'package:flutter_live/screens/home/live_list_page.dart';
 import 'package:flutter_live/screens/login/login_page.dart';
 import 'package:flutter_live/screens/me/profile/user_profile_page.dart';
+import 'package:flutter_live/screens/message/message_page.dart';
+import 'package:flutter_live/screens/works/publish_work_page.dart';
 import 'package:flutter_live/store/user_store.dart';
+
+// 🟢 1. 定义全局的 navigatorKey
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,6 +22,8 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      // 🟢 2. 绑定 navigatorKey
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
 
       // 1. 设置跟随系统 (System)
@@ -89,30 +95,97 @@ class _MainContainerState extends State<MainContainer> {
   final List<Widget> _screens = [
     const HomeTabsPage(),
     const UserRankingPage(),
-    // const DocScreen(),
-    // const ExamListScreen(),
-    UserProfilePage(),
+    const PublishWorkPage(),
+    const MessagePage(),
+    const UserProfilePage(),
   ];
 
   @override
+  void initState() {
+    super.initState();
+    globalMainTabNotifier.addListener(_onGlobalTabChanged);
+  }
+
+  void _onGlobalTabChanged() {
+    if (mounted && _currentIndex != globalMainTabNotifier.value) {
+      setState(() => _currentIndex = globalMainTabNotifier.value);
+    }
+  }
+
+  @override
+  void dispose() {
+    globalMainTabNotifier.removeListener(_onGlobalTabChanged);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selectedColor = Colors.blue;
+    final unselectedColor = isDark ? Colors.white70 : Colors.black54;
+
     return Scaffold(
-      // 🔴 核心修改：使用 IndexedStack 替换原来的 _screens[_currentIndex]
-      // IndexedStack 会保持所有子页面的状态，切换 Tab 时不会销毁 LiveListPage
       body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) => setState(() => _currentIndex = index),
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: '首页'),
-          BottomNavigationBarItem(icon: Icon(Icons.leaderboard), label: '榜单'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '我'),
-          // BottomNavigationBarItem(icon: Icon(Icons.school), label: '训练'),
-          // BottomNavigationBarItem(icon: Icon(Icons.school), label: '课程'),
-          // BottomNavigationBarItem(icon: Icon(Icons.description), label: '文档'),
-          // BottomNavigationBarItem(icon: Icon(Icons.message), label: '消息'),
-        ],
+      bottomNavigationBar: Container(
+        height: 50 + MediaQuery.of(context).padding.bottom,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF232D45) : Colors.white,
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))],
+        ),
+        child: SafeArea(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildTextTab(0, '首页', selectedColor, unselectedColor),
+              _buildTextTab(1, '榜单', selectedColor, unselectedColor),
+              _buildIconTab(2, selectedColor, unselectedColor),
+              _buildTextTab(3, '消息', selectedColor, unselectedColor),
+              _buildTextTab(4, '我', selectedColor, unselectedColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextTab(int index, String label, Color selectedColor, Color unselectedColor) {
+    final isSelected = _currentIndex == index;
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          globalMainTabNotifier.value = index;
+          setState(() => _currentIndex = index);
+        },
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? selectedColor : unselectedColor,
+              fontSize: 16,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.bold,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIconTab(int index, Color selectedColor, Color unselectedColor) {
+    final isSelected = _currentIndex == index;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          globalMainTabNotifier.value = index;
+          setState(() => _currentIndex = index);
+        },
+        child: Center(
+          child: Icon(
+            Icons.add_box_outlined,
+            color: isSelected ? selectedColor : unselectedColor,
+            size: 30, // 图标大小可调
+          ),
+        ),
       ),
     );
   }

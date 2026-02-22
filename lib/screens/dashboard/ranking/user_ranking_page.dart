@@ -57,8 +57,14 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
       backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
       // Dark模式背景
       extendBodyBehindAppBar: false,
-      appBar: null,
+      appBar: AppBar(
+        backgroundColor: isDark ? const Color(0xFF121212) : Colors.white,
+        elevation: 0,
+        title: const SizedBox.shrink(), // 隐藏标题
+        toolbarHeight: 0, // 只保留状态栏高度
+      ),
       body: SafeArea(
+        top: true, // 🟢 确保顶部留出状态栏空间
         child: Column(
           children: [
             _buildTabBar(isDark),
@@ -96,17 +102,38 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
   }
 
   Widget _buildTabBar(bool isDark) {
-    return TabBar(
-      controller: _tabController,
-      dividerHeight: 0,
-      labelColor: isDark ? Colors.white : Colors.black,
-      // 适配文字颜色
-      unselectedLabelColor: Colors.grey,
-      tabs: const [
-        Tab(text: "日榜"),
-        Tab(text: "周榜"),
-        Tab(text: "月榜"),
-      ],
+    return Container(
+      // ✅ 使用 decoration 实现圆角 + 背景
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey[900] : Colors.black12,
+        borderRadius: BorderRadius.circular(30), // 圆角
+      ),
+
+      // ✅ 外边距，让卡片与屏幕边缘有距离
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+
+      child: TabBar(
+        controller: _tabController,
+        dividerHeight: 0,
+        labelColor: isDark ? Colors.white : Colors.black,
+        unselectedLabelColor: Colors.grey,
+        indicatorColor: isDark ? Colors.white : Colors.black,
+        // ✅ 关键：覆盖所有状态的 overlayColor 为透明
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return Colors.transparent; // 按下时透明
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return Colors.transparent; // 悬停时透明
+          }
+          return Colors.transparent; // 其他状态也透明
+        }),
+        tabs: const [
+          Tab(text: "日榜"),
+          Tab(text: "周榜"),
+          Tab(text: "月榜"),
+        ],
+      ),
     );
   }
 

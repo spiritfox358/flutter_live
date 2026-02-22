@@ -1,9 +1,14 @@
+import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_live/screens/me/me_screen.dart';
-import 'package:palette_generator/palette_generator.dart';
+import 'package:flutter_live/screens/me/profile/me_screen.dart';
+import 'package:flutter_live/services/user_service.dart';
+
 import '../../../store/user_store.dart';
+import '../../../tools/HttpUtil.dart';
+import '../../works/short_video_page.dart';
+import '../visitors/profile_visitors_page.dart';
 
 class UserProfilePage extends StatefulWidget {
   final Map<String, dynamic>? userInfo;
@@ -18,25 +23,29 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<double> _titleOpacityNotifier = ValueNotifier(0.0);
+  final String _defaultBgImage = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/common_profile_bg.jpg";
 
-  final String _defaultBgImage = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_13.jpg";
-
-  // 控制滚动的锁
+  // 🟢 核心滚动锁状态
   bool _isScrollLocked = false;
 
   // 下拉刷新状态
   bool _isRefreshing = false;
-  final int _visitorCount = 100;
+  late int _visitorCount = 0;
 
-  // 🌟 性能优化1：采用局部刷新，下拉时拒绝整个页面疯狂 setState 重绘
   final ValueNotifier<double> _pullNotifier = ValueNotifier(0.0);
   double _dragStartY = 0.0;
 
-  Color _dynamicBgColor = const Color(0xFCFCFCFF);
+  List<dynamic> _worksList = [];
+  bool _isLoadingWorks = true;
 
   bool get isMe {
     if (widget.userInfo == null) return true;
     return widget.userInfo!['userId']?.toString() == UserStore.to.userId?.toString();
+  }
+
+  String get _fetchId {
+    if (isMe) return UserStore.to.userId.toString() ?? "";
+    return widget.userInfo?['userId']?.toString() ?? widget.userInfo?['id']?.toString() ?? "";
   }
 
   String get _displayAvatar => isMe ? UserStore.to.avatar : (widget.userInfo?['avatar'] ?? '');
@@ -49,7 +58,22 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
 
   String get _displayBgImage => isMe ? UserStore.to.profileBg : (widget.userInfo?['profileBg'] ?? _defaultBgImage);
 
-  final List<int> _itemCounts = [14, 5, 3, 4];
+  Color get _dynamicBgColor {
+    String? hexString = isMe ? UserStore.to.profileBgColor : widget.userInfo?['profileBgColor'];
+    return _parseHexColor(hexString);
+  }
+
+  Color _parseHexColor(String? hexColor, {Color fallback = const Color(0xFF3BB5D3)}) {
+    if (hexColor == null || hexColor.isEmpty) return fallback;
+    try {
+      final buffer = StringBuffer();
+      if (hexColor.length == 6 || hexColor.length == 7) buffer.write('ff');
+      buffer.write(hexColor.replaceFirst('#', ''));
+      return Color(int.parse(buffer.toString(), radix: 16));
+    } catch (e) {
+      return fallback;
+    }
+  }
 
   @override
   void initState() {
@@ -81,72 +105,111 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkScrollLock();
-
-      // 🌟 终极防卡顿优化：错峰执行！
-      // 延迟 400 毫秒，避开 Navigator.push 的页面转场动画。
-      // 等页面极其丝滑地进入并停稳后，再在背后偷偷提取颜色。
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (mounted) {
-          _extractDominantColor();
-        }
-      });
     });
+
+    if (!isMe) {
+      // add visitor record
+      unawaited(
+        HttpUtil().post("/api/user/visitor/record", data: {"targetUserId": _fetchId}).catchError((e) => debugPrint("记录访客失败: $e")), // 防止未捕获的异常报错
+      );
+    }
+    _fetchUserWorks();
   }
 
-  void _checkScrollLock() {
-    final double screenHeight = MediaQuery.of(context).size.height;
-    final double topPadding = MediaQuery.of(context).padding.top;
-    const double navBarHeight = 44.0;
+  Future<void> _fetchUserWorks() async {
+    final uid = _fetchId;
+    if (uid.isEmpty) {
+      if (mounted) setState(() => _isLoadingWorks = false);
+      return;
+    }
 
-    double baseHeaderHeight = isMe ? 350.0 : 250.0;
-    double headerTotalHeight = baseHeaderHeight + 46.0;
+    try {
+      var res = await HttpUtil().get("/api/work/user_works", params: {"userId": uid});
+
+      if (mounted) {
+        setState(() {
+          _worksList = (res as List<dynamic>?) ?? [];
+          _isLoadingWorks = false;
+        });
+        WidgetsBinding.instance.addPostFrameCallback((_) => _checkScrollLock());
+      }
+    } catch (e) {
+      debugPrint("获取作品列表失败: $e");
+      if (mounted) {
+        setState(() => _isLoadingWorks = false);
+      }
+    }
+  }
+
+  Future<void> fetchUnreadVisitorCount() async {
+    final uid = _fetchId;
+    if (uid.isEmpty) {
+      return;
+    }
+    try {
+      var unreadCount = await HttpUtil().get("/api/user/visitor/unread_count");
+      if (mounted) {
+        setState(() {
+          _visitorCount = int.tryParse(unreadCount.toString())!;
+        });
+      }
+    } catch (e) {
+      debugPrint("clear fail: $e");
+    }
+  }
+
+  // 🌟 终极版：极其精准的高度计算与锁定逻辑
+  void _checkScrollLock() {
+    if (!mounted) return;
+
+    final double screenHeight = MediaQuery.of(context).size.height;
+    // 🟢 修复1：获取底部安全区（如 iPhone 底部横条占用高度）
+    final double bottomPadding = MediaQuery.of(context).padding.bottom;
+    // 🟢 修复2：获取 Flutter 标准底部导航栏的高度 (一般是 56.0)
+    final double bottomNavBarHeight = kBottomNavigationBarHeight;
+
+    // 🟢 核心修复：算出扣除底部栏后，上方内容真正可以显示的高度区域
+    final double realVisibleHeight = screenHeight - bottomNavBarHeight - bottomPadding;
+
+    // 头部总高度 (背景区 + TabBar)
+    final double headerExpandedHeight = (isMe ? 355.0 : 270.0) + 46.0;
 
     double contentHeight = 0;
-    int count = 0;
-    if (_tabController.index < _itemCounts.length) {
-      count = _itemCounts[_tabController.index];
-    }
 
-    if (count == 0) {
-      contentHeight = 50;
+    // 1. 动态判断每个 Tab 的真实高度
+    if (_tabController.index == 0) {
+      if (_isLoadingWorks || _worksList.isEmpty) {
+        contentHeight = 0; // 加载中或空状态 -> 内部高度视为 0
+      } else {
+        // 精准计算出当前网格到底有多高
+        int count = _worksList.length;
+        double itemWidth = MediaQuery.of(context).size.width / 3;
+        double itemHeight = itemWidth * (4 / 3);
+        int rows = (count / 3).ceil();
+        contentHeight = (rows * itemHeight) + ((rows - 1) * 1.0);
+      }
     } else {
-      double itemWidth = MediaQuery.of(context).size.width / 3;
-      double itemHeight = itemWidth * (4 / 3);
-      int rows = (count / 3).ceil();
-      contentHeight = rows * itemHeight;
+      // 推荐、收藏、喜欢 目前都是空白页 -> 内部高度视为 0
+      contentHeight = 0;
     }
 
-    double totalScrollableHeight = headerTotalHeight + contentHeight + navBarHeight + topPadding;
-    bool shouldLock = totalScrollableHeight < (screenHeight + 10);
+    // 总高度 = 头部 + 下方内容列表
+    double totalHeight = headerExpandedHeight + contentHeight;
+
+    // 🌟 核心判断修复：总高度是否小于等于【真实的可用可视高度】
+    // (加了 5 像素的容错缓冲，防止浮点数精度导致差一丁点被卡住)
+    bool shouldLock = totalHeight <= (realVisibleHeight + 5);
+
+    debugPrint("====== 高度计算: 头部 $headerExpandedHeight + 内容 $contentHeight = 总计 $totalHeight. 真实可视高度: $realVisibleHeight => 是否锁定: $shouldLock ======");
 
     if (_isScrollLocked != shouldLock) {
       setState(() {
         _isScrollLocked = shouldLock;
-        if (_isScrollLocked && _scrollController.offset > 0) {
-          _scrollController.jumpTo(0);
-        }
       });
-    }
-  }
-
-  Future<void> _extractDominantColor() async {
-    if (_displayBgImage.isEmpty) return;
-
-    try {
-      final PaletteGenerator generator = await PaletteGenerator.fromImageProvider(
-        NetworkImage(_displayBgImage),
-        // 🌟 性能优化2：将待分析的图像强行缩小为 60x60，提取瞬间完成，彻底告别卡顿！
-        size: const Size(60, 60),
-        maximumColorCount: 20,
-      );
-
-      if (mounted) {
-        setState(() {
-          _dynamicBgColor = generator.dominantColor?.color ?? generator.darkMutedColor?.color ?? const Color(0xFFD4C4FB);
-        });
+      // 如果当前已经被推上去了，但因为切换到了空白页触发了锁定，自动回滚下来
+      if (shouldLock && _scrollController.hasClients && _scrollController.offset > 0) {
+        _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
       }
-    } catch (e) {
-      debugPrint("提取图片颜色失败: $e");
     }
   }
 
@@ -155,7 +218,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     _tabController.dispose();
     _scrollController.dispose();
     _titleOpacityNotifier.dispose();
-    _pullNotifier.dispose(); // 别忘了释放
+    _pullNotifier.dispose();
     super.dispose();
   }
 
@@ -165,8 +228,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     const double navBarHeight = 44.0;
     const double tabBarHeight = 46.0;
 
-    final double baseHeaderHeight = isMe ? 350.0 : 285.0;
+    final double baseHeaderHeight = isMe ? 355.0 : 270.0;
     final double expandedHeight = baseHeaderHeight + tabBarHeight;
+
+    // 🚀 终极杀招：直接使用系统的 NeverScrollableScrollPhysics (绝对禁止滚动)
+    final ScrollPhysics scrollPhysics = _isScrollLocked ? const NeverScrollableScrollPhysics() : const ClampingScrollPhysics();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -175,17 +241,16 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
           // 1. 底层：监听物理拖拽
           Listener(
             onPointerDown: (event) {
-              if (!isMe) return; // 🟢 需求2：如果是看别人的主页，直接掐断下拉动作
+              if (!isMe) return;
               if (_isRefreshing) return;
               _dragStartY = event.position.dy;
             },
             onPointerMove: (event) {
-              if (!isMe) return; // 🟢 需求2：如果是看别人的主页，直接掐断下拉动作
+              if (!isMe) return;
               if (_isRefreshing) return;
               if (_scrollController.hasClients && _scrollController.offset <= 0) {
                 double delta = event.position.dy - _dragStartY;
                 if (delta > 0) {
-                  // 🌟 只更新 Notifier 内部的值，不再调用 setState 导致页面崩溃式重绘
                   double ratio = delta / 120.0;
                   if (ratio > 1.5) ratio = 1.5;
                   _pullNotifier.value = ratio;
@@ -197,7 +262,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               }
             },
             onPointerUp: (event) async {
-              if (!isMe) return; // 🟢 需求2：如果是看别人的主页，直接掐断下拉动作
+              if (!isMe) return;
               if (_isRefreshing) return;
 
               if (_pullNotifier.value >= 1.0) {
@@ -206,7 +271,8 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                 });
                 _pullNotifier.value = 1.0;
 
-                await Future.delayed(const Duration(seconds: 1));
+                fetchUnreadVisitorCount();
+                await Future.wait([UserService.syncUserInfo(), _fetchUserWorks()]);
 
                 if (mounted) {
                   setState(() {
@@ -220,7 +286,8 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
             },
             child: NestedScrollView(
               controller: _scrollController,
-              physics: ClampingLockScrollPhysics(isLocked: _isScrollLocked),
+              // 🌟 把它赋给外层协调器
+              physics: scrollPhysics,
               headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
                 return <Widget>[
                   SliverAppBar(
@@ -266,15 +333,19 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                   controller: _tabController,
                   physics: const NeverScrollableScrollPhysics(),
                   children: isMe
-                      ? [_buildWorksGrid(), _buildEmptyPage("推荐为空"), _buildEmptyPage("暂时没有收藏"), _buildEmptyPage("喜欢的视频")]
-                      : [_buildWorksGrid(), _buildEmptyPage("推荐为空")],
+                      ? [
+                          _buildWorksGrid(scrollPhysics),
+                          _buildEmptyPage("推荐为空", scrollPhysics),
+                          _buildEmptyPage("暂时没有收藏", scrollPhysics),
+                          _buildEmptyPage("喜欢的视频", scrollPhysics),
+                        ]
+                      : [_buildWorksGrid(scrollPhysics), _buildEmptyPage("推荐为空", scrollPhysics)],
                 ),
               ),
             ),
           ),
 
           // 2. 中层：下拉刷新悬浮圈
-          // 🌟 包裹 ValueListenableBuilder，滑动时只有这个小圈圈在独立重绘，性能爆表！
           ValueListenableBuilder<double>(
             valueListenable: _pullNotifier,
             builder: (context, pullRatio, child) {
@@ -321,10 +392,6 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               valueListenable: _titleOpacityNotifier,
               builder: (context, opacity, child) {
                 final iconColor = opacity > 0.5 ? Colors.black : Colors.white;
-
-                // 🌟 核心微调：错频消失算法
-                // 乘以 2.5 倍速！当 opacity 达到 0.4 的时候，按钮透明度就已经掉到 0 彻底消失了
-                // 这样完美给中间即将显现的“个人中心”腾出空间，绝对不重叠！
                 final double buttonOpacity = (1.0 - opacity * 2.5).clamp(0.0, 1.0);
 
                 return Container(
@@ -351,7 +418,6 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                               _buildGlassIcon(Icons.arrow_back_ios_new, iconColor, onTap: () => Navigator.pop(context)),
                               const SizedBox(width: 12),
                             ],
-                            // 🟢 左侧：应用加速消失透明度
                             if (buttonOpacity > 0.0)
                               IgnorePointer(
                                 ignoring: buttonOpacity == 0.0,
@@ -366,8 +432,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // 🟢 右侧访客图标：应用加速消失透明度
-                            if (buttonOpacity > 0.0)
+                            if (buttonOpacity > 0.0 && isMe)
                               IgnorePointer(
                                 ignoring: buttonOpacity == 0.0,
                                 child: Opacity(
@@ -380,7 +445,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                                             Icons.people_outline,
                                             iconColor,
                                             onTap: () {
-                                              print("点击了访客");
+                                              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileVisitorsPage()));
                                             },
                                           ),
                                   ),
@@ -394,7 +459,6 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                                 Icons.menu,
                                 iconColor,
                                 onTap: () {
-                                  Map<String, dynamic> userProfile = UserStore.to.profile ?? {};
                                   Navigator.push(context, MaterialPageRoute(builder: (context) => MeScreen()));
                                 },
                               ),
@@ -413,18 +477,156 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     );
   }
 
-  // --- 新增：带文字的访客胶囊按钮 ---
+  // --- 🌟 把它同步赋给内部的所有列表和空白页 ---
+  Widget _buildWorksGrid(ScrollPhysics physics) {
+    if (_isLoadingWorks) {
+      return CustomScrollView(
+        physics: physics,
+        slivers: [
+          SliverFillRemaining(
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade400))),
+          ),
+        ],
+      );
+    }
+
+    if (_worksList.isEmpty) {
+      return _buildEmptyPage(isMe ? "你还没有发布作品" : "该用户还没有发布作品", physics);
+    }
+
+    return CustomScrollView(
+      key: const PageStorageKey("works"),
+      physics: physics,
+      slivers: [
+        SliverGrid(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final work = _worksList[index];
+            final coverUrl = work['coverUrl'] ?? work['cover_url'] ?? '';
+            final likeCount = work['likeCount'] ?? work['like_count'] ?? 0;
+
+            return GestureDetector(
+              onTap: () async {
+                // 等待页面返回结果
+                final bool? shouldRefresh = await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ShortVideoPage(workId: work['id'])),
+                );
+
+                // 如果接收到 true，说明发生了删除或上下架，触发列表刷新
+                if (shouldRefresh == true) {
+                  _fetchUserWorks(); // 替换为你实际的列表刷新方法
+                }
+              },
+              child: Container(
+                color: Colors.grey[900],
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (coverUrl.isNotEmpty)
+                      Image.network(coverUrl, fit: BoxFit.cover)
+                    else
+                      const Center(child: Icon(Icons.video_library, color: Colors.white38, size: 30)),
+
+                    Positioned(
+                      bottom: 6,
+                      left: 6,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.favorite_border, color: Colors.white, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            likeCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              shadows: [Shadow(offset: Offset(0, 1), blurRadius: 2, color: Colors.black38)],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }, childCount: _worksList.length),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            mainAxisSpacing: 1,
+            crossAxisSpacing: 1,
+            childAspectRatio: 3 / 4,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- 🌟 把它同步赋给内部的所有列表和空白页 ---
+  Widget _buildEmptyPage(String text, ScrollPhysics physics) => CustomScrollView(
+    physics: physics,
+    slivers: [
+      SliverFillRemaining(
+        hasScrollBody: false,
+        child: Container(
+          color: Colors.white,
+          alignment: Alignment.center,
+          child: Text(text, style: const TextStyle(color: Colors.grey)),
+        ),
+      ),
+    ],
+  );
+
+  Widget _buildAvatar() => SizedBox(
+    width: 90,
+    height: 90,
+    child: Stack(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            image: _displayAvatar.isNotEmpty ? DecorationImage(image: NetworkImage(_displayAvatar), fit: BoxFit.cover) : null,
+          ),
+          child: _displayAvatar.isEmpty ? const CircularProgressIndicator(strokeWidth: 2) : null,
+        ),
+        if (isMe)
+          Positioned(
+            right: 0,
+            bottom: 2,
+            child: Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: const Color(0xFF25D366),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 16),
+            ),
+          ),
+      ],
+    ),
+  );
+
   Widget _buildVisitorCapsule(Color color, int count) {
     return GestureDetector(
-      onTap: () {
-        print("点击了访客记录");
+      onTap: () async {
+        // 🟢 加上 async
+        // 🟢 等待访客页返回的结果
+        final shouldRefresh = await Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileVisitorsPage()));
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (shouldRefresh == true && mounted) {
+            fetchUnreadVisitorCount();
+          }
+        });
       },
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 32, // 保持和旁边搜索框、菜单圆圈一样的高度
+        height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          // 保持和圆圈图标一样的玻璃态底色方案
           color: color == Colors.black ? Colors.white : Colors.black.withOpacity(0.3),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.black12),
@@ -444,23 +646,72 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     );
   }
 
-  // --- 头部内容 ---
+  Widget _buildGlassCapsule(String text, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    decoration: BoxDecoration(
+      color: color == Colors.black ? Colors.grey[200] : Colors.white.withOpacity(0.2),
+      borderRadius: BorderRadius.circular(20),
+    ),
+    child: Row(
+      children: [
+        Text(
+          text,
+          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildGlassIcon(IconData icon, Color color, {VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: color == Colors.black ? Colors.white : Colors.black.withOpacity(0.3),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black12),
+        ),
+        child: Icon(icon, color: color, size: 20),
+      ),
+    );
+  }
+
+  Widget _buildStat(String num, String text) => Row(
+    children: [
+      Text(
+        num,
+        style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+      const SizedBox(width: 4),
+      Text(text, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+    ],
+  );
+
+  Widget _buildToolItem(IconData icon, String text) => Column(
+    children: [
+      Icon(icon, color: Colors.black87, size: 28),
+      const SizedBox(height: 6),
+      Text(text, style: const TextStyle(color: Colors.black87, fontSize: 11)),
+    ],
+  );
+
   Widget _buildHeaderContent() {
     return Stack(
       children: [
-        Positioned.fill(
-          child: AnimatedContainer(duration: const Duration(milliseconds: 500), color: _dynamicBgColor),
-        ),
+        Positioned.fill(child: Container(color: _dynamicBgColor)),
 
         Positioned.fill(
           child: _displayBgImage.isNotEmpty
               ? ShaderMask(
                   shaderCallback: (Rect bounds) {
-                    return const LinearGradient(
+                    return LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.white, Colors.transparent, Colors.transparent],
-                      stops: [0.1, 0.5, 1],
+                      colors: const [Colors.white, Colors.transparent, Colors.transparent],
+                      stops: isMe ? const [0, 0.46, 1] : const [0, 0.56, 1],
                     ).createShader(bounds);
                   },
                   blendMode: BlendMode.dstIn,
@@ -541,17 +792,17 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      _buildStat("185", "获赞"),
+                      _buildStat("0", "获赞"),
                       const SizedBox(width: 20),
-                      _buildStat("27", "互关"),
+                      _buildStat("0", "互关"),
                       const SizedBox(width: 20),
-                      _buildStat("138", "关注"),
+                      _buildStat("0", "关注"),
                       const SizedBox(width: 20),
-                      _buildStat("32", "粉丝"),
+                      _buildStat("0", "粉丝"),
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(_displaySignature, style: const TextStyle(color: Colors.black54, fontSize: 13)),
+                  Text(_displaySignature, style: const TextStyle(color: Colors.black54, fontSize: 14)),
 
                   if (isMe) ...[
                     const SizedBox(height: 8),
@@ -585,147 +836,5 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
         ),
       ],
     );
-  }
-
-  // --- 辅助组件 ---
-  Widget _buildWorksGrid() {
-    return CustomScrollView(
-      key: const PageStorageKey("works"),
-      physics: const NeverScrollableScrollPhysics(),
-      slivers: [
-        SliverGrid(
-          delegate: SliverChildBuilderDelegate((context, index) {
-            return Container(
-              color: Colors.grey[900],
-              child: Image.network("https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_6.jpg", fit: BoxFit.cover),
-            );
-          }, childCount: _itemCounts[0]),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            mainAxisSpacing: 1,
-            crossAxisSpacing: 1,
-            childAspectRatio: 3 / 4,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyPage(String text) => CustomScrollView(
-    slivers: [
-      SliverFillRemaining(
-        hasScrollBody: false,
-        child: Container(
-          color: Colors.white,
-          alignment: Alignment.center,
-          child: Text(text, style: const TextStyle(color: Colors.grey)),
-        ),
-      ),
-    ],
-  );
-
-  Widget _buildAvatar() => SizedBox(
-    width: 90,
-    height: 90,
-    child: Stack(
-      children: [
-        Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-            image: _displayAvatar.isNotEmpty ? DecorationImage(image: NetworkImage(_displayAvatar), fit: BoxFit.cover) : null,
-          ),
-          child: _displayAvatar.isEmpty ? const CircularProgressIndicator(strokeWidth: 2) : null,
-        ),
-        if (isMe)
-          Positioned(
-            right: 0,
-            bottom: 2,
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                color: const Color(0xFF25D366),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 16),
-            ),
-          ),
-      ],
-    ),
-  );
-
-  Widget _buildGlassCapsule(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-    decoration: BoxDecoration(
-      color: color == Colors.black ? Colors.grey[200] : Colors.white.withOpacity(0.2),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
-      children: [
-        Text(
-          text,
-          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold),
-        ),
-      ],
-    ),
-  );
-
-  Widget _buildGlassIcon(IconData icon, Color color, {VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: color == Colors.black ? Colors.white : Colors.black.withOpacity(0.3),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.black12),
-        ),
-        child: Icon(icon, color: color, size: 20),
-      ),
-    );
-  }
-
-  Widget _buildStat(String num, String text) => Row(
-    children: [
-      Text(
-        num,
-        style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-      const SizedBox(width: 4),
-      Text(text, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-    ],
-  );
-
-  Widget _buildToolItem(IconData icon, String text) => Column(
-    children: [
-      Icon(icon, color: Colors.black87, size: 28),
-      const SizedBox(height: 6),
-      Text(text, style: const TextStyle(color: Colors.black87, fontSize: 11)),
-    ],
-  );
-}
-
-class ClampingLockScrollPhysics extends ClampingScrollPhysics {
-  final bool isLocked;
-
-  const ClampingLockScrollPhysics({this.isLocked = false, super.parent});
-
-  @override
-  ClampingLockScrollPhysics applyTo(ScrollPhysics? ancestor) {
-    return ClampingLockScrollPhysics(isLocked: isLocked, parent: buildParent(ancestor));
-  }
-
-  @override
-  double applyBoundaryConditions(ScrollMetrics position, double value) {
-    if (isLocked) {
-      if (value > position.pixels && position.pixels >= 0) {
-        return value - position.pixels;
-      }
-    }
-    return super.applyBoundaryConditions(position, value);
   }
 }

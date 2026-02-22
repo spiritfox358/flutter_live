@@ -18,13 +18,13 @@ class HttpUtil {
   // static const String _baseIpPort = 's0.efzxt.com:8358';
   // static const String _baseIpPort = '101.200.77.1:8358';
   // Local
-  static const String _baseIpPort = '192.168.1.103:8358';
+  static const String _baseIpPort = '192.168.0.100:8358';
   static const String _baseUrl = "http://$_baseIpPort";
 
   HttpUtil._internal() {
     BaseOptions options = BaseOptions(
       baseUrl: _baseUrl,
-      connectTimeout: const Duration(seconds: 10),
+      connectTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 10),
       headers: {},
       contentType: Headers.jsonContentType,
@@ -67,9 +67,9 @@ class HttpUtil {
   }
 
   // POST 请求
-  Future<dynamic> post(String path, {dynamic data}) async {
+  Future<dynamic> post(String path, {dynamic data, dynamic options}) async {
     try {
-      Response response = await _dio.post(path, data: data);
+      Response response = await _dio.post(path, data: data, options: options);
       return _handleResponse(response);
     } catch (e) {
       rethrow;

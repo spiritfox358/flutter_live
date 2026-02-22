@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/me/profile/edit_profile_bg_page.dart';
 import 'package:flutter_live/screens/me/profile/edit_profile_page.dart';
 import 'package:flutter_live/services/user_service.dart';
-import '../../../store/user_store.dart';
-import '../login/login_page.dart';
-import 'support_page.dart';
+import '../../../../store/user_store.dart';
+import '../../login/login_page.dart';
+import '../support_page.dart';
 
 class MeScreen extends StatefulWidget {
   const MeScreen({super.key});

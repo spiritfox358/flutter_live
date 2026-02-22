@@ -17,6 +17,7 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
+
     _tabController = TabController(length: _tabs.length, vsync: this);
   }
 
