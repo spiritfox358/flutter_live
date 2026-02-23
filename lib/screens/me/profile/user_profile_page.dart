@@ -44,7 +44,7 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   }
 
   String get _fetchId {
-    if (isMe) return UserStore.to.userId.toString() ?? "";
+    if (isMe) return UserStore.to.userId.toString();
     return widget.userInfo?['userId']?.toString() ?? widget.userInfo?['id']?.toString() ?? "";
   }
 
@@ -158,55 +158,58 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     }
   }
 
-  // 🌟 终极版：极其精准的高度计算与锁定逻辑
+  // 🌟 终极版：极其精准的高度计算与防误锁逻辑
   void _checkScrollLock() {
     if (!mounted) return;
 
     final double screenHeight = MediaQuery.of(context).size.height;
-    // 🟢 修复1：获取底部安全区（如 iPhone 底部横条占用高度）
-    final double bottomPadding = MediaQuery.of(context).padding.bottom;
-    // 🟢 修复2：获取 Flutter 标准底部导航栏的高度 (一般是 56.0)
-    final double bottomNavBarHeight = kBottomNavigationBarHeight;
+    final double topPadding = MediaQuery.of(context).padding.top;
 
-    // 🟢 核心修复：算出扣除底部栏后，上方内容真正可以显示的高度区域
-    final double realVisibleHeight = screenHeight - bottomNavBarHeight - bottomPadding;
+    // 🟢 核心修复1：使用 viewPadding 获取最真实的底部安全区高度！
+    // 穿透父级 Scaffold 的吞噬，在苹果手机上稳稳拿到 34.0
+    final double bottomPadding = MediaQuery.of(context).viewPadding.bottom;
 
-    // 头部总高度 (背景区 + TabBar)
-    final double headerExpandedHeight = (isMe ? 355.0 : 270.0) + 46.0;
+    // 🟢 完全对齐你 main.dart 里的物理底部高度
+    final double customBottomBarHeight = 50.0 + bottomPadding;
+
+    // 真正可以显示内容的可视区高度
+    final double realVisibleHeight = screenHeight - customBottomBarHeight;
+
+    // 头部总高度 (背景区 + TabBar + 刘海屏)
+    final double baseHeaderHeight = isMe ? 355.0 : 270.0;
+    final double tabBarHeight = 46.0;
+    final double headerExpandedHeight = baseHeaderHeight + tabBarHeight + topPadding;
 
     double contentHeight = 0;
 
     // 1. 动态判断每个 Tab 的真实高度
     if (_tabController.index == 0) {
       if (_isLoadingWorks || _worksList.isEmpty) {
-        contentHeight = 0; // 加载中或空状态 -> 内部高度视为 0
+        contentHeight = 0;
       } else {
-        // 精准计算出当前网格到底有多高
         int count = _worksList.length;
-        double itemWidth = MediaQuery.of(context).size.width / 3;
+        // 🟢 核心修复2：扣除掉网格间隙(2像素)，算出极其精准的单行高度
+        double itemWidth = (MediaQuery.of(context).size.width - 2) / 3;
         double itemHeight = itemWidth * (4 / 3);
         int rows = (count / 3).ceil();
         contentHeight = (rows * itemHeight) + ((rows - 1) * 1.0);
       }
     } else {
-      // 推荐、收藏、喜欢 目前都是空白页 -> 内部高度视为 0
       contentHeight = 0;
     }
 
-    // 总高度 = 头部 + 下方内容列表
     double totalHeight = headerExpandedHeight + contentHeight;
 
-    // 🌟 核心判断修复：总高度是否小于等于【真实的可用可视高度】
-    // (加了 5 像素的容错缓冲，防止浮点数精度导致差一丁点被卡住)
-    bool shouldLock = totalHeight <= (realVisibleHeight + 5);
+    // 🌟 终极修复3：引入 40 像素的“安全防误锁区”
+    // 只要总高度距离可视区底部不到 40 像素 (比如第二行露了一半)，立刻强制解锁允许滑动！
+    bool shouldLock = totalHeight <= (realVisibleHeight - 40);
 
-    debugPrint("====== 高度计算: 头部 $headerExpandedHeight + 内容 $contentHeight = 总计 $totalHeight. 真实可视高度: $realVisibleHeight => 是否锁定: $shouldLock ======");
+    debugPrint("====== 高度精准计算: 头部 $headerExpandedHeight + 内容 $contentHeight = 总计 $totalHeight. 可视高度: $realVisibleHeight => 锁定状态: $shouldLock ======");
 
     if (_isScrollLocked != shouldLock) {
       setState(() {
         _isScrollLocked = shouldLock;
       });
-      // 如果当前已经被推上去了，但因为切换到了空白页触发了锁定，自动回滚下来
       if (shouldLock && _scrollController.hasClients && _scrollController.offset > 0) {
         _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
       }

@@ -9,7 +9,7 @@ import 'package:flutter_live/store/user_store.dart';
 
 // 🟢 1. 定义全局的 navigatorKey
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
+final ValueNotifier<int> globalRefreshRecommendNotifier = ValueNotifier(0);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await UserStore.to.init();
@@ -121,24 +121,48 @@ class _MainContainerState extends State<MainContainer> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final selectedColor = Colors.blue;
-    final unselectedColor = isDark ? Colors.white70 : Colors.black54;
+
+    // 🟢 核心逻辑：判断当前是否是前两个 Tab (索引为 0 或 1)
+    final bool forceBlackBg = _currentIndex == 0 || _currentIndex == 1;
+
+    // 1. 动态计算背景色
+    final Color navBgColor = forceBlackBg
+        ? Colors.black87 // 前两个 Tab 永远纯黑
+        : (isDark ? const Color(0xFF232D45) : Colors.white); // 其他 Tab 跟随系统主题
+
+    // 2. 动态计算【未选中】的文字/图标颜色
+    // 如果背景被强制变黑了，未选中的字必须变成半透明白色，否则亮色模式下会黑底黑字看不见
+    final Color unselectedColor = forceBlackBg
+        ? Colors.white54
+        : (isDark ? Colors.white70 : Colors.black54);
+
+    // 3. 动态计算【选中】的文字/图标颜色
+    // 沉浸式黑底时选中的字是纯白；普通白底时选中的字恢复成蓝色
+    final Color selectedColor = forceBlackBg
+        ? Colors.white
+        : Colors.blue;
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
       bottomNavigationBar: Container(
         height: 50 + MediaQuery.of(context).padding.bottom,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF232D45) : Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))],
+          color: navBgColor, // 👈 动态应用的背景色
+          // 纯黑背景不需要顶部阴影，白/灰背景时才需要一点阴影区分界限
+          boxShadow: forceBlackBg
+              ? []
+              : [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))],
         ),
         child: SafeArea(
+          // 因为我们已经在外层高度加了 padding.bottom，所以 SafeArea 这里底部不用重复增加安全区
+          bottom: false,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
+              // 注意：这里的 '榜单' 是基于你上传代码里的命名，可以随时改成 '朋友'
               _buildTextTab(0, '首页', selectedColor, unselectedColor),
               _buildTextTab(1, '榜单', selectedColor, unselectedColor),
-              _buildIconTab(2, selectedColor, unselectedColor),
+              _buildIconTab(2, selectedColor, unselectedColor), // 中间加号
               _buildTextTab(3, '消息', selectedColor, unselectedColor),
               _buildTextTab(4, '我', selectedColor, unselectedColor),
             ],
@@ -153,6 +177,12 @@ class _MainContainerState extends State<MainContainer> {
     return Expanded(
       child: InkWell(
         onTap: () {
+          // 👇 加入这段双击刷新的核心逻辑 👇
+          if (index == 0 && _currentIndex == 0) {
+            // 如果用户本来就在首页，再次点击首页 -> 发送刷新信号！
+            globalRefreshRecommendNotifier.value++;
+          }
+
           globalMainTabNotifier.value = index;
           setState(() => _currentIndex = index);
         },
