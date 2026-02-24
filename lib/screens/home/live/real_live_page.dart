@@ -1641,426 +1641,435 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       child: Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: Colors.black,
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 600),
-          child: _isLoadingDetail
-              ? _buildLoadingView()
-              : GestureDetector(
-                  key: ValueKey(_roomId), // 切换房间时触发动画
-                  behavior: HitTestBehavior.translucent,
-                  onTap: _dismissKeyboard,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Positioned.fill(
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  image: DecorationImage(
-                                    image: NetworkImage(_currentBgImage),
-                                    fit: BoxFit.cover, // 铺满全屏
-                                  ),
-                                  gradient: const LinearGradient(
-                                    begin: Alignment.topCenter,
-                                    end: Alignment.bottomCenter,
-                                    colors: [Color(0xFF100101), Color(0xFF141E28)],
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 600),
+              child: _isLoadingDetail
+                  ? _buildLoadingView()
+                  : GestureDetector(
+                      key: ValueKey(_roomId), // 切换房间时触发动画
+                      behavior: HitTestBehavior.translucent,
+                      onTap: _dismissKeyboard,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Positioned.fill(
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      image: DecorationImage(
+                                        image: NetworkImage(_currentBgImage),
+                                        fit: BoxFit.cover, // 铺满全屏
+                                      ),
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [Color(0xFF100101), Color(0xFF141E28)],
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
 
-                            // 🟢 核心：根据 PK 状态决定显示 单人模式(分发) 还是 PK 模式
-                            _pkStatus == PKStatus.idle
-                                ? _buildSingleModeContent(padding.top) // 传入 padding.top
-                                : Column(
-                                    children: [
-                                      Container(
-                                        margin: EdgeInsets.only(top: padding.top),
-                                        height: topBarHeight,
-                                        child: BuildTopBar(
-                                          key: const ValueKey("TopBar"),
-                                          // 可选
-                                          viewerListKey: _viewerListKey,
-                                          // 🟢 传入 Key
-                                          roomId: _roomId,
-                                          onlineCount: _onlineCount <= 0 ? 1 : _onlineCount,
-                                          title: "直播间",
-                                          name: _currentName,
-                                          avatar: _currentAvatar,
-                                          onClose: _handleCloseButton,
-                                          anchorId: _currentUserId,
-                                        ),
-                                      ),
-                                      SizedBox(height: gap1),
-                                      SizedBox(
-                                        height: pkVideoHeight + 18,
-                                        width: size.width,
-                                        child: Stack(
-                                          children: [
-                                            Positioned(
-                                              top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
-                                              left: 0,
-                                              right: 0,
-                                              bottom: 0,
-                                              child: PKRealBattleView(
-                                                leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
-                                                leftBgImage: _isVideoBackground ? null : _currentBgImage,
-                                                leftName: _currentName,
-                                                leftAvatarUrl: _currentAvatar,
-                                                isRightVideoMode: _isRightVideoMode,
-                                                rightVideoController: (_isRightVideoMode && _isRightVideoInitialized) ? _rightVideoController : null,
-                                                isRotating: true,
-                                                rightAvatarUrl: _participants.length > 1 ? _participants[1]['avatar'] : "https://picsum.photos/200",
-                                                rightName: _participants.length > 1 ? _participants[1]['name'] : "对手主播",
-                                                rightBgImage: _participants.length > 1 ? (_participants[1]['pkBg'] ?? "") : "",
-                                                pkStatus: _pkStatus,
-                                                myScore: _myPKScore,
-                                                opponentScore: _opponentPKScore,
-                                                onTapOpponent: _switchToOpponentRoom,
-                                                isOpponentSpeaking: true,
-                                              ),
+                                // 🟢 核心：根据 PK 状态决定显示 单人模式(分发) 还是 PK 模式
+                                _pkStatus == PKStatus.idle
+                                    ? _buildSingleModeContent(padding.top) // 传入 padding.top
+                                    : Column(
+                                        children: [
+                                          Container(
+                                            margin: EdgeInsets.only(top: padding.top),
+                                            height: topBarHeight,
+                                            child: BuildTopBar(
+                                              key: const ValueKey("TopBar"),
+                                              // 可选
+                                              viewerListKey: _viewerListKey,
+                                              // 🟢 传入 Key
+                                              roomId: _roomId,
+                                              onlineCount: _onlineCount <= 0 ? 1 : _onlineCount,
+                                              title: "直播间",
+                                              name: _currentName,
+                                              avatar: _currentAvatar,
+                                              onClose: _handleCloseButton,
+                                              anchorId: _currentUserId,
                                             ),
-                                            if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
-                                              Positioned(
-                                                top: 0,
-                                                left: 0,
-                                                right: 0,
-                                                child: PKScoreBar(
-                                                  myScore: _myPKScore,
-                                                  opponentScore: _opponentPKScore,
-                                                  status: _pkStatus,
-                                                  secondsLeft: _pkTimeLeft,
-                                                ),
-                                              ),
-                                            Positioned(
-                                              top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
-                                              left: 0,
-                                              right: 0,
-                                              child: Center(
-                                                child: PKTimer(
-                                                  secondsLeft: _pkTimeLeft,
-                                                  status: _pkStatus,
-                                                  myScore: _myPKScore,
-                                                  opponentScore: _opponentPKScore,
-                                                ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              right: 10,
-                                              bottom: 10,
-                                              child: Column(
-                                                children: [
-                                                  _buildCircleBtn(
-                                                    onTap: _showMusicPanel,
-                                                    icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
-                                                    borderColor: Colors.purpleAccent,
-                                                    label: "点歌",
+                                          ),
+                                          SizedBox(height: gap1),
+                                          SizedBox(
+                                            height: pkVideoHeight + 18,
+                                            width: size.width,
+                                            child: Stack(
+                                              children: [
+                                                Positioned(
+                                                  top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  bottom: 0,
+                                                  child: PKRealBattleView(
+                                                    leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
+                                                    leftBgImage: _isVideoBackground ? null : _currentBgImage,
+                                                    leftName: _currentName,
+                                                    leftAvatarUrl: _currentAvatar,
+                                                    isRightVideoMode: _isRightVideoMode,
+                                                    rightVideoController: (_isRightVideoMode && _isRightVideoInitialized)
+                                                        ? _rightVideoController
+                                                        : null,
+                                                    isRotating: true,
+                                                    rightAvatarUrl: _participants.length > 1
+                                                        ? _participants[1]['avatar']
+                                                        : "https://picsum.photos/200",
+                                                    rightName: _participants.length > 1 ? _participants[1]['name'] : "对手主播",
+                                                    rightBgImage: _participants.length > 1 ? (_participants[1]['pkBg'] ?? "") : "",
+                                                    pkStatus: _pkStatus,
+                                                    myScore: _myPKScore,
+                                                    opponentScore: _opponentPKScore,
+                                                    onTapOpponent: _switchToOpponentRoom,
+                                                    isOpponentSpeaking: true,
                                                   ),
-                                                  const SizedBox(height: 10),
-                                                  _buildCircleBtn(
-                                                    onTap: _toggleBackgroundMode,
-                                                    icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20),
-                                                    borderColor: Colors.cyanAccent,
-                                                    label: "背景",
-                                                  ),
-                                                  const SizedBox(height: 10),
-                                                  if (_pkStatus != PKStatus.idle)
-                                                    _buildCircleBtn(
-                                                      onTap: _toggleRightVideoMode,
-                                                      icon: Icon(_isRightVideoMode ? Icons.videocam : Icons.person, color: Colors.white, size: 20),
-                                                      borderColor: Colors.orangeAccent,
-                                                      label: "对手",
+                                                ),
+                                                if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
+                                                  Positioned(
+                                                    top: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    child: PKScoreBar(
+                                                      myScore: _myPKScore,
+                                                      opponentScore: _opponentPKScore,
+                                                      status: _pkStatus,
+                                                      secondsLeft: _pkTimeLeft,
                                                     ),
-                                                ],
+                                                  ),
+                                                Positioned(
+                                                  top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Center(
+                                                    child: PKTimer(
+                                                      secondsLeft: _pkTimeLeft,
+                                                      status: _pkStatus,
+                                                      myScore: _myPKScore,
+                                                      opponentScore: _opponentPKScore,
+                                                    ),
+                                                  ),
+                                                ),
+                                                Positioned(
+                                                  right: 10,
+                                                  bottom: 10,
+                                                  child: Column(
+                                                    children: [
+                                                      _buildCircleBtn(
+                                                        onTap: _showMusicPanel,
+                                                        icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
+                                                        borderColor: Colors.purpleAccent,
+                                                        label: "点歌",
+                                                      ),
+                                                      const SizedBox(height: 10),
+                                                      _buildCircleBtn(
+                                                        onTap: _toggleBackgroundMode,
+                                                        icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20),
+                                                        borderColor: Colors.cyanAccent,
+                                                        label: "背景",
+                                                      ),
+                                                      const SizedBox(height: 10),
+                                                      if (_pkStatus != PKStatus.idle)
+                                                        _buildCircleBtn(
+                                                          onTap: _toggleRightVideoMode,
+                                                          icon: Icon(
+                                                            _isRightVideoMode ? Icons.videocam : Icons.person,
+                                                            color: Colors.white,
+                                                            size: 20,
+                                                          ),
+                                                          borderColor: Colors.orangeAccent,
+                                                          label: "对手",
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  bottom: safeBottom > 0 ? safeBottom : 0,
+                                  height: chatListHeight,
+                                  child: RepaintBoundary(
+                                    child: Container(
+                                      color: Colors.transparent,
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            child: BuildChatList(key: _chatListKey, bottomInset: 0, roomId: _roomId, controller: _chatController),
+                                          ),
+                                          // 更新底部栏参数
+                                          BuildBottomInputBar(
+                                            onTapInput: _showInputSheet,
+                                            onTapGift: _showGiftPanel,
+                                            isHost: _isHost, // 传入主播身份
+                                            onTapPK: _onTapStartPK, // 传入 PK 点击事件
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // 挂载 PK 匹配管理器
+                                PkMatchManager(
+                                  key: _pkMatchManagerKey,
+                                  roomId: _roomId,
+                                  currentUserId: _myUserId,
+                                  currentUserName: _myUserName,
+                                  currentUserAvatar: _myAvatar,
+                                  onPkStarted: () {
+                                    // PK 开始的逻辑通常由 PK_START 消息驱动
+                                  },
+                                ),
+
+                                if (showPromoBanner)
+                                  Positioned(
+                                    top: pkVideoBottomY + 4,
+                                    left: 0,
+                                    right: 0,
+                                    child: Center(
+                                      child: Container(
+                                        height: 22,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        decoration: BoxDecoration(
+                                          gradient: iHaveUsedPromo
+                                              ? LinearGradient(colors: [Colors.green.withOpacity(0.8), Colors.teal.withOpacity(0.8)])
+                                              : LinearGradient(colors: [Colors.white.withOpacity(0.15), Colors.pinkAccent.withOpacity(0.5)]),
+                                          borderRadius: BorderRadius.circular(11),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              iHaveUsedPromo ? "首翻已达成" : "首送翻倍",
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              StringTool.formatTime(_promoTimeLeft),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontFamily: "monospace",
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    ],
+                                    ),
                                   ),
-                            Positioned(
-                              left: 0,
-                              right: 0,
-                              bottom: safeBottom > 0 ? safeBottom : 0,
-                              height: chatListHeight,
-                              child: RepaintBoundary(
-                                child: Container(
-                                  color: Colors.transparent,
-                                  child: Column(
-                                    children: [
-                                      Expanded(
-                                        child: BuildChatList(key: _chatListKey, bottomInset: 0, roomId: _roomId, controller: _chatController),
-                                      ),
-                                      // 更新底部栏参数
-                                      BuildBottomInputBar(
-                                        onTapInput: _showInputSheet,
-                                        onTapGift: _showGiftPanel,
-                                        isHost: _isHost, // 传入主播身份
-                                        onTapPK: _onTapStartPK, // 传入 PK 点击事件
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
 
-                            // 挂载 PK 匹配管理器
-                            PkMatchManager(
-                              key: _pkMatchManagerKey,
-                              roomId: _roomId,
-                              currentUserId: _myUserId,
-                              currentUserName: _myUserName,
-                              currentUserAvatar: _myAvatar,
-                              onPkStarted: () {
-                                // PK 开始的逻辑通常由 PK_START 消息驱动
+                                Positioned(
+                                  top: entranceTop,
+                                  left: 0,
+                                  child: LiveUserEntrance(key: _entranceKey),
+                                ),
+                                // if (bottomInset == 0)
+                                //   Positioned(
+                                //     left: 0,
+                                //     width: size.width,
+                                //     top: pkVideoBottomY - 160,
+                                //     height: 160,
+                                //     bottom: null,
+                                //     child: IgnorePointer(
+                                //       child: Align(
+                                //         alignment: Alignment.bottomLeft,
+                                //         child: Padding(
+                                //           padding: const EdgeInsets.only(left: 10),
+                                //           child: Column(
+                                //             crossAxisAlignment: CrossAxisAlignment.start,
+                                //             mainAxisSize: MainAxisSize.min,
+                                //             children: _activeGifts
+                                //                 .map(
+                                //                   (giftEvent) => AnimatedGiftItem(
+                                //                     key: ValueKey(giftEvent.id),
+                                //                     giftEvent: giftEvent,
+                                //                     onFinished: () => _onGiftFinished(giftEvent.id),
+                                //                   ),
+                                //                 )
+                                //                 .toList(),
+                                //           ),
+                                //         ),
+                                //       ),
+                                //     ),
+                                //   ),
+                                if (_showComboButton && _lastGiftSent != null)
+                                  Positioned(
+                                    right: 16,
+                                    bottom: bottomInset + 80,
+                                    child: ScaleTransition(
+                                      scale: CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut),
+                                      child: GestureDetector(
+                                        onTap: () => _sendGift(_lastGiftSent!),
+                                        child: AnimatedBuilder(
+                                          animation: _countdownController,
+                                          builder: (context, child) {
+                                            return SizedBox(
+                                              width: 76,
+                                              height: 76,
+                                              child: Stack(
+                                                alignment: Alignment.center,
+                                                children: [
+                                                  SizedBox(
+                                                    width: 76,
+                                                    height: 76,
+                                                    child: CircularProgressIndicator(
+                                                      value: 1.0 - _countdownController.value,
+                                                      strokeWidth: 4,
+                                                      backgroundColor: Colors.white24,
+                                                      valueColor: const AlwaysStoppedAnimation(Colors.amber),
+                                                    ),
+                                                  ),
+                                                  Container(
+                                                    width: 64,
+                                                    height: 64,
+                                                    decoration: BoxDecoration(
+                                                      shape: BoxShape.circle,
+                                                      gradient: const LinearGradient(
+                                                        colors: [Color(0xFFFF0080), Color(0xFFFF8C00)],
+                                                        begin: Alignment.topLeft,
+                                                        end: Alignment.bottomRight,
+                                                      ),
+                                                      border: Border.all(color: Colors.white, width: 2),
+                                                    ),
+                                                    alignment: const Alignment(0, -0.15),
+                                                    child: const Text(
+                                                      "连击",
+                                                      textAlign: TextAlign.center,
+                                                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                if (_showPKStartAnimation)
+                                  Positioned.fill(
+                                    child: Container(
+                                      color: Colors.black.withOpacity(0.7),
+                                      child: AnimatedBuilder(
+                                        animation: _pkStartAnimationController,
+                                        builder: (context, child) {
+                                          return Opacity(
+                                            opacity: _pkFadeAnimation.value,
+                                            child: Center(
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Transform.translate(
+                                                    offset: Offset(_pkLeftAnimation.value, 0),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                      decoration: BoxDecoration(
+                                                        gradient: const LinearGradient(
+                                                          colors: [Color(0xFFFE4164), Color(0xFFFF7F7F)],
+                                                          begin: Alignment.topLeft,
+                                                          end: Alignment.bottomRight,
+                                                        ),
+                                                        borderRadius: const BorderRadius.only(
+                                                          topLeft: Radius.circular(12),
+                                                          bottomLeft: Radius.circular(12),
+                                                        ),
+                                                        boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
+                                                      ),
+                                                      child: const Text(
+                                                        "P",
+                                                        style: TextStyle(
+                                                          fontSize: 28,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.white,
+                                                          shadows: [Shadow(blurRadius: 5, color: Colors.red)],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Transform.translate(
+                                                    offset: Offset(_pkRightAnimation.value, 0),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                      decoration: BoxDecoration(
+                                                        gradient: const LinearGradient(
+                                                          colors: [Color(0xFF3A7BD5), Color(0xFF00D2FF)],
+                                                          begin: Alignment.topLeft,
+                                                          end: Alignment.bottomRight,
+                                                        ),
+                                                        borderRadius: const BorderRadius.only(
+                                                          topRight: Radius.circular(12),
+                                                          bottomRight: Radius.circular(12),
+                                                        ),
+                                                        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
+                                                      ),
+                                                      child: const Text(
+                                                        "K",
+                                                        style: TextStyle(
+                                                          fontSize: 28,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.white,
+                                                          shadows: [Shadow(blurRadius: 5, color: Colors.blue)],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: ChatInputOverlay(
+                              key: _inputOverlayKey,
+                              onSend: (text) {
+                                _sendSocketMessage(
+                                  "CHAT",
+                                  content: text,
+                                  userName: _myUserName,
+                                  level: _myLevel,
+                                  monthLevel: _monthLevel,
+                                  isHost: _isHost,
+                                );
                               },
                             ),
-
-                            if (showPromoBanner)
-                              Positioned(
-                                top: pkVideoBottomY + 4,
-                                left: 0,
-                                right: 0,
-                                child: Center(
-                                  child: Container(
-                                    height: 22,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                                    decoration: BoxDecoration(
-                                      gradient: iHaveUsedPromo
-                                          ? LinearGradient(colors: [Colors.green.withOpacity(0.8), Colors.teal.withOpacity(0.8)])
-                                          : LinearGradient(colors: [Colors.white.withOpacity(0.15), Colors.pinkAccent.withOpacity(0.5)]),
-                                      borderRadius: BorderRadius.circular(11),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          iHaveUsedPromo ? "首翻已达成" : "首送翻倍",
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          StringTool.formatTime(_promoTimeLeft),
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontFamily: "monospace",
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-
-                            Positioned(
-                              top: entranceTop,
-                              left: 0,
-                              child: LiveUserEntrance(key: _entranceKey),
-                            ),
-
-                            UserEntranceEffectLayer(key: _entranceEffectKey),
-                            // 挂载特效层
-                            Positioned.fill(child: GiftEffectLayer(key: _giftEffectKey)),
-                            GiftTrayEffectLayer(
-                              key: _trayLayerKey,
-                              enableEffectDelay: false,
-                              onEffectTrigger: (GiftEvent event) {
-                                // 在这里调用 GiftEffectLayer 播放特效
-                                // 注意：你需要确保 GiftEvent 模型里有这两个字段，或者在这里根据 ID 查 giftData
-                                if (event.giftEffectUrl.isNotEmpty) {
-                                  _giftEffectKey.currentState?.addEffect(
-                                    event.giftEffectUrl,
-                                    event.id, // 或者 giftId
-                                    event.configJsonList, // 震动配置
-                                  );
-                                }
-                              },
-                            ),
-                            // if (bottomInset == 0)
-                            //   Positioned(
-                            //     left: 0,
-                            //     width: size.width,
-                            //     top: pkVideoBottomY - 160,
-                            //     height: 160,
-                            //     bottom: null,
-                            //     child: IgnorePointer(
-                            //       child: Align(
-                            //         alignment: Alignment.bottomLeft,
-                            //         child: Padding(
-                            //           padding: const EdgeInsets.only(left: 10),
-                            //           child: Column(
-                            //             crossAxisAlignment: CrossAxisAlignment.start,
-                            //             mainAxisSize: MainAxisSize.min,
-                            //             children: _activeGifts
-                            //                 .map(
-                            //                   (giftEvent) => AnimatedGiftItem(
-                            //                     key: ValueKey(giftEvent.id),
-                            //                     giftEvent: giftEvent,
-                            //                     onFinished: () => _onGiftFinished(giftEvent.id),
-                            //                   ),
-                            //                 )
-                            //                 .toList(),
-                            //           ),
-                            //         ),
-                            //       ),
-                            //     ),
-                            //   ),
-                            if (_showComboButton && _lastGiftSent != null)
-                              Positioned(
-                                right: 16,
-                                bottom: bottomInset + 80,
-                                child: ScaleTransition(
-                                  scale: CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut),
-                                  child: GestureDetector(
-                                    onTap: () => _sendGift(_lastGiftSent!),
-                                    child: AnimatedBuilder(
-                                      animation: _countdownController,
-                                      builder: (context, child) {
-                                        return SizedBox(
-                                          width: 76,
-                                          height: 76,
-                                          child: Stack(
-                                            alignment: Alignment.center,
-                                            children: [
-                                              SizedBox(
-                                                width: 76,
-                                                height: 76,
-                                                child: CircularProgressIndicator(
-                                                  value: 1.0 - _countdownController.value,
-                                                  strokeWidth: 4,
-                                                  backgroundColor: Colors.white24,
-                                                  valueColor: const AlwaysStoppedAnimation(Colors.amber),
-                                                ),
-                                              ),
-                                              Container(
-                                                width: 64,
-                                                height: 64,
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  gradient: const LinearGradient(
-                                                    colors: [Color(0xFFFF0080), Color(0xFFFF8C00)],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                  ),
-                                                  border: Border.all(color: Colors.white, width: 2),
-                                                ),
-                                                alignment: const Alignment(0, -0.15),
-                                                child: const Text(
-                                                  "连击",
-                                                  textAlign: TextAlign.center,
-                                                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            if (_showPKStartAnimation)
-                              Positioned.fill(
-                                child: Container(
-                                  color: Colors.black.withOpacity(0.7),
-                                  child: AnimatedBuilder(
-                                    animation: _pkStartAnimationController,
-                                    builder: (context, child) {
-                                      return Opacity(
-                                        opacity: _pkFadeAnimation.value,
-                                        child: Center(
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Transform.translate(
-                                                offset: Offset(_pkLeftAnimation.value, 0),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                  decoration: BoxDecoration(
-                                                    gradient: const LinearGradient(
-                                                      colors: [Color(0xFFFE4164), Color(0xFFFF7F7F)],
-                                                      begin: Alignment.topLeft,
-                                                      end: Alignment.bottomRight,
-                                                    ),
-                                                    borderRadius: const BorderRadius.only(
-                                                      topLeft: Radius.circular(12),
-                                                      bottomLeft: Radius.circular(12),
-                                                    ),
-                                                    boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
-                                                  ),
-                                                  child: const Text(
-                                                    "P",
-                                                    style: TextStyle(
-                                                      fontSize: 28,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: Colors.white,
-                                                      shadows: [Shadow(blurRadius: 5, color: Colors.red)],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              Transform.translate(
-                                                offset: Offset(_pkRightAnimation.value, 0),
-                                                child: Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                  decoration: BoxDecoration(
-                                                    gradient: const LinearGradient(
-                                                      colors: [Color(0xFF3A7BD5), Color(0xFF00D2FF)],
-                                                      begin: Alignment.topLeft,
-                                                      end: Alignment.bottomRight,
-                                                    ),
-                                                    borderRadius: const BorderRadius.only(
-                                                      topRight: Radius.circular(12),
-                                                      bottomRight: Radius.circular(12),
-                                                    ),
-                                                    boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
-                                                  ),
-                                                  child: const Text(
-                                                    "K",
-                                                    style: TextStyle(
-                                                      fontSize: 28,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: Colors.white,
-                                                      shadows: [Shadow(blurRadius: 5, color: Colors.blue)],
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      Positioned.fill(
-                        child: ChatInputOverlay(
-                          key: _inputOverlayKey,
-                          onSend: (text) {
-                            _sendSocketMessage(
-                              "CHAT",
-                              content: text,
-                              userName: _myUserName,
-                              level: _myLevel,
-                              monthLevel: _monthLevel,
-                              isHost: _isHost,
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+            ),
+            UserEntranceEffectLayer(key: _entranceEffectKey),
+            Positioned.fill(child: GiftEffectLayer(key: _giftEffectKey)),
+            GiftTrayEffectLayer(
+              key: _trayLayerKey,
+              enableEffectDelay: false,
+              onEffectTrigger: (GiftEvent event) {
+                if (event.giftEffectUrl.isNotEmpty) {
+                  _giftEffectKey.currentState?.addEffect(
+                    event.giftEffectUrl,
+                    event.id,
+                    event.configJsonList,
+                  );
+                }
+              },
+            ),
+          ],
         ),
       ),
     );

@@ -469,7 +469,7 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
           // 🟢 4. 分享
           const Column(
             children: [
-              Icon(Icons.reply, color: Colors.white, size: 36),
+              Icon(Icons.share, color: Colors.white, size: 36),
               SizedBox(height: 4),
               Text("分享", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
             ],

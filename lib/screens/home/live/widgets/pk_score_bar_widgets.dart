@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui'; // 引入 fontFeatures，用于数字等宽显示
 
 // PK 状态枚举，用于控制界面显示逻辑
 enum PKStatus {
