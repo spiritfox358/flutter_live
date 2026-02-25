@@ -83,7 +83,7 @@ class VoiceRoomContentViewState extends State<VoiceRoomContentView> {
     _autoChatTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
       // 如果 没在播放 && 没在请求中 && 队列是空的
       if (!_isSpeaking && !_isPlayingProcess && _audioQueue.isEmpty && !_isFetchingAutoChat) {
-        _fetchAutoChat();
+        // _fetchAutoChat();
       }
     });
   }

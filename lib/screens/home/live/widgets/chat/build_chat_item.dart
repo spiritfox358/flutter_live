@@ -51,21 +51,21 @@ class BuildChatItem extends StatelessWidget {
                   WidgetSpan(
                     alignment: PlaceholderAlignment.middle,
                     child: Container(
-                      margin: const EdgeInsets.only(right: 4.0),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      margin: const EdgeInsets.only(right: 4.0,top: 1),
+                      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1.9),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFFFF6699), Color(0xFFFF3366)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: const Text(
                         "主播",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 10,
+                          fontSize: 9,
                           fontWeight: FontWeight.bold,
                           height: 1.0,
                         ),
@@ -78,9 +78,7 @@ class BuildChatItem extends StatelessWidget {
                   TextSpan(
                     text: "${msg.name}：",
                     style: TextStyle(
-                      color: msg.isAnchor
-                          ? const Color(0xFFFF88B0)
-                          : Colors.lightBlueAccent,
+                      color: Colors.lightBlueAccent,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       height: 1.4,

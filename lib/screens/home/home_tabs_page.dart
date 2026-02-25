@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/feed/recommend_feed_page.dart';
-import '../../main.dart';
+import 'package:flutter_live/screens/home/live/widgets/pk_test_page.dart';
 import 'live_list_page.dart';
 import 'my_anchor_list_page.dart';
 
@@ -15,6 +15,7 @@ class HomeTabsPage extends StatefulWidget {
 class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  // final List<String> _tabs = ["推荐", "直播", "我的主播","PK条"];
   final List<String> _tabs = ["推荐", "直播", "我的主播"];
 
   @override
@@ -139,6 +140,7 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
           RecommendFeedPage(),
           LiveListPage(),
           MyAnchorListPage(),
+          // PKTestPage(),
         ],
       ),
     );

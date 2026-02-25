@@ -32,11 +32,33 @@ class _BuildChatListState extends State<BuildChatList> {
     super.initState();
 
     widget.controller?._onNewMessageAdd = (msg) {
-      if (mounted) {
-        setState(() {
+      if (!mounted) return;
+
+      setState(() {
+        // 🔍 判断条件：
+        // 1. 名字为空 (name == "")
+        // 2. 内容包含 "加入直播间"
+        bool isJoinSystemMsg = (msg.name == "" || msg.name.isEmpty) && msg.content.contains("加入直播间");
+
+        if (isJoinSystemMsg) {
+          // 🧹 如果是系统加入消息，先查找并移除列表中已存在的同类消息
+          // 我们遍历列表，找到第一个符合条件的并移除
+          _messages.removeWhere((existingMsg) {
+            return (existingMsg.name == "" || existingMsg.name.isEmpty) && existingMsg.content.contains("加入直播间");
+          });
+
+          // 💡 移除后，再将新消息插入到头部 (index 0)
           _messages.insert(0, msg);
-        });
-      }
+        } else {
+          // 📝 普通消息或礼物消息，直接追加
+          _messages.insert(0, msg);
+        }
+
+        // 📉 可选：限制列表总长度，防止内存溢出 (例如只保留最近 50 条)
+        if (_messages.length > 50) {
+          _messages.removeLast();
+        }
+      });
     };
 
     _fetchChatHistory();
@@ -100,6 +122,7 @@ class _BuildChatListState extends State<BuildChatList> {
           ).createShader(bounds),
           blendMode: BlendMode.dstIn,
           child: ListView.builder(
+            physics: const ClampingScrollPhysics(),
             controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 0),
             reverse: true,

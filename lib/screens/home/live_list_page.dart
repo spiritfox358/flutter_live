@@ -3,6 +3,7 @@ import 'package:flutter_live/screens/home/live/real_live_page.dart';
 import 'package:flutter_live/store/user_store.dart';
 import '../../services/update_manager.dart';
 import '../../tools/HttpUtil.dart';
+import 'live/live_swipe_page.dart';
 
 // AnchorInfo 模型
 class AnchorInfo {
@@ -61,6 +62,9 @@ class LiveListPage extends StatefulWidget {
 // 1. 混入 AutomaticKeepAliveClientMixin 实现保活
 class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClientMixin {
   List<AnchorInfo> _anchors = [];
+
+  // 🟢 1. 新增：保存一份原始的 JSON 数据，专门传给滑动页
+  List<dynamic> _rawRoomList = [];
   bool _isInitLoading = true; // 初始加载状态
 
   // 使用 GlobalKey 来控制 RefreshIndicator
@@ -83,8 +87,10 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
       var responseData = await HttpUtil().get("/api/room/list");
       if (mounted) {
         setState(() {
-          _anchors = (responseData as List).map((json) => AnchorInfo.fromJson(json)).toList();
-          _isInitLoading = false; // 数据加载完毕
+          // 🟢 2. 赋值原始数据
+          _rawRoomList = responseData as List<dynamic>;
+          _anchors = _rawRoomList.map((json) => AnchorInfo.fromJson(json)).toList();
+          _isInitLoading = false;
         });
       }
     } catch (e) {
@@ -170,13 +176,14 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
                 padding: const EdgeInsets.only(top: 5, bottom: 80),
                 itemCount: _anchors.length,
                 separatorBuilder: (ctx, i) => Divider(height: 1, thickness: 0.5, indent: 100, endIndent: 16, color: dividerColor.withOpacity(0.1)),
-                itemBuilder: (context, index) => _buildCustomListItem(_anchors[index], theme),
+                // 🟢 3. 把 index 传给 _buildCustomListItem
+                itemBuilder: (context, index) => _buildCustomListItem(_anchors[index], theme, index),
               ),
       ),
     );
   }
 
-  Widget _buildCustomListItem(AnchorInfo anchor, ThemeData theme) {
+  Widget _buildCustomListItem(AnchorInfo anchor, ThemeData theme, int index) {
     final bool isMyRoom = (UserStore.to.userAccountId == "2039" && anchor.roomId == "1001");
     String modeText = "直播中";
     IconData modeIcon = Icons.bar_chart_rounded;
@@ -195,7 +202,7 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
     }
 
     return InkWell(
-      onTap: () => _enterRoom(anchor, isHost: isMyRoom),
+      onTap: () => _enterRoom(anchor, index, isHost: isMyRoom),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
@@ -250,13 +257,28 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
     );
   }
 
-  void _enterRoom(AnchorInfo anchor, {required bool isHost}) {
+  // 🟢 6. 接收 index 参数，并干掉以前冗余的代码
+  void _enterRoom(AnchorInfo anchor, int index, {required bool isHost}) {
+    // 唯一的跳转：进入滑动容器！
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LiveSwipePage(
+          initialRoomList: _rawRoomList, // 把我们刚才存的整个原始列表传过去
+          initialIndex: index,           // 告诉滑动页，当前点的是第几个
+        ),
+      ),
+    );
+  }
+
+  void _enterRoom2(AnchorInfo anchor, {required bool isHost}) {
     const Map<int, LiveRoomType> _dbValueToEnum = {
-      0: LiveRoomType.normal,   // 假设数据库 5 = 普通直播
-      1: LiveRoomType.voice,    // 你提到 7 = 语音房 ✅
-      2: LiveRoomType.music,    // 假设 8 = 听歌房
-      3: LiveRoomType.video,    // 假设 9 = 视频放映厅
+      0: LiveRoomType.normal, // 假设数据库 5 = 普通直播
+      1: LiveRoomType.voice, // 你提到 7 = 语音房 ✅
+      2: LiveRoomType.music, // 假设 8 = 听歌房
+      3: LiveRoomType.video, // 假设 9 = 视频放映厅
     };
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => RealLivePage(

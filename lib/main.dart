@@ -10,6 +10,7 @@ import 'package:flutter_live/store/user_store.dart';
 // 🟢 1. 定义全局的 navigatorKey
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 final ValueNotifier<int> globalRefreshRecommendNotifier = ValueNotifier(0);
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await UserStore.to.init();
@@ -123,24 +124,22 @@ class _MainContainerState extends State<MainContainer> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // 🟢 核心逻辑：判断当前是否是前两个 Tab (索引为 0 或 1)
-    final bool forceBlackBg = _currentIndex == 0 || _currentIndex == 1;
+    // final bool forceBlackBg = _currentIndex == 0 || _currentIndex == 1;
+    final bool forceBlackBg = _currentIndex == 0;
 
     // 1. 动态计算背景色
     final Color navBgColor = forceBlackBg
-        ? Colors.black87 // 前两个 Tab 永远纯黑
+        ? Colors
+              .black87 // 前两个 Tab 永远纯黑
         : (isDark ? const Color(0xFF232D45) : Colors.white); // 其他 Tab 跟随系统主题
 
     // 2. 动态计算【未选中】的文字/图标颜色
     // 如果背景被强制变黑了，未选中的字必须变成半透明白色，否则亮色模式下会黑底黑字看不见
-    final Color unselectedColor = forceBlackBg
-        ? Colors.white54
-        : (isDark ? Colors.white70 : Colors.black54);
+    final Color unselectedColor = forceBlackBg ? Colors.white54 : (isDark ? Colors.white70 : Colors.black54);
 
     // 3. 动态计算【选中】的文字/图标颜色
     // 沉浸式黑底时选中的字是纯白；普通白底时选中的字恢复成蓝色
-    final Color selectedColor = forceBlackBg
-        ? Colors.white
-        : Colors.blue;
+    final Color selectedColor = forceBlackBg ? Colors.white : Colors.blue;
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
@@ -149,9 +148,7 @@ class _MainContainerState extends State<MainContainer> {
         decoration: BoxDecoration(
           color: navBgColor, // 👈 动态应用的背景色
           // 纯黑背景不需要顶部阴影，白/灰背景时才需要一点阴影区分界限
-          boxShadow: forceBlackBg
-              ? []
-              : [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))],
+          boxShadow: forceBlackBg ? [] : [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -2))],
         ),
         child: SafeArea(
           // 因为我们已经在外层高度加了 padding.bottom，所以 SafeArea 这里底部不用重复增加安全区
@@ -186,13 +183,13 @@ class _MainContainerState extends State<MainContainer> {
           globalMainTabNotifier.value = index;
           setState(() => _currentIndex = index);
         },
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? selectedColor : unselectedColor,
-              fontSize: 16,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.bold,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 13.0), // 这里设置上间距，例如 10.0
+            child: Text(
+              label,
+              style: TextStyle(color: isSelected ? selectedColor : unselectedColor, fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
         ),
@@ -209,11 +206,15 @@ class _MainContainerState extends State<MainContainer> {
           globalMainTabNotifier.value = index;
           setState(() => _currentIndex = index);
         },
-        child: Center(
-          child: Icon(
-            Icons.add_box_outlined,
-            color: isSelected ? selectedColor : unselectedColor,
-            size: 30, // 图标大小可调
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 9.0), // 这里设置上间距，例如 10.0
+            child: Icon(
+              Icons.add_box_outlined,
+              color: isSelected ? selectedColor : unselectedColor,
+              size: 30, // 图标大小可调
+            ),
           ),
         ),
       ),

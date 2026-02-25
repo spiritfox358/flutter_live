@@ -145,7 +145,7 @@ class PkMatchManagerState extends State<PkMatchManager> {
           } else {
             t.cancel();
             Navigator.pop(ctx);
-            _replyInvite(inviterRoomId, false);
+            _replyInvite(inviterRoomId, true);
           }
         });
 
@@ -166,7 +166,7 @@ class PkMatchManagerState extends State<PkMatchManager> {
               const SizedBox(height: 16),
               Text("$name 邀请你进行PK连线", style: const TextStyle(color: Colors.white70, fontSize: 16)),
               const SizedBox(height: 8),
-              Text("$timeLeft 秒后自动拒绝", style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              Text("$timeLeft 秒后自动同意", style: const TextStyle(color: Colors.grey, fontSize: 12)),
             ],
           ),
           actions: [
