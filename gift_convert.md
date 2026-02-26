@@ -16,21 +16,22 @@ ffmpeg -i 抖音1号_new.mov \
 
 
 
-ffmpeg -i 钻石邮轮.mov \
+ffmpeg -i 御龙游侠底座.mov \
 -filter_complex "
 [0:v]format=rgba,split=2[rgb][a];
-[a]alphaextract,format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2[a_gray];
-[rgb]format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2[rgb_yuv];
+[a]alphaextract,format=yuv420p,scale=-2:800[a_gray];
+[rgb]format=yuv420p,scale=-2:800[rgb_yuv];
 [a_gray][rgb_yuv]hstack=inputs=2
 " \
 -c:v libx264 \
 -pix_fmt yuv420p \
--profile:v high \
--level 4.2 \
+-profile:v main \
+-level 4.0 \
 -crf 23 \
+-r 30 \
 -preset slow \
 -movflags +faststart \
-钻石邮轮.mp4
+御龙游侠底座2.mp4
 
 ffprobe -v quiet -show_streams 云中秘境.webm
 

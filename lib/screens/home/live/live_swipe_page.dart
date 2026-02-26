@@ -47,10 +47,11 @@ class _LiveSwipePageState extends State<LiveSwipePage> {
       resizeToAvoidBottomInset: false,
       body: PageView.builder(
         controller: _pageController,
+        // physics: const HeavyScrollPhysics(), // 🟢 使用重度阻尼滑动
+        physics: const TikTokPagePhysics(),
         scrollDirection: Axis.vertical,
         // 🟢 关键：上下滑动
         dragStartBehavior: DragStartBehavior.down,
-        physics: const TikTokPagePhysics(),
         // 🟢 关键：使用之前短视频那套丝滑弹簧引擎
         itemCount: _roomList.length,
         onPageChanged: (index) {
@@ -94,5 +95,20 @@ class _LiveSwipePageState extends State<LiveSwipePage> {
         },
       ),
     );
+  }
+}
+
+class HeavyScrollPhysics extends PageScrollPhysics {
+  const HeavyScrollPhysics({ScrollPhysics? parent}) : super(parent: parent);
+
+  @override
+  HeavyScrollPhysics applyTo(ScrollPhysics? ancestor) {
+    return HeavyScrollPhysics(parent: buildParent(ancestor));
+  }
+
+  // 修改位移缩放比例 (默认是1.0，越小滑动越费力)
+  @override
+  double applyPhysicsToUserOffset(ScrollMetrics position, double offset) {
+    return super.applyPhysicsToUserOffset(position, offset * 0.55);
   }
 }
