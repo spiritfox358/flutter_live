@@ -101,18 +101,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   // 🟢 终极跟手魔法：跨层级手势劫持变量
   Drag? _parentDrag; // 保存父级 PageView 的物理拖拽句柄
-  double _lastDragY = 0;
-  int _lastDragTime = 0;
-  double _dragVelocity = 0; // 计算真实手指松开时的物理速度
   // 🟢 终极跟手魔法：跨层级手势劫持变量
   double _parentDragDistance = 0.0; // 记录本次拖拽的真实物理距离
   bool _canForwardToParent = false; // 判断当前是否允许切房
-
-  // ⬇️⬇️⬇️ 核心新增：防误触与阻尼控制 ⬇️⬇️⬇️
-  double _overscrollAccumulator = 0; // 累计越界距离
-  final double _overscrollThreshold = 50.0; // 防误触死区：越界滑动超过 40 像素才真正切房
-  final double _dragDamping = 0.4; // 滑动阻尼：0.4 表示阻力翻倍，滑动变得更重、更难切过去
-  // ⬆️⬆️⬆️ 核心新增：防误触与阻尼控制 ⬆️⬆️⬆️
 
   WebSocketChannel? _channel;
   StreamSubscription? _socketSubscription;
@@ -577,7 +568,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       final int joinerMonthLevel = int.tryParse(data['monthLevel']?.toString() ?? '') ?? 0;
       switch (type) {
         case "ENTER":
-          if ([2, 163].contains(int.parse(joinerId))) {
+          if ([2, 6, 163].contains(int.parse(joinerId))) {
             _entranceEffectKey.currentState?.addEntrance(EntranceModel(userName: joinerName, avatar: joinerAvatar));
           } else {
             _simulateVipEnter(
@@ -1921,11 +1912,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
                                                 if (notification.dragDetails != null && widget.pageController != null) {
                                                   _parentDrag ??= widget.pageController!.position.drag(
-                                                      DragStartDetails(globalPosition: notification.dragDetails!.globalPosition),
-                                                      () {
-                                                        _parentDrag = null;
-                                                      },
-                                                    );
+                                                    DragStartDetails(globalPosition: notification.dragDetails!.globalPosition),
+                                                    () {
+                                                      _parentDrag = null;
+                                                    },
+                                                  );
                                                   double dy = notification.dragDetails!.delta.dy;
                                                   _parentDragDistance += dy; // 累计拖拽距离
 
