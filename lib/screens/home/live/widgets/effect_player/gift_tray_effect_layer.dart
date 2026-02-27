@@ -156,7 +156,7 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
   // 🔧🔧🔧 智能调节区域 🔧🔧🔧
   // =======================================================
   final int _videoDurationMs = 3000;
-  final int _earlyShowMs = 280;
+  final int _earlyShowMs = 120;
 
   final double _scale = 0.8;
   static const double _baseWidth = 400.0;

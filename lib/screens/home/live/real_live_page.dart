@@ -105,6 +105,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   double _parentDragDistance = 0.0; // 记录本次拖拽的真实物理距离
   bool _canForwardToParent = false; // 判断当前是否允许切房
 
+  // ⬇️⬇️⬇️ 新增：弹幕区滑动切房的独立开关 ⬇️⬇️⬇️
+  final bool _enableSwipeUpToSwitchRoom = true; // 开关：是否允许手指【往上滑】切房（默认关闭）
+  final bool _enableSwipeDownToSwitchRoom = false; // 开关：是否允许手指【往下滑】切房（默认开启）
+  // ⬆️⬆️⬆️ 新增：弹幕区滑动切房的独立开关 ⬆️⬆️⬆️
+
   WebSocketChannel? _channel;
   StreamSubscription? _socketSubscription;
   late String _myUserName;
@@ -595,6 +600,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         case "ONLINE_COUNT":
           final int newCount = data['onlineCount'] ?? 0;
           if (mounted) setState(() => _onlineCount = newCount);
+          _viewerListKey.currentState?.refresh();
           break;
         case "GIFT":
           final String giftId = data['giftId']?.toString() ?? "";
@@ -1894,10 +1900,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                 }
                                                 _parentDragDistance = 0.0;
 
-                                                // 🟢 抖音级防误触核心：
                                                 // 判断手指按下瞬间，列表是否【已经】在顶部或底部边缘？
-                                                // 如果在边缘，说明用户大概率想切房，放行手势！
-                                                // 如果不在边缘(在刷评论)，就算滑到底也不切房，必须松手重新滑！
                                                 final metrics = notification.metrics;
                                                 if (metrics.pixels <= metrics.minScrollExtent + 2.0 ||
                                                     metrics.pixels >= metrics.maxScrollExtent - 2.0) {
@@ -1911,16 +1914,26 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                 if (!_canForwardToParent) return false;
 
                                                 if (notification.dragDetails != null && widget.pageController != null) {
-                                                  _parentDrag ??= widget.pageController!.position.drag(
-                                                    DragStartDetails(globalPosition: notification.dragDetails!.globalPosition),
-                                                    () {
-                                                      _parentDrag = null;
-                                                    },
-                                                  );
                                                   double dy = notification.dragDetails!.delta.dy;
+
+                                                  // 🟢 核心修改：通过开关拦截特定方向的滑动！
+                                                  // dy < 0 代表手指正在【往上滑】 (试图看下方的直播间)
+                                                  if (dy < 0 && !_enableSwipeUpToSwitchRoom) return false;
+                                                  // dy > 0 代表手指正在【往下滑】 (试图看上方的直播间)
+                                                  if (dy > 0 && !_enableSwipeDownToSwitchRoom) return false;
+
+                                                  if (_parentDrag == null) {
+                                                    _parentDrag ??= widget.pageController!.position.drag(
+                                                      DragStartDetails(globalPosition: notification.dragDetails!.globalPosition),
+                                                      () {
+                                                        _parentDrag = null;
+                                                      },
+                                                    );
+                                                  }
+
                                                   _parentDragDistance += dy; // 累计拖拽距离
 
-                                                  // 🟢 1:1 绝对跟手传递，没有任何死区延迟
+                                                  // 1:1 绝对跟手传递，没有任何死区延迟
                                                   _parentDrag?.update(
                                                     DragUpdateDetails(
                                                       sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
@@ -1931,7 +1944,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                   );
                                                 }
                                               }
-                                              // 3. 手指往回拉 (核心修复：反向拉动绝对不能 end，必须跟着手指退回去)
+                                              // 3. 手指往回拉 (反向拉动必须跟着手指退回去)
                                               else if (notification is ScrollUpdateNotification) {
                                                 if (_parentDrag != null && notification.dragDetails != null) {
                                                   double dy = notification.dragDetails!.delta.dy;
@@ -1952,9 +1965,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                 if (_parentDrag != null) {
                                                   Velocity finalVelocity = notification.dragDetails?.velocity ?? Velocity.zero;
 
-                                                  // 🟢 核心修复：防止“稍微滑一下就切房” (太灵敏)
-                                                  // 如果你手指拖拽的总距离不到 60 像素，强行把物理惯性清零！
-                                                  // 这样 PageView 就会判定“切房失败”，乖乖执行回弹动画。
+                                                  // 防止“稍微滑一下就切房” (拖拽不足60像素强制回弹)
                                                   if (_parentDragDistance.abs() < 60.0) {
                                                     finalVelocity = Velocity.zero;
                                                   }

@@ -32,7 +32,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -75,6 +75,11 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
                 physics: const NeverScrollableScrollPhysics(),
                 children: [
                   // 🟢 3. 传递 onLoaded 回调，更新页面状态
+                  RankingTabLoader(
+                    type: 4,
+                    onLoaded: (info) => setState(() => _myRankInfo = info),
+                    builder: (data, onRefresh) => _buildRankingListView(data, onRefresh, isDark),
+                  ),
                   RankingTabLoader(
                     type: 1,
                     onLoaded: (info) => setState(() => _myRankInfo = info),
@@ -129,6 +134,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
           return Colors.transparent; // 其他状态也透明
         }),
         tabs: const [
+          Tab(text: "小时榜"),
           Tab(text: "日榜"),
           Tab(text: "周榜"),
           Tab(text: "月榜"),
