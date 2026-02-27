@@ -1632,6 +1632,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         return Stack(
           children: [
             SingleModeView(
+              key: const ValueKey("SingleModeView"),
+              // 可选
+              viewerListKey: _viewerListKey,
               roomId: _roomId,
               onlineCount: _onlineCount,
               isVideoBackground: _isVideoBackground,

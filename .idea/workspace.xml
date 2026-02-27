@@ -5,11 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
+      <change beforePath="$PROJECT_DIR$/.idea/flutter_live.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/flutter_live.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/dashboard/ranking/user_ranking_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/dashboard/ranking/user_ranking_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/chat/build_chat_list.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/chat/build_chat_list.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_banner/animate_gift_banner_widget.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_banner/animate_gift_banner_widget.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/single_mode_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/single_mode_view.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -478,7 +479,15 @@
       <option name="project" value="LOCAL" />
       <updated>1772117852291</updated>
     </task>
-    <option name="localTasksCounter" value="47" />
+    <task id="LOCAL-00047" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1772175582458</created>
+      <option name="number" value="00047" />
+      <option name="presentableId" value="LOCAL-00047" />
+      <option name="project" value="LOCAL" />
+      <updated>1772175582458</updated>
+    </task>
+    <option name="localTasksCounter" value="48" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -522,7 +531,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>2268</line>
+          <line>2271</line>
           <option name="timeStamp" value="108" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">

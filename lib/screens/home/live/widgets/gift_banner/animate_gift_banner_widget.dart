@@ -138,7 +138,7 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
                 const SizedBox(width: 6), // 间距稍微拉大一点点
                 // B. 文字信息 (🟢 核心修改：增加宽度限制)
                 Container(
-                  constraints: const BoxConstraints(maxWidth: 55), // 🟢 限制最大宽度，防止名字太长
+                  constraints: const BoxConstraints(maxWidth: 60), // 🟢 限制最大宽度，防止名字太长
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,

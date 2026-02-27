@@ -78,7 +78,7 @@ class _BuildChatListState extends State<BuildChatList> {
             final int monthLevel = int.tryParse(item['monthLevel']?.toString() ?? "0") ?? 0;
             // 🟢 解析主播身份 (假设后端返回字段叫 isAnchor 或 role)
             // 你可能需要根据实际后端字段调整，比如 item['role'] == 'anchor'
-            final bool isAnchor = item['isAnchor'] ?? false;
+            final bool isAnchor = (item['isHost'] ?? 0) == 1;
 
             final int type = item['type'] ?? 1;
             final bool isGift = (type == 2);
