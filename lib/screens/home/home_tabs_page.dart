@@ -15,8 +15,8 @@ class HomeTabsPage extends StatefulWidget {
 class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // final List<String> _tabs = ["推荐", "直播", "我的主播","PK条"];
-  final List<String> _tabs = ["推荐", "直播", "我的主播"];
+  final List<String> _tabs = ["推荐", "直播", "我的主播","PK条"];
+  // final List<String> _tabs = ["推荐", "直播", "我的主播"];
 
   @override
   void initState() {
@@ -140,7 +140,7 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
           RecommendFeedPage(),
           LiveListPage(),
           MyAnchorListPage(),
-          // PKTestPage(),
+          PKTestPage(),
         ],
       ),
     );

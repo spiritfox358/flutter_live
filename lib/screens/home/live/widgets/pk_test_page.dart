@@ -184,6 +184,26 @@ class PKScoreBar extends StatefulWidget {
 }
 
 class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
+
+  // =========================================================================
+  // 🛠️🛠️🛠️ 微调参数区：方便你直接调节飘字和暴击卡的位置 🛠️🛠️🛠️
+  // =========================================================================
+
+  // 1. 暴击卡图标位置控制
+  // 默认宽 28，基于中心线往左退一半(-14)就是居中。如果想让它偏右一点，把这个值调大(比如 -5)
+  final double critCardOffsetX = -14.0;
+  // 控制上下浮动。0是和血条平齐，负数是往上漂浮。如果想让它再高一点不挡数字，可以改成 -15.0
+  final double critCardOffsetY = -5;
+
+  // 2. 飘字动画 (+分数) 位置控制
+  // 控制飘字距离我方红条最右侧(交界处)的距离。
+  // 💡 如果你发现被暴击卡挡住了，把这个值调大（比如改成 25.0 或 30.0），飘字就会往左挪，避开暴击卡！
+  final double scorePopRightPadding = 13.0;
+  // 控制飘字的上下偏移。负数往上，正数往下。0 表示垂直居中。
+  final double scorePopTopOffset = 0.0;
+
+  // =========================================================================
+
   int _oldMyScore = 0;
   int _addedScore = 0;
   Duration _barAnimationDuration = const Duration(milliseconds: 1500);
@@ -214,7 +234,6 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
       if (status == AnimationStatus.completed) _comboTextScaleController.reverse();
     });
 
-    // 闪电动画时长，500ms 能看清完整的射出和消散
     _lightningController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
   }
 
@@ -346,14 +365,14 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                                       },
                                     ),
 
-                                  // ✨✨✨ 3. 逼真的高压电流闪击特效 ✨✨✨
+                                  // ✨✨✨ 3. 终极爆裂光波：瞬间全屏贯穿，右亮左暗，中心突出撕裂 ✨✨✨
                                   if (_lightningController.isAnimating)
                                     Positioned.fill(
                                       child: AnimatedBuilder(
                                         animation: _lightningController,
                                         builder: (context, child) {
                                           return CustomPaint(
-                                            painter: _LightningPainter(_lightningController.value),
+                                            painter: _ExplosionPainter(_lightningController.value),
                                           );
                                         },
                                       ),
@@ -378,11 +397,11 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                           child: PKDividerEffect(isZeroScore: total == 0),
                         ),
 
-                        // --- 5. 暴击卡图片跟随 ---
+                        // --- 5. 暴击卡图片跟随 (使用顶部变量控制) ---
                         if (widget.critSecondsLeft > 0)
                           Positioned(
-                            left: leftWidth - 14,
-                            top: -8,
+                            left: leftWidth + critCardOffsetX,
+                            top: critCardOffsetY,
                             child: Image.network(
                               'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E6%9A%B4%E5%87%BB%E5%8D%A1_prop.png',
                               width: 28,
@@ -390,10 +409,13 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                             ),
                           ),
 
-                        // --- 6. 飘字动画 ---
+                        // --- 6. 飘字动画 (使用顶部变量控制) ---
                         if (_popController.isAnimating || _popController.isCompleted)
                           Positioned(
-                            left: 0, top: 0, bottom: 0, width: leftWidth,
+                            left: 0,
+                            top: scorePopTopOffset,    // 应用顶部变量的偏移
+                            bottom: -scorePopTopOffset, // 上下挤压保持原高，实现偏移
+                            width: leftWidth,
                             child: AnimatedBuilder(
                               animation: _popController,
                               builder: (context, child) {
@@ -403,7 +425,8 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                                     scale: _isCombo ? 1.0 : _popScale.value,
                                     child: Container(
                                       alignment: Alignment.centerRight,
-                                      padding: const EdgeInsets.only(right: 5),
+                                      // 应用顶部变量的左移距离
+                                      padding: EdgeInsets.only(right: scorePopRightPadding),
                                       child: AnimatedBuilder(
                                           animation: _comboTextScaleController,
                                           builder: (context, child) {
@@ -456,135 +479,109 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
   }
 }
 
-// 🌟🌟🌟 重新构建：物理级真实分形闪电 (Fractal Lightning) 🌟🌟🌟
-class _LightningPainter extends CustomPainter {
+// 🌟🌟🌟 终极优化：“右侧爆发、左侧衰减” + “中间长边缘短的物理撕裂” 🌟🌟🌟
+class _ExplosionPainter extends CustomPainter {
   final double progress;
+  final math.Random random = math.Random();
 
-  _LightningPainter(this.progress);
+  _ExplosionPainter(this.progress);
 
   @override
   void paint(Canvas canvas, Size size) {
     if (progress <= 0 || progress >= 1) return;
 
-    // 💡 视觉秘诀 1：帧锁定 (Seed Random)
-    // 真实的闪电不是每一帧都在乱窜的（那样看起来像糊掉的马赛克）。
-    // 我们把 0~1 的进度分成 8 个阶段，每个阶段使用同一个随机数种子。
-    // 这使得闪电呈现出“定格-变异-定格-变异”的极具力量感的频闪效果！
-    int step = (progress * 8).floor();
-    math.Random random = math.Random(step);
-
-    // 随机跳帧，增加断电感
+    // 高频闪烁制造极强的能量不稳定性
     if (random.nextDouble() > 0.75) return;
 
-    // 💡 动画进度控制：前30%的时间闪电射出，后70%的时间闪烁并消散
-    double revealProgress = (progress * 3.3).clamp(0.0, 1.0);
+    // 💡 调整 1：光速无限快！进度决定的是透明度(衰减)，不再是位移。
+    // 第 0.0 帧瞬间达到最亮(opacity=1.0)，随后光波一起同步变暗消散。
     double opacity = 1.0;
-    if (progress > 0.3) {
-      opacity = 1.0 - ((progress - 0.3) / 0.7);
+    if (progress > 0.05) {
+      opacity = 1.0 - ((progress - 0.05) / 0.95);
     }
 
-    // 💡 尺寸与范围控制：从右向左，占据我方血条靠右侧 80% 的距离
-    double startX = size.width;
-    double endX = size.width * 0.2;
+    // 固定种子保证一次暴击产生固定的撕裂形状，仅随透明度闪烁
+    math.Random shapeRandom = math.Random(666);
 
-    // 裁剪动画区域，让闪电像光束一样射出
-    double currentLeft = startX - (startX - endX) * revealProgress;
-    canvas.clipRect(Rect.fromLTRB(currentLeft - 20, -20, startX + 20, size.height + 20));
+    // 💡 调整 2：“中间长尖、两边短”的物理撕裂算法
+    Path blastPath = Path();
+    blastPath.moveTo(size.width, 0);           // 起点：右上角
+    blastPath.lineTo(size.width, size.height); // 起点：右下角
 
-    // 💡 渐变着色器：最左边耀眼纯白，向右变为紫色，最后完全透明融入背景
-    final Rect shaderRect = Rect.fromLTRB(endX, 0, startX, size.height);
+    // 从下往上勾勒左侧的撕裂边缘
+    int steps = 16;
+    for (int i = steps; i >= 0; i--) {
+      double y = size.height * (i / steps);
 
-    final Shader coreShader = LinearGradient(
-      begin: Alignment.centerLeft, end: Alignment.centerRight,
+      // 计算当前点距离中心高度的比例 (0.0=最中心, 1.0=最边缘)
+      double distFromCenter = (y - size.height / 2).abs() / (size.height / 2);
+
+      // 核心算法：边缘后退距离。边缘(上下)退得最多，中心退得最少
+      // 假设最多退后 80 像素
+      double pullback = distFromCenter * 80.0;
+
+      // 加入随机锯齿感，同样中心锯齿长，边缘锯齿短
+      double jitter = shapeRandom.nextDouble() * 30.0 * (1.0 - distFromCenter * 0.5);
+
+      // 最终的 x 坐标：允许横穿数字甚至直接顶到 0.0 最左端
+      double x = pullback + jitter;
+      x = math.max(0.0, x); // 防止越过最左侧边界
+
+      blastPath.lineTo(x, y);
+    }
+    blastPath.close();
+
+    // 💡 调整 3：渐变方向修正为“右侧最亮 -> 左侧衰减”
+    final Rect shaderRect = Rect.fromLTRB(0, 0, size.width, size.height);
+    final Shader blastShader = LinearGradient(
+      // 从右往左渐变
+      begin: Alignment.centerRight,
+      end: Alignment.centerLeft,
       colors: [
-        Colors.white.withOpacity(opacity),
-        Colors.white.withOpacity(opacity * 0.7),
-        Colors.white.withOpacity(0.0),
+        Colors.white.withOpacity(opacity),                   // 最右侧 (源头)：爆出耀眼纯白核心
+        const Color(0xFFFFF59D).withOpacity(opacity * 0.9),  // 偏右段：极高亮的火花黄
+        const Color(0xFFE040FB).withOpacity(opacity * 0.6),  // 偏左段：能量紫晕
+        Colors.transparent,                                  // 最左侧 (末端)：完全透明，融入背景
       ],
-      stops: const [0.0, 0.5, 1.0],
+      stops: const [0.0, 0.3, 0.7, 1.0],
     ).createShader(shaderRect);
 
-    // 紫色/青色高压电弧晕影
-    final Shader glowShader = LinearGradient(
-      begin: Alignment.centerLeft, end: Alignment.centerRight,
-      colors: [
-        const Color(0xFFE040FB).withOpacity(opacity),       // 高亮紫
-        const Color(0xFFE040FB).withOpacity(opacity * 0.6), // 过渡
-        const Color(0xFFE040FB).withOpacity(0.0),
-      ],
-      stops: const [0.0, 0.5, 1.0],
+    // 1. 绘制主体能量波
+    canvas.drawPath(blastPath, Paint()..shader = blastShader..style = PaintingStyle.fill);
+
+    // 2. 绘制源头极亮曝光区 (强化右侧起点的爆发感)
+    final Shader originFlashShader = LinearGradient(
+        begin: Alignment.centerRight,
+        end: Alignment.centerLeft,
+        colors: [
+          Colors.white.withOpacity(opacity),
+          Colors.white.withOpacity(0.0)
+        ],
+        stops: const [0.0, 0.4] // 只占右边一点点
     ).createShader(shaderRect);
+    canvas.drawRect(shaderRect, Paint()..shader = originFlashShader);
 
-    final Paint glowPaint = Paint()
-      ..shader = glowShader
-      ..style = PaintingStyle.stroke
-      ..strokeJoin = StrokeJoin.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3.0);
+    // 💡 3. 散落的高能火花线，从右侧核心向左射出
+    final Paint sparkPaint = Paint()
+      ..color = Colors.white.withOpacity(opacity * 0.9)
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
 
-    final Paint corePaint = Paint()
-      ..shader = coreShader
-      ..style = PaintingStyle.stroke
-      ..strokeJoin = StrokeJoin.round;
+    int sparkCount = random.nextInt(6) + 4; // 随机火花条数
+    for (int i = 0; i < sparkCount; i++) {
+      double sparkY = random.nextDouble() * size.height;
+      // 起点大部分集中在右侧 (交界处)
+      double sparkX = size.width - random.nextDouble() * (size.width * 0.4);
+      // 长度向左延伸
+      double length = random.nextDouble() * 60 + 20;
 
-    // 🌟 绘制横向主闪电 (粗)
-    Path mainPath = _generateLightning(startX, endX, size.height / 2, random, true);
-    canvas.drawPath(mainPath, glowPaint..strokeWidth = 5.0); // 宽层光晕
-    canvas.drawPath(mainPath, glowPaint..strokeWidth = 2.0); // 核心光晕
-    canvas.drawPath(mainPath, corePaint..strokeWidth = 1.5); // 白炽核心
-
-    // 🌟 绘制侧向分支闪电 (细)，大部分集中在爆发的左端
-    int branchCount = random.nextInt(3) + 2; // 随机 2~4 条分支
-    for (int i = 0; i < branchCount; i++) {
-      // 让分支的起点偏向左边 (更靠近 endX)
-      double startFactor = random.nextDouble() * random.nextDouble();
-      double branchStartX = endX + startFactor * (startX - endX);
-      double branchStartY = size.height / 2 + (random.nextDouble() * 8 - 4);
-
-      // 分支大概向左侧延伸一小段
-      double branchEndX = branchStartX - random.nextDouble() * 30 - 10;
-
-      Path branchPath = _generateLightning(branchStartX, branchEndX, branchStartY, random, false);
-      canvas.drawPath(branchPath, glowPaint..strokeWidth = 2.0);
-      canvas.drawPath(branchPath, corePaint..strokeWidth = 0.8);
+      canvas.drawLine(Offset(sparkX, sparkY), Offset(sparkX - length, sparkY), sparkPaint);
     }
-
-    // 🌟 射出前端的能量高光球 (模拟击穿空气的火花)
-    if (revealProgress < 1.0) {
-      canvas.drawCircle(Offset(currentLeft, size.height / 2), 10.0, Paint()..color = const Color(0xFFE040FB).withOpacity(opacity * 0.8)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5.0));
-      canvas.drawCircle(Offset(currentLeft, size.height / 2), 4.0, Paint()..color = Colors.white.withOpacity(opacity));
-    }
-  }
-
-  // 生成真实分形折线的核心算法
-  Path _generateLightning(double startX, double endX, double startY, math.Random random, bool isMain) {
-    Path path = Path();
-    path.moveTo(startX, startY);
-
-    double currX = startX;
-    double currY = startY;
-    double centerY = startY;
-
-    // 只要还没抵达左侧终点，就不断生成折线段
-    while (currX > endX) {
-      // 每次稳步向左推进一段距离
-      currX -= (random.nextDouble() * 12 + 6);
-      if (currX < endX) currX = endX;
-
-      // 💡 视觉秘诀 2：横向约束
-      // 纵向(上下)随机跳跃，但如果是主干，跳跃幅度更大；
-      double jitter = isMain ? 8.0 : 4.0;
-      currY += (random.nextDouble() * jitter * 2 - jitter);
-
-      // 核心！利用引力公式，强行把电流拉回中轴线，保证它永远是横着劈的，不会飞出红条上下边界！
-      currY += (centerY - currY) * 0.4; // 每次偏离后，会有 40% 的力量把它扯回中间
-
-      path.lineTo(currX, currY);
-    }
-    return path;
   }
 
   @override
-  bool shouldRepaint(covariant _LightningPainter oldDelegate) => true;
+  bool shouldRepaint(covariant _ExplosionPainter oldDelegate) => true;
 }
 
 // ----------------------------------------

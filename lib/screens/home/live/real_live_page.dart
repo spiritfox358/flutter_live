@@ -170,6 +170,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   int _pkTimeLeft = 0;
   Timer? _pkTimer;
 
+  // 🟢 1. 新增：记录暴击卡到期时间
+  DateTime? _critEndTime;
   List<dynamic> _participants = [];
 
   // 首翻相关变量
@@ -599,8 +601,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           break;
         case "ONLINE_COUNT":
           final int newCount = data['onlineCount'] ?? 0;
-          if (mounted) setState(() => _onlineCount = newCount);
-          _viewerListKey.currentState?.refresh();
+          _onlineCount = newCount;
+          _viewerListKey.currentState?.updateOnlineCount(newCount);
           break;
         case "GIFT":
           final String giftId = data['giftId']?.toString() ?? "";
@@ -623,7 +625,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             senderId: msgUserId,
             count: int.tryParse(data['giftCount']?.toString() ?? '') ?? 1,
           );
-          _viewerListKey.currentState?.refresh();
           break;
         // 处理 PK 邀请
         case "PK_INVITE":
@@ -849,7 +850,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       if (initialTimeLeft == null) {
         _myPKScore = 0;
         _opponentPKScore = 0;
-
+        _critEndTime = null; // 🟢 新增：新开一局时重置暴击卡时间
         _isFirstGiftPromoActive = true;
         _promoTimeLeft = 30;
         _usersWhoUsedPromo.clear();
@@ -946,6 +947,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         _pkStatus = PKStatus.idle;
         _myPKScore = 0;
         _opponentPKScore = 0;
+        _critEndTime = null; // 🟢 新增：PK完全结束时重置
         _isFirstGiftPromoActive = false;
         _participants = [];
       });
@@ -1260,6 +1262,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         senderMonthLevel: senderMonthLevel,
         isHost: isHost,
       );
+
+      if (giftData.name == "暴击卡" || giftData.id == "8888") {
+        final now = DateTime.now();
+        if (_critEndTime == null || _critEndTime!.isBefore(now)) {
+          _critEndTime = now.add(Duration(seconds: 30 * count)); // 每次30秒，送多个叠加
+        } else {
+          _critEndTime = _critEndTime!.add(Duration(seconds: 30 * count));
+        }
+      }
 
       if (_pkStatus == PKStatus.playing) {
         int scoreToAdd = giftData.price * count;
@@ -1819,18 +1830,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                     isOpponentSpeaking: true,
                                                   ),
                                                 ),
-                                                if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
-                                                  Positioned(
-                                                    top: 0,
-                                                    left: 0,
-                                                    right: 0,
-                                                    child: PKScoreBar(
-                                                      myScore: _myPKScore,
-                                                      opponentScore: _opponentPKScore,
-                                                      status: _pkStatus,
-                                                      secondsLeft: _pkTimeLeft,
-                                                    ),
-                                                  ),
                                                 Positioned(
                                                   top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
                                                   left: 0,
@@ -1844,6 +1843,19 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                     ),
                                                   ),
                                                 ),
+                                                if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
+                                                  Positioned(
+                                                    top: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    child: PKScoreBar(
+                                                      myScore: _myPKScore,
+                                                      opponentScore: _opponentPKScore,
+                                                      status: _pkStatus,
+                                                      secondsLeft: _pkTimeLeft,
+                                                      critEndTime: _critEndTime, // 🟢 新增：把到期时间传给子组件
+                                                    ),
+                                                  ),
                                                 Positioned(
                                                   right: 10,
                                                   bottom: 10,

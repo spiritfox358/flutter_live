@@ -29,10 +29,14 @@ class ViewerList extends StatefulWidget {
 
 class ViewerListState extends State<ViewerList> {
   List<ViewerModel> _topViewers = [];
+// 🟢 1. 新增一个内部变量来维护在线人数
+  late int _currentOnlineCount;
 
   @override
   void initState() {
     super.initState();
+    // 🟢 2. 初始化时使用外层传入的值
+    _currentOnlineCount = widget.onlineCount;
     _fetchTopViewers();
   }
 
@@ -44,8 +48,13 @@ class ViewerListState extends State<ViewerList> {
     }
   }
 
-  void refresh() {
-    print("🔄 ViewerList 收到刷新指令，正在更新榜单...");
+  // 🟢 3. 新增此方法：专门供外部 websocket 调用的局部刷新！
+  void updateOnlineCount(int newCount) {
+    if (!mounted) return;
+    setState(() {
+      _currentOnlineCount = newCount;
+    });
+    // 人数变了，顺便刷新一下头像榜单
     _fetchTopViewers();
   }
 
@@ -90,7 +99,7 @@ class ViewerListState extends State<ViewerList> {
     final int avatarCount = _topViewers.length;
 
     // 格式化人数显示
-    String countStr = "${widget.onlineCount}";
+    String countStr = "$_currentOnlineCount";
     if (widget.onlineCount > 10000) {
       countStr = "${(widget.onlineCount / 10000).toStringAsFixed(1)}w";
     }

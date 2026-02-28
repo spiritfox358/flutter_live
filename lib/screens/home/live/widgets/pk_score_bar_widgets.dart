@@ -1,21 +1,18 @@
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
-// PK 状态枚举，用于控制界面显示逻辑
-enum PKStatus {
-  idle,       // 空闲状态 (未开始)
-  matching,   // 匹配中 (寻找对手)
-  playing,    // PK 进行中 (进度条激战)
-  punishment, // 惩罚时间 (输赢已定)
-  coHost,     // 连线模式 (纯聊天)
-}
+// PK 状态枚举
+enum PKStatus { idle, matching, playing, punishment, coHost }
 
 // 🟢 组件 1：PK 进度条 (血条)
-// 这是一个有状态组件，因为需要处理复杂的动画效果
 class PKScoreBar extends StatefulWidget {
-  final int myScore;       // 我方分数 (左侧红色)
-  final int opponentScore; // 对方分数 (右侧蓝色)
-  final PKStatus status;   // 当前 PK 状态
-  final int secondsLeft;   // 倒计时秒数 (虽然这个参数目前没直接用到，但保留用于扩展)
+  final int myScore;
+  final int opponentScore;
+  final PKStatus status;
+  final int secondsLeft;
+  final DateTime? critEndTime; // 接收父组件传入的到期时间戳
 
   const PKScoreBar({
     super.key,
@@ -23,6 +20,7 @@ class PKScoreBar extends StatefulWidget {
     required this.opponentScore,
     required this.status,
     required this.secondsLeft,
+    this.critEndTime,
   });
 
   @override
@@ -30,355 +28,583 @@ class PKScoreBar extends StatefulWidget {
 }
 
 class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
-  // 记录上一次更新时的分数，用于计算增加量 (+100)
+  // =========================================================================
+  // 🛠️ 微调参数区
+  // =========================================================================
+  final double critCardOffsetX = -14.0; // 暴击卡左右偏移
+  final double critCardOffsetY = -5.0; // 暴击卡上下偏移
+  final double scorePopTopOffset = 0.0; // 飘字上下偏移
+  // =========================================================================
+
   int _oldMyScore = 0;
-  // 本次增加的分数
   int _addedScore = 0;
-
-  // 进度条滑动的动画时长
-  // 默认为 1.5秒 (缓慢滑动)
-  // 当触发连击时，会变为 0秒 (瞬间跳变)，制造打击感
   Duration _barAnimationDuration = const Duration(milliseconds: 1500);
+  DateTime? _lastMyScoreTime;
+  bool _isCombo = false;
 
-  // --- 连击判定相关变量 ---
-  DateTime? _lastMyScoreTime; // 上次得分时间
-  bool _isCombo = false;      // 当前是否处于连击状态
-
-  // --- 动画控制器 1: 飘字动画 (控制 +score 文字的出现和消失) ---
   late AnimationController _popController;
-  late Animation<double> _popScale;   // 文字从小变大
-  late Animation<double> _popOpacity; // 文字最后淡出消失
-
-  // --- 动画控制器 2: 白光闪烁 (控制进度条上的高光扫过效果) ---
+  late Animation<double> _popScale;
+  late Animation<double> _popOpacity;
   late AnimationController _flashController;
-  late Animation<double> _flashValue; // 0.0 -> 1.0 的过程
-
-  // --- 动画控制器 3: 文字弹跳 (连击时的"蹦"一下效果) ---
+  late Animation<double> _flashValue;
   late AnimationController _comboTextScaleController;
   late Animation<double> _comboTextScale;
+
+  late AnimationController _lightningController;
+
+  // 内部独立计时器，隔离父级刷新
+  Timer? _localCritTimer;
+  int _localCritSecondsLeft = 0;
 
   @override
   void initState() {
     super.initState();
     _oldMyScore = widget.myScore;
-
-    // --- 1. 初始化飘字动画 ---
-    // 总时长 3秒，但主要动作在前 0.1秒完成，后面是停留展示
     _popController = AnimationController(vsync: this, duration: const Duration(milliseconds: 3000));
-
-    // Scale: 0.0s~0.3s 从 0.5倍大 迅速变到 1.0倍
     _popScale = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _popController, curve: const Interval(0.0, 0.1, curve: Curves.easeOutExpo)),
+      CurvedAnimation(
+        parent: _popController,
+        curve: const Interval(0.0, 0.1, curve: Curves.easeOutExpo),
+      ),
     );
-
-    // Opacity: 2.4s~3.0s 从完全不透明(1.0) 变到 透明(0.0)
-    _popOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(parent: _popController, curve: const Interval(0.8, 1.0)),
-    );
-
-    // --- 2. 初始化白光闪烁动画 ---
-    // 🟢 [可调参数] 白光扫过一次的时间：600毫秒
-    _flashController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
-    _flashValue = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _flashController, curve: Curves.easeOutQuad),
-    );
-
-    // --- 3. 初始化文字弹跳动画 ---
-    // 🟢 [可调参数] 文字蹦一下的动画时长：150毫秒 (越小越快，打击感越强)
+    _popOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(CurvedAnimation(parent: _popController, curve: const Interval(0.8, 1.0)));
+    _flashController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _flashValue = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _flashController, curve: Curves.easeOutQuad));
     _comboTextScaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
+    _comboTextScale = Tween<double>(begin: 1.0, end: 1.3).animate(CurvedAnimation(parent: _comboTextScaleController, curve: Curves.easeInOut))
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) _comboTextScaleController.reverse();
+      });
 
-    // 🟢 [可调参数] 连击时文字放大的倍数
-    // begin: 1.0 (原始大小) -> end: 1.2 (放大到 1.2 倍)
-    _comboTextScale = Tween<double>(begin: 1.0, end: 1.2).animate(
-      CurvedAnimation(parent: _comboTextScaleController, curve: Curves.easeInOut),
-    )..addStatusListener((status) {
-      // 关键逻辑：当放大动画播放完毕后，自动反向播放(缩小)，形成完整的一次“蹦”
-      if (status == AnimationStatus.completed) {
-        _comboTextScaleController.reverse();
-      }
+    _lightningController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
+
+    _checkCritTime();
+    _startLocalCritTimer();
+  }
+
+  void _startLocalCritTimer() {
+    _localCritTimer?.cancel();
+    _localCritTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _checkCritTime();
     });
   }
 
-  // 当父组件传入新的参数时触发 (例如分数变了)
+  void _checkCritTime() {
+    if (widget.critEndTime == null) {
+      if (_localCritSecondsLeft > 0) {
+        setState(() => _localCritSecondsLeft = 0);
+      }
+      return;
+    }
+
+    final now = DateTime.now();
+    final diff = widget.critEndTime!.difference(now).inSeconds;
+
+    if (diff > 0) {
+      if (_localCritSecondsLeft != diff) {
+        setState(() => _localCritSecondsLeft = diff);
+      }
+    } else {
+      if (_localCritSecondsLeft > 0) {
+        setState(() => _localCritSecondsLeft = 0);
+      }
+    }
+  }
+
   @override
   void didUpdateWidget(covariant PKScoreBar oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // 检测我方分数是否增加
-    if (widget.myScore > _oldMyScore) {
-      _addedScore = widget.myScore - _oldMyScore; // 计算本次加分
-      final now = DateTime.now();
+    if (widget.critEndTime != oldWidget.critEndTime) {
+      _checkCritTime();
+    }
 
-      // 🟢 [可调参数] 连击判定时间：3秒内再次得分算连击
-      // 如果上次得分时间不为空，且距离现在小于3秒，判定为连击
+    if (widget.myScore > _oldMyScore) {
+      _addedScore = widget.myScore - _oldMyScore;
+      final now = DateTime.now();
       final bool isComboNow = _lastMyScoreTime != null && now.difference(_lastMyScoreTime!) < const Duration(seconds: 3);
-      _lastMyScoreTime = now; // 更新得分时间
+      _lastMyScoreTime = now;
 
       setState(() {
         _isCombo = isComboNow;
         if (isComboNow) {
-          // 🚀 连击状态
-          // 进度条瞬间跳变，制造激烈的对抗感
           _barAnimationDuration = Duration.zero;
-
-          // 触发文字弹跳动画 (每次连击都蹦一下)
           _comboTextScaleController.forward(from: 0.0);
         } else {
-          // 🐢 普通状态
-          // 进度条缓慢滑行，优雅过渡
           _barAnimationDuration = const Duration(milliseconds: 1500);
         }
       });
-
-      // 重置并播放飘字动画 (让 +100 重新出现)
       _popController.reset();
       _popController.forward();
-
-      // 触发白光闪烁 (扫光效果)
       _flashController.reset();
       _flashController.forward().then((_) => _flashController.reverse());
-    }
 
-    // 更新旧分数，为下一次比较做准备
+      // 有暴击卡生效时触发爆炸
+      if (_localCritSecondsLeft > 0) {
+        _lightningController.forward(from: 0.0);
+      }
+    }
     _oldMyScore = widget.myScore;
   }
 
   @override
   void dispose() {
-    // 销毁所有动画控制器，防止内存泄漏
     _popController.dispose();
     _flashController.dispose();
     _comboTextScaleController.dispose();
+    _lightningController.dispose();
+    _localCritTimer?.cancel();
     super.dispose();
   }
 
-  // 辅助方法：格式化分数显示
-  // 例如：12500 -> "1.2万"
   String _formatScore(int score) {
-    if (score >= 1000000) {
-      double w = score / 10000.0;
-      return "${w.toStringAsFixed(1)}万";
-    }
+    if (score >= 1000000) return "${(score / 10000.0).toStringAsFixed(1)}万";
     return score.toString();
   }
 
   @override
   Widget build(BuildContext context) {
-    // 如果没开始 PK，不显示血条
     if (widget.status == PKStatus.idle) return const SizedBox();
 
     final total = widget.myScore + widget.opponentScore;
-
-    // 计算红色进度条的占比 (0.0 ~ 1.0)
-    // 如果双方都是 0 分，各占一半 (0.5)
     double targetRatio = total == 0 ? 0.5 : widget.myScore / total;
-
-    // 限制占比范围，防止一方完全消失 (保留 15% 的最小显示区域)
     targetRatio = targetRatio.clamp(0.15, 0.85);
 
-    // 只有在总分为 0 时才不需要圆角，否则中间要有圆角过渡
     final Radius centerRadius = total == 0 ? Radius.zero : const Radius.circular(20);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 0),
-      child: SizedBox(
-        height: 18, // 进度条总高度
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxWidth = constraints.maxWidth; // 获取当前可用总宽度
+    // 🟢 核心修正：判断当前是否有暴击卡，动态设置飘字的边距
+    final double currentPopRightPadding = _localCritSecondsLeft > 0 ? 13.0 : 5.0;
 
-            // 使用 TweenAnimationBuilder 实现进度条宽度的平滑过渡动画
-            return TweenAnimationBuilder<double>(
-              tween: Tween<double>(end: targetRatio),
-              duration: _barAnimationDuration, // 动态时长 (连击时为0)
-              curve: Curves.easeOutExpo, // 减速曲线
-              builder: (context, ratio, child) {
-                // 根据当前动画比例计算左右宽度
-                final leftWidth = maxWidth * ratio;
-                final rightWidth = maxWidth - leftWidth;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 0),
+          child: SizedBox(
+            height: 18,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final maxWidth = constraints.maxWidth;
 
-                return Stack(
-                  clipBehavior: Clip.none, // 允许子组件超出边界 (用于飘字)
-                  alignment: Alignment.centerLeft,
-                  children: [
-                    // --- 层级 1. 背景/敌方进度条 (蓝色 - 右侧) ---
-                    // 先铺一个灰色底色
-                    Container(color: Colors.grey[800]),
+                return TweenAnimationBuilder<double>(
+                  tween: Tween<double>(end: targetRatio),
+                  duration: _barAnimationDuration,
+                  curve: Curves.easeOutExpo,
+                  builder: (context, ratio, child) {
+                    final leftWidth = maxWidth * ratio;
+                    final rightWidth = maxWidth - leftWidth;
 
-                    Positioned(
-                      right: 0,
-                      width: rightWidth + 20.0, // 多加一点宽度防止中间有缝隙
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF448AFF), Color(0xFF2962FF)], // 蓝色渐变
-                          ),
-                        ),
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 8),
-                        child: Text(
-                          _formatScore(widget.opponentScore),
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                        ),
-                      ),
-                    ),
-
-                    // --- 层级 2. 我方进度条 (红色 - 左侧) ---
-                    Align(
+                    return Stack(
+                      clipBehavior: Clip.none,
                       alignment: Alignment.centerLeft,
-                      child: ClipRRect(
-                        // 右侧切圆角，实现中间的斜切视觉效果
-                        borderRadius: BorderRadius.horizontal(right: centerRadius),
-                        child: SizedBox(
-                          width: leftWidth,
-                          height: 18,
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // 红色渐变背景
-                              Container(
-                                decoration: const BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: [Color(0xFFD32F2F), Color(0xFFFF5252)],
-                                  ),
-                                ),
-                              ),
-
-                              // ✨✨✨ 白光扫过动画 ✨✨✨
-                              AnimatedBuilder(
-                                animation: _flashController,
-                                builder: (context, child) {
-                                  final double t = _flashValue.value; // 0.0 -> 1.0
-
-                                  // 🟢 [可调参数] 白光亮度动态调整
-                                  // _isCombo ? 1.0 (最亮) : 0.60 (平时淡一点)
-                                  final double baseIntensity = _isCombo ? 1.0 : 0.60;
-                                  // 根据动画进度 t 微调亮度，产生呼吸感
-                                  final double intensity = (baseIntensity + (0.15 * t)).clamp(0.0, 1.0);
-
-                                  // 🟢 [可调参数] 白光宽度动态变化
-                                  // 基础20像素 + 随动画增加15像素 = 动态变宽
-                                  final double currentWidth = 20.0 + (15.0 * t);
-
-                                  // 渐变停止点位置
-                                  final double whiteStop = 0.25 + (0.15 * t);
-
-                                  return Positioned(
-                                    right: 0, top: 0, bottom: 0, width: currentWidth,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        // 线性渐变实现高光效果
-                                        gradient: LinearGradient(
-                                          begin: Alignment.centerRight,
-                                          end: Alignment.centerLeft,
-                                          stops: [0.0, whiteStop, 1.0],
-                                          colors: [
-                                            Colors.white.withOpacity(intensity), // 核心高亮区
-                                            Colors.white.withOpacity(intensity * 0.8), // 过渡区
-                                            Colors.white.withOpacity(0.0), // 透明区
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-
-                              // 我方总分文字 (固定在左侧，不随动画乱动)
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 8),
-                                  child: Text(
-                                    _formatScore(widget.myScore),
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                                  ),
-                                ),
-                              ),
-                            ],
+                      children: [
+                        // --- 1. 蓝条 ---
+                        Container(color: Colors.grey[800]),
+                        Positioned(
+                          right: 0,
+                          width: rightWidth + 20.0,
+                          top: 0,
+                          bottom: 0,
+                          child: Container(
+                            decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF448AFF), Color(0xFF2962FF)])),
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Text(
+                              _formatScore(widget.opponentScore),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
 
-                    // --- 层级 3. 飘字动画 (+100) ---
-                    // 只有在动画播放时才渲染，节省性能
-                    if (_popController.isAnimating || _popController.isCompleted)
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: leftWidth, // 限制在红色区域内
-                        child: AnimatedBuilder(
-                          animation: _popController,
-                          builder: (context, child) {
-                            // 连击时 baseScale 锁定为 1.0，完全由下面的弹跳动画(_comboTextScale)接管
-                            // 普通时 baseScale 会从 0.5 变大到 1.0
-                            double baseScale = _isCombo ? 1.0 : _popScale.value;
+                        // --- 2. 红条 ---
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.horizontal(right: centerRadius),
+                            child: SizedBox(
+                              width: leftWidth,
+                              height: 18,
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Container(
+                                    decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFD32F2F), Color(0xFFFF5252)])),
+                                  ),
 
-                            return Opacity(
-                              opacity: _popOpacity.value, // 控制淡出
-                              child: Transform.scale(
-                                scale: baseScale,
-                                child: Container(
-                                  alignment: Alignment.centerRight, // 文字靠右对齐
-                                  // 🟢 [可调参数] 文字距离右边框的间距
-                                  // right: 5 表示文字距离红色条的右边缘 5像素
-                                  padding: const EdgeInsets.only(right: 5),
-
-                                  // 内层嵌套弹跳动画
-                                  child: AnimatedBuilder(
-                                      animation: _comboTextScaleController,
+                                  if (total > 0)
+                                    AnimatedBuilder(
+                                      animation: _flashController,
                                       builder: (context, child) {
-                                        return Transform.scale(
-                                          scale: _comboTextScale.value, // 1.0 -> 1.2 -> 1.0
-                                          child: Text(
-                                            "+$_addedScore",
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              // 🟢 [可调参数] 连击加分时的字号
-                                              fontSize: 12,
+                                        final double t = _flashValue.value;
+                                        final double intensity = ((_isCombo ? 1.0 : 0.60) + (0.15 * t)).clamp(0.0, 1.0);
+
+                                        return Positioned(
+                                          right: 0,
+                                          top: 0,
+                                          bottom: 0,
+                                          width: 40.0 + (15.0 * t),
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.centerRight,
+                                                end: Alignment.centerLeft,
+                                                stops: [0.0, 0.4 + (0.2 * t), 1.0],
+                                                colors: [
+                                                  Colors.white.withOpacity(intensity),
+                                                  Colors.white.withOpacity(intensity * 0.4),
+                                                  Colors.white.withOpacity(0.0),
+                                                ],
+                                              ),
                                             ),
                                           ),
                                         );
-                                      }
+                                      },
+                                    ),
+
+                                  // --- 3. 爆裂光波特效 ---
+                                  if (_lightningController.isAnimating)
+                                    Positioned.fill(
+                                      child: AnimatedBuilder(
+                                        animation: _lightningController,
+                                        builder: (context, child) {
+                                          return CustomPaint(painter: _ExplosionPainter(_lightningController.value));
+                                        },
+                                      ),
+                                    ),
+
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Padding(
+                                      padding: const EdgeInsets.only(left: 8),
+                                      child: Text(
+                                        _formatScore(widget.myScore),
+                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                ],
                               ),
-                            );
-                          },
+                            ),
+                          ),
                         ),
-                      ),
-                  ],
+
+                        // --- 4. 交界处气泡特效 ---
+                        Positioned(
+                          left: leftWidth - 30,
+                          top: -15,
+                          bottom: -15,
+                          width: 60,
+                          child: PKDividerEffect(isZeroScore: total == 0),
+                        ),
+
+                        // --- 5. 暴击卡图片跟随 ---
+                        if (_localCritSecondsLeft > 0)
+                          Positioned(
+                            left: leftWidth + critCardOffsetX,
+                            top: critCardOffsetY,
+                            child: Image.network(
+                              'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E6%9A%B4%E5%87%BB%E5%8D%A1_prop.png',
+                              width: 28,
+                              height: 28,
+                            ),
+                          ),
+
+                        // --- 6. 飘字动画 (应用动态 Padding) ---
+                        if (_popController.isAnimating || _popController.isCompleted)
+                          Positioned(
+                            left: 0,
+                            top: scorePopTopOffset,
+                            bottom: -scorePopTopOffset,
+                            width: leftWidth,
+                            child: AnimatedBuilder(
+                              animation: _popController,
+                              builder: (context, child) {
+                                return Opacity(
+                                  opacity: _popOpacity.value,
+                                  child: Transform.scale(
+                                    scale: _isCombo ? 1.0 : _popScale.value,
+                                    child: Container(
+                                      alignment: Alignment.centerRight,
+                                      // 🟢 动态使用 Padding：没卡 5.0，有卡 25.0 完美避开遮挡！
+                                      padding: EdgeInsets.only(right: currentPopRightPadding),
+                                      child: AnimatedBuilder(
+                                        animation: _comboTextScaleController,
+                                        builder: (context, child) {
+                                          return Transform.scale(
+                                            scale: _comboTextScale.value,
+                                            child: Text(
+                                              "+$_addedScore",
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 );
               },
-            );
-          },
+            ),
+          ),
         ),
-      ),
+
+        // --- 暴击卡倒计时文字 ---
+        if (_localCritSecondsLeft > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "暴击卡生效中  ${_localCritSecondsLeft}s ",
+                  style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10, fontWeight: FontWeight.w500),
+                ),
+                Icon(Icons.arrow_forward_ios, size: 8, color: Colors.white.withOpacity(0.8)),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
 
-// 🟢 组件 2：PK 倒计时与梯形背景 (保持原样，加了部分注释)
+// ===========================================================================
+// 下方为纯特效画笔组件代码 (直接拷贝)
+// ===========================================================================
+
+class _ExplosionPainter extends CustomPainter {
+  final double progress;
+  final math.Random random = math.Random();
+
+  _ExplosionPainter(this.progress);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0 || progress >= 1) return;
+    if (random.nextDouble() > 0.75) return;
+
+    double opacity = 1.0;
+    if (progress > 0.05) {
+      opacity = 1.0 - ((progress - 0.05) / 0.95);
+    }
+
+    math.Random shapeRandom = math.Random(666);
+
+    Path blastPath = Path();
+    blastPath.moveTo(size.width, 0);
+    blastPath.lineTo(size.width, size.height);
+
+    int steps = 16;
+    for (int i = steps; i >= 0; i--) {
+      double y = size.height * (i / steps);
+      double distFromCenter = (y - size.height / 2).abs() / (size.height / 2);
+      double pullback = distFromCenter * 80.0;
+      double jitter = shapeRandom.nextDouble() * 30.0 * (1.0 - distFromCenter * 0.5);
+      double x = pullback + jitter;
+      x = math.max(0.0, x);
+      blastPath.lineTo(x, y);
+    }
+    blastPath.close();
+
+    final Rect shaderRect = Rect.fromLTRB(0, 0, size.width, size.height);
+    final Shader blastShader = LinearGradient(
+      begin: Alignment.centerRight,
+      end: Alignment.centerLeft,
+      colors: [
+        Colors.white.withOpacity(opacity),
+        const Color(0xFFFFF59D).withOpacity(opacity * 0.9),
+        const Color(0xFFE040FB).withOpacity(opacity * 0.6),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.3, 0.7, 1.0],
+    ).createShader(shaderRect);
+
+    canvas.drawPath(
+      blastPath,
+      Paint()
+        ..shader = blastShader
+        ..style = PaintingStyle.fill,
+    );
+
+    final Shader originFlashShader = LinearGradient(
+      begin: Alignment.centerRight,
+      end: Alignment.centerLeft,
+      colors: [Colors.white.withOpacity(opacity), Colors.white.withOpacity(0.0)],
+      stops: const [0.0, 0.4],
+    ).createShader(shaderRect);
+    canvas.drawRect(shaderRect, Paint()..shader = originFlashShader);
+
+    final Paint sparkPaint = Paint()
+      ..color = Colors.white.withOpacity(opacity * 0.9)
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+
+    int sparkCount = random.nextInt(6) + 4;
+    for (int i = 0; i < sparkCount; i++) {
+      double sparkY = random.nextDouble() * size.height;
+      double sparkX = size.width - random.nextDouble() * (size.width * 0.4);
+      double length = random.nextDouble() * 60 + 20;
+      canvas.drawLine(Offset(sparkX, sparkY), Offset(sparkX - length, sparkY), sparkPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ExplosionPainter oldDelegate) => true;
+}
+
+class PKDividerEffect extends StatefulWidget {
+  final bool isZeroScore;
+
+  const PKDividerEffect({super.key, required this.isZeroScore});
+
+  @override
+  State<PKDividerEffect> createState() => _PKDividerEffectState();
+}
+
+class _PKDividerEffectState extends State<PKDividerEffect> with SingleTickerProviderStateMixin {
+  late Ticker _ticker;
+  final List<_PKParticle> _particles = [];
+  final math.Random _random = math.Random();
+  Duration _lastTime = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker((elapsed) {
+      if (_lastTime == Duration.zero) {
+        _lastTime = elapsed;
+        return;
+      }
+      final double dt = (elapsed - _lastTime).inMilliseconds / 1000.0;
+      _lastTime = elapsed;
+      _updateParticles(dt);
+    });
+    _ticker.start();
+  }
+
+  void _updateParticles(double dt) {
+    if (_random.nextDouble() < 0.15) {
+      if (widget.isZeroScore) {
+        _particles.add(_createParticle(isLeft: true));
+        _particles.add(_createParticle(isLeft: false));
+      } else {
+        _particles.add(_createParticle(isLeft: true));
+      }
+    }
+    for (var p in _particles) {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.life -= dt * p.decayRate;
+    }
+    _particles.removeWhere((p) => p.life <= 0);
+    if (mounted) setState(() {});
+  }
+
+  _PKParticle _createParticle({required bool isLeft}) {
+    final double startX = widget.isZeroScore ? 0.0 : -8.0;
+    final double yRange = widget.isZeroScore ? 8.0 : 4.5;
+    final double startY = _random.nextDouble() * (yRange * 2) - yRange;
+    final double baseVx = _random.nextDouble() * 15 + 10;
+    final double vx = (isLeft ? -1 : 1) * baseVx;
+    final double vy = _random.nextDouble() * 4 - 2;
+
+    return _PKParticle(
+      x: startX,
+      y: startY,
+      vx: vx,
+      vy: vy,
+      size: _random.nextDouble() * 1.0 + 0.5,
+      color: Colors.white,
+      life: 1.0,
+      decayRate: _random.nextDouble() * 1.2 + 0.6,
+    );
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: CustomPaint(painter: _PKDividerPainter(_particles, widget.isZeroScore), size: Size.infinite),
+    );
+  }
+}
+
+class _PKParticle {
+  double x, y, vx, vy, size, life, decayRate;
+  Color color;
+
+  _PKParticle({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.size,
+    required this.life,
+    required this.decayRate,
+    required this.color,
+  });
+}
+
+class _PKDividerPainter extends CustomPainter {
+  final List<_PKParticle> particles;
+  final bool isZeroScore;
+
+  _PKDividerPainter(this.particles, this.isZeroScore);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final double centerX = size.width / 2;
+    final double centerY = size.height / 2;
+
+    if (isZeroScore) {
+      final glowPaint = Paint()
+        ..color = Colors.white.withOpacity(0.9)
+        ..strokeWidth = 3.0
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5);
+      final corePaint = Paint()
+        ..color = Colors.white
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round;
+      const double barHeightHalf = 8.5;
+      canvas.drawLine(Offset(centerX, centerY - barHeightHalf), Offset(centerX, centerY + barHeightHalf), glowPaint);
+      canvas.drawLine(Offset(centerX, centerY - barHeightHalf), Offset(centerX, centerY + barHeightHalf), corePaint);
+    }
+
+    for (var p in particles) {
+      final paint = Paint()
+        ..color = p.color.withOpacity(p.life.clamp(0.0, 1.0))
+        ..style = PaintingStyle.fill
+        ..maskFilter = const MaskFilter.blur(BlurStyle.solid, 0.5);
+      canvas.drawCircle(Offset(centerX + p.x, centerY + p.y), p.size, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _PKDividerPainter oldDelegate) => true;
+}
+
 class PKTimer extends StatelessWidget {
   final int secondsLeft;
   final PKStatus status;
   final int myScore;
   final int opponentScore;
 
-  const PKTimer({
-    super.key,
-    required this.secondsLeft,
-    required this.status,
-    required this.myScore,
-    required this.opponentScore,
-  });
+  const PKTimer({super.key, required this.secondsLeft, required this.status, required this.myScore, required this.opponentScore});
 
-  // 格式化时间 00:00
   String _formatTime(int totalSeconds) {
     if (totalSeconds < 0) return "00:00";
     final m = totalSeconds ~/ 60;
@@ -388,45 +614,47 @@ class PKTimer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 剩余时间小于10秒变红，或者处于惩罚阶段变红
     final bool isRedBg = (secondsLeft <= 10 && status == PKStatus.playing) || status == PKStatus.punishment;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 使用 CustomPaint 绘制梯形背景
         CustomPaint(
-          painter: _TrapezoidPainter(
-            color: isRedBg ? const Color(0xFFFF1744).withOpacity(0.3) : Colors.grey.withOpacity(0.85),
-          ),
+          painter: _TrapezoidPainter(color: isRedBg ? const Color(0xFFFF1744).withOpacity(0.3) : Colors.grey.withOpacity(0.85)),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 如果是 PK 进行中，显示 "PK" 图标
                 if (status != PKStatus.punishment && status != PKStatus.coHost) ...[
-                  const Text("P", style: TextStyle(color: Color(0xFFFF2E56), fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 12, height: 1.0)),
+                  const Text(
+                    "P",
+                    style: TextStyle(color: Color(0xFFFF2E56), fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 12, height: 1.0),
+                  ),
                   const SizedBox(width: 0),
-                  const Text("K", style: TextStyle(color: Color(0xFF2979FF), fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 12, height: 1.0)),
+                  const Text(
+                    "K",
+                    style: TextStyle(color: Color(0xFF2979FF), fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 12, height: 1.0),
+                  ),
                   const SizedBox(width: 6),
                 ],
-                // 显示时间文本
                 Text(
                   status == PKStatus.punishment
                       ? "惩罚时间 ${_formatTime(secondsLeft)}"
                       : status == PKStatus.coHost
                       ? "连线中 ${_formatTime(secondsLeft)}"
                       : _formatTime(secondsLeft),
-                  // fontFeatures: [FontFeature.tabularFigures()] 确保数字等宽，不会跳动
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10, fontFeatures: [FontFeature.tabularFigures()]),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                    fontFeatures: [FontFeature.tabularFigures()],
+                  ),
                 ),
               ],
             ),
           ),
         ),
-        // 如果是惩罚时间，显示胜负结果
         if (status == PKStatus.punishment)
           Padding(
             padding: const EdgeInsets.only(top: 4),
@@ -440,53 +668,32 @@ class PKTimer extends StatelessWidget {
   }
 }
 
-// 🟢 自定义画笔：绘制梯形背景
 class _TrapezoidPainter extends CustomPainter {
   final Color color;
-  final Color borderColor;
-  final double borderWidth;
 
-  _TrapezoidPainter({
-    required this.color,
-    this.borderColor = Colors.transparent,
-    this.borderWidth = 0.0,
-  });
+  _TrapezoidPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-
-    // 内缩距离
     const double inset = 4.0;
-    // 底部切角半径
     const double r = 4.0;
     final double effectiveR = r.clamp(0.0, size.height / 2);
-
-    final path = Path();
-    path.moveTo(0, 0); // 左上角
-    path.lineTo(size.width, 0); // 右上角
-
-    // 右下角贝塞尔曲线切角
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0);
     final brStartX = size.width - inset * (1.0 - effectiveR / size.height);
     path.lineTo(brStartX, size.height - effectiveR);
     path.quadraticBezierTo(size.width - inset, size.height, size.width - inset - effectiveR, size.height);
-
-    // 底部水平线
     path.lineTo(inset + effectiveR, size.height);
-
-    // 左下角贝塞尔曲线切角
     final blEndX = inset * (1.0 - effectiveR / size.height);
     path.quadraticBezierTo(inset, size.height, blEndX, size.height - effectiveR);
-
-    path.close(); // 闭合路径
+    path.close();
     canvas.drawPath(path, paint);
   }
 
   @override
-  bool shouldRepaint(covariant _TrapezoidPainter oldDelegate) {
-    // 只有颜色变了才重绘
-    return color != oldDelegate.color;
-  }
+  bool shouldRepaint(covariant _TrapezoidPainter oldDelegate) => color != oldDelegate.color;
 }
