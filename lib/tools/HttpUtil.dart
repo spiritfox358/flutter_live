@@ -18,7 +18,7 @@ class HttpUtil {
   // static const String _baseIpPort = 's0.efzxt.com:8358';
   // static const String _baseIpPort = '101.200.77.1:8358';
   // Local
-  static const String _baseIpPort = '192.168.1.98:8358';
+  static const String _baseIpPort = '192.168.0.102:8358';
   static const String _baseUrl = "http://$_baseIpPort";
 
   HttpUtil._internal() {

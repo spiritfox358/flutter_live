@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:audioplayers/audioplayers.dart';
@@ -29,6 +30,7 @@ import '../../../services/ai_music_service.dart';
 import '../../../tools/HttpUtil.dart';
 
 import '../../../tools/StringTool.dart';
+import '../../../tools/VoicePlayerTool.dart';
 import 'models/live_models.dart';
 import 'widgets/view_mode/pk_real_battle_view.dart';
 import 'widgets/view_mode/single_mode_view.dart';
@@ -125,6 +127,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   // 🟢 1. 定义一个 GlobalKey 用来控制榜单组件
   final GlobalKey<ViewerListState> _viewerListKey = GlobalKey<ViewerListState>();
 
+  // 🟢 1. 定义 PKScoreBar 的专属 GlobalKey
+  final GlobalKey<PKScoreBarState> _pkScoreBarKey = GlobalKey<PKScoreBarState>();
+
   //控制进场组件的 Key
   final GlobalKey<LiveUserEntranceState> _entranceKey = GlobalKey<LiveUserEntranceState>();
   final GlobalKey<GiftTrayEffectLayerState> _trayLayerKey = GlobalKey();
@@ -143,6 +148,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   int _myCoins = 0;
 
   final String _wsUrl = "ws://${HttpUtil.getBaseIpPort}/ws/live";
+
+  final _enableGlobalBackgroundImage = false;
+  final String _globalBackgroundImage = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_15.jpg";
 
   // --- 左侧（自己）视频控制 ---
   VideoPlayerController? _bgController;
@@ -171,7 +179,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   Timer? _pkTimer;
 
   // 🟢 1. 新增：记录暴击卡到期时间
-  DateTime? _critEndTime;
+  final Map<String, DateTime> _critEndTimes = {};
   List<dynamic> _participants = [];
 
   // 首翻相关变量
@@ -476,9 +484,20 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _currentAvatar = _participants[0]['avatar'] ?? _currentAvatar;
             _currentBgImage = _participants[0]['personalPkBg'] ?? _currentBgImage;
             _leftCurrentStreamUrl = _participants[0]['streamUrl'] ?? _leftCurrentStreamUrl;
+
             if (_participants.length >= 2) {
               _myPKScore = _parseInt(_participants[0]['score']);
               _opponentPKScore = _parseInt(_participants[1]['score']);
+
+              // 🟢 新增：遍历所有参与者，不论 2个 还是 10个，全部提取到期时间
+              _critEndTimes.clear();
+              for (var p in _participants) {
+                final String pRoomId = p['roomId'].toString();
+                final int critLeft = _parseInt(p['critSecondsLeft']);
+                if (critLeft > 0) {
+                  _critEndTimes[pRoomId] = DateTime.now().add(Duration(seconds: critLeft));
+                }
+              }
             }
           }
         });
@@ -656,11 +675,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           if (!isMe) _enterCoHostPhase(initialElapsedTime: 0);
           break;
         case "PK_UPDATE":
+          if (_pkStatus != PKStatus.playing) break;
           final List<dynamic> scoreList = data['data'] as List<dynamic>;
           setState(() {
             for (var item in scoreList) {
               String roomId = item['roomId'].toString();
-              int score = int.tryParse(item['score'].toString() ?? '') ?? 0;
+              int score = int.tryParse(item['score'].toString()) ?? 0;
               if (roomId == _roomId) {
                 _myPKScore = score;
               } else {
@@ -700,18 +720,25 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           break;
         // 🟢 新增：处理主播语音消息
         case "HOST_SPEAK":
-          // 只有在语音房模式下才处理，或者你希望任何模式都播放也可以
-          // 这里通过 Key 直接调用子组件的方法
-          if (_voiceRoomKey.currentState != null) {
-            _voiceRoomKey.currentState?.speakFromSocket(data);
-          } else {
-            // 如果当前不是 VoiceRoomContentView (例如在看 PK)，
-            // 你可以选择忽略，或者在这里直接用 _ttsPlayer 播放音频（但不显示动画）
-            // 简单的做法是只在语音房处理
-            debugPrint("收到语音消息，但当前不在语音房视图，跳过动画");
+          VoicePlayerTool().playBase64Audio(data["audioData"] as String?);
+          if (widget.roomType == LiveRoomType.voice && _voiceRoomKey.currentState != null) {
+            _voiceRoomKey.currentState?.updateRealTimeSubtitle("$joinerName: ${data['content']}");
+          }
+          break;
+        case "PROP_CRIT":
+          final String targetRoomId = data['targetRoomId']?.toString() ?? "";
+          final int secondsLeft = int.tryParse(data['secondsLeft']?.toString() ?? '0') ?? 0;
 
-            // 如果你希望在任何房间都能听到声音（只是没动画），可以解开下面这行：
-            // _playBase64Audio(data['audioData']);
+          if (targetRoomId.isNotEmpty) {
+            // 默默更新集合
+            if (secondsLeft > 0) {
+              _critEndTimes[targetRoomId] = DateTime.now().add(Duration(seconds: secondsLeft));
+            } else {
+              _critEndTimes.remove(targetRoomId);
+            }
+
+            // 🟢 精准呼叫子组件，告诉它是哪个房间的卡生效了
+            _pkScoreBarKey.currentState?.updateCritTime(targetRoomId, secondsLeft);
           }
           break;
       }
@@ -850,7 +877,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       if (initialTimeLeft == null) {
         _myPKScore = 0;
         _opponentPKScore = 0;
-        _critEndTime = null; // 🟢 新增：新开一局时重置暴击卡时间
         _isFirstGiftPromoActive = true;
         _promoTimeLeft = 30;
         _usersWhoUsedPromo.clear();
@@ -939,6 +965,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _disconnectCoHost() {
     _pkTimer?.cancel();
+    _critEndTimes.clear();
     _promoTimer?.cancel();
     _rightVideoController?.pause(); // 暂停对手视频
 
@@ -947,7 +974,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         _pkStatus = PKStatus.idle;
         _myPKScore = 0;
         _opponentPKScore = 0;
-        _critEndTime = null; // 🟢 新增：PK完全结束时重置
         _isFirstGiftPromoActive = false;
         _participants = [];
       });
@@ -1263,30 +1289,33 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         isHost: isHost,
       );
 
-      if (giftData.name == "暴击卡" || giftData.id == "8888") {
-        final now = DateTime.now();
-        if (_critEndTime == null || _critEndTime!.isBefore(now)) {
-          _critEndTime = now.add(Duration(seconds: 30 * count)); // 每次30秒，送多个叠加
-        } else {
-          _critEndTime = _critEndTime!.add(Duration(seconds: 30 * count));
-        }
-      }
-
-      if (_pkStatus == PKStatus.playing) {
-        int scoreToAdd = giftData.price * count;
-
-        if (_isFirstGiftPromoActive && !_usersWhoUsedPromo.contains(senderId)) {
-          scoreToAdd = scoreToAdd * 2;
-          _usersWhoUsedPromo.add(senderId);
-        }
-
-        if (isMe) {
-          _myPKScore += scoreToAdd;
-          HttpUtil().post("/api/pk/update_score", data: {"roomId": int.parse(_roomId), "score": scoreToAdd});
-        } else {
-          _myPKScore += scoreToAdd;
-        }
-      }
+      // if (_pkStatus == PKStatus.playing) {
+      //   int scoreToAdd = giftData.price * count;
+      //
+      //   if (_isFirstGiftPromoActive && !_usersWhoUsedPromo.contains(senderId)) {
+      //     scoreToAdd = scoreToAdd * 2;
+      //     _usersWhoUsedPromo.add(senderId);
+      //   }
+      //
+      //   // 2. 💥 暴击卡翻倍逻辑 (新增) 💥
+      //   final now = DateTime.now();
+      //   // 只要当前有暴击卡在生效期内，并且是我方送的（或者你要给所有人算也可以去掉 isMe 判断）
+      //   if (isMe && _critEndTime != null && _critEndTime!.isAfter(now)) {
+      //     // 随机生成 1.5 到 5.0 的倍数
+      //     final double multiplier = 1.5 + math.Random().nextDouble() * 3.5;
+      //     // 最终加分 = 原分 * 暴击倍率
+      //     scoreToAdd = (scoreToAdd * multiplier).toInt();
+      //
+      //     debugPrint("💥 触发暴击！原分:${giftData.price * count} 倍率:${multiplier.toStringAsFixed(1)} 最终加分:$scoreToAdd");
+      //   }
+      //
+      //   // if (isMe) {
+      //   //   _myPKScore += scoreToAdd;
+      //   //   HttpUtil().post("/api/pk/update_score", data: {"roomId": int.parse(_roomId), "score": scoreToAdd});
+      //   // } else {
+      //   //   _myPKScore += scoreToAdd;
+      //   // }
+      // }
     });
 
     final event = GiftEvent(
@@ -1323,7 +1352,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
 
     try {
-      final res = await HttpUtil().post("/api/gift/send", data: {"userId": int.parse(_myUserId), "giftId": giftData.id, "count": countToSend});
+      final res = await HttpUtil().post(
+        "/api/gift/send",
+        data: {"userId": int.parse(_myUserId), "giftId": giftData.id, "count": countToSend, "roomId": _roomId},
+      );
 
       if (!mounted) return;
 
@@ -1609,7 +1641,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             // 1. 底层：视频内容 (背景已在内部处理)
             VoiceRoomContentView(
               key: _voiceRoomKey,
-              anchorAvatar: "",
+              anchorAvatar: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/xiaoqi.jpg",
               currentBgImage: '234234',
               roomTitle: '345345',
               anchorName: 'werrwetert',
@@ -1701,6 +1733,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           // 🟢 修复：同样减去 safeBottom
           baseChatListHeight = size.height - topContentEndY - safeBottom;
           break;
+        case LiveRoomType.voice:
+          const double myVideoHeight = 400.0;
+          const double headerHeight = 8;
+          double topContentEndY = padding.top + topBarHeight + headerHeight + myVideoHeight;
+          // 🟢 修复：同样减去 safeBottom
+          baseChatListHeight = size.height - topContentEndY - safeBottom;
+          break;
         case LiveRoomType.game:
           baseChatListHeight = 200.0;
           break;
@@ -1761,17 +1800,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                               children: [
                                 Positioned.fill(
                                   child: Container(
-                                    decoration: BoxDecoration(
-                                      image: DecorationImage(
-                                        image: NetworkImage(_currentBgImage),
-                                        fit: BoxFit.cover, // 铺满全屏
-                                      ),
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [Color(0xFF100101), Color(0xFF141E28)],
-                                      ),
-                                    ),
+                                    decoration: _enableGlobalBackgroundImage
+                                        ? BoxDecoration(
+                                            image: DecorationImage(image: AssetImage('assets/background.jpg'), fit: BoxFit.cover),
+                                          )
+                                        : BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [const Color(0xFF310505).withOpacity(0.7), const Color(0xFF1F2445).withOpacity(0.9)],
+                                            ),
+                                          ),
                                   ),
                                 ),
 
@@ -1849,11 +1888,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                     left: 0,
                                                     right: 0,
                                                     child: PKScoreBar(
+                                                      key: _pkScoreBarKey,
+                                                      // 🟢 2. 绑定 Key
                                                       myScore: _myPKScore,
                                                       opponentScore: _opponentPKScore,
                                                       status: _pkStatus,
                                                       secondsLeft: _pkTimeLeft,
-                                                      critEndTime: _critEndTime, // 🟢 新增：把到期时间传给子组件
+                                                      // 🟢 传入新的参数
+                                                      myRoomId: _roomId,
+                                                      critEndTimes: _critEndTimes,
                                                     ),
                                                   ),
                                                 Positioned(

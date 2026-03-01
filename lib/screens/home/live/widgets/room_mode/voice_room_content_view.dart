@@ -1,14 +1,27 @@
 import 'dart:async';
-import 'dart:collection'; // 🟢 引入队列支持
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
-
+import 'package:flutter_live/tools/VoicePlayerTool.dart';
 import '../../../../../tools/HttpUtil.dart';
 import '../avatar_animation.dart';
+
+// 🟢 1. 定义麦位数据模型 (用于渲染 8 个座位)
+class VoiceSeatModel {
+  final int index;
+  final bool isEmpty;
+  final String avatar;
+  final String name;
+  final int coinCount;
+  final bool isMuted;
+
+  VoiceSeatModel({
+    required this.index,
+    this.isEmpty = true,
+    this.avatar = "",
+    this.name = "申请上麦",
+    this.coinCount = 0,
+    this.isMuted = false,
+  });
+}
 
 class VoiceRoomContentView extends StatefulWidget {
   final String currentBgImage;
@@ -22,7 +35,7 @@ class VoiceRoomContentView extends StatefulWidget {
     required this.currentBgImage,
     required this.roomTitle,
     required this.anchorName,
-    this.anchorAvatar = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/def_avatar.png",
+    this.anchorAvatar = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/xiaoqi.jpg",
     required this.roomId,
   });
 
@@ -30,83 +43,116 @@ class VoiceRoomContentView extends StatefulWidget {
   State<VoiceRoomContentView> createState() => VoiceRoomContentViewState();
 }
 
-// 🟢 把 state 改为 public (去掉下划线)，方便父组件引用类型
 class VoiceRoomContentViewState extends State<VoiceRoomContentView> {
-  final AudioPlayer _player = AudioPlayer();
-
-  // 🟢 播放队列：先进先出
-  final Queue<Map<String, String>> _audioQueue = Queue();
-
-  bool _isSpeaking = false; // 控制头像波纹
-  bool _isPlayingProcess = false; // 内部锁，防止重复触发播放
-  String _currentSubtitle = ""; // (可选) 显示当前主播说的文字字幕
-  // 🟢 控制自动闲聊
+  final VoicePlayerTool _ttsService = VoicePlayerTool();
   Timer? _autoChatTimer;
-  bool _isFetchingAutoChat = false; // 防止重复请求
+  bool _isFetchingAutoChat = false;
+// 🟢 1. 新增：专门保存累加字幕的列表和滚动控制器
+  final List<String> _subtitleHistory = [];
+  final ScrollController _subtitleScrollController = ScrollController();
+  // 🟢 2. 模拟 8 个麦位的数据 (根据你的截图设计的假数据，方便预览效果)
+  late List<VoiceSeatModel> _seats;
 
   @override
   void initState() {
     super.initState();
-    // 监听播放状态：播放结束 -> 停止动画 -> 尝试播下一首
-    _player.playerStateStream.listen((state) {
-      if (state.processingState == ProcessingState.completed) {
-        if (mounted) {
-          setState(() {
-            _isSpeaking = false;
-            _currentSubtitle = "";
-          });
-        }
-        _playNext(); // 🟢 播完一句，自动检查下一句
+    _initMockSeats();
+    // 延迟启动自动闲聊
+    Future.delayed(const Duration(seconds: 3), () {
+      // _checkAutoChat();
+    });
+  }
+
+  // 初始化假数据
+  void _initMockSeats() {
+    _seats = [
+      VoiceSeatModel(index: 0, isEmpty: false, name: "星星", avatar: "https://picsum.photos/seed/101/200", coinCount: 42),
+      VoiceSeatModel(index: 1, isEmpty: false, name: "换厅", avatar: "https://picsum.photos/seed/102/200", coinCount: 0),
+      VoiceSeatModel(index: 2, isEmpty: true, name: "申请上麦"),
+      VoiceSeatModel(index: 3, isEmpty: true, name: "男女都要"),
+      VoiceSeatModel(index: 4, isEmpty: true, name: "纯点"),
+      VoiceSeatModel(index: 5, isEmpty: true, name: "半点"),
+      VoiceSeatModel(index: 6, isEmpty: true, name: "互动"),
+      VoiceSeatModel(index: 7, isEmpty: true, name: "都有"),
+    ];
+  }
+
+  // 🟢 3. 替换：将纯文本加进列表，并滚动到底部
+  void updateRealTimeSubtitle(String text) {
+    setState(() {
+      _subtitleHistory.add(text);
+      // 限制最多保留 50 条历史，防止挂机太久内存爆炸
+      if (_subtitleHistory.length > 50) {
+        _subtitleHistory.removeAt(0);
       }
     });
 
-    // 2. 🟢 启动自动闲聊检查 (进房 3秒后开始)
-    Future.delayed(const Duration(seconds: 3), () {
-      _checkAutoChat();
+    // 点亮房主头像的粉色光环，假装他在说话
+    _ttsService.isSpeaking.value = true;
+    Future.delayed(const Duration(seconds: 4), () {
+      if (mounted) _ttsService.isSpeaking.value = false;
+    });
+
+    _scrollToBottom();
+  }
+
+  // 🟢 3. 替换：将语音文本加进列表，并滚动到底部
+  void speakFromSocket(Map<String, dynamic> data) {
+    _ttsService.playBase64Audio(data['audioData'], text: data['text']);
+
+    setState(() {
+      _subtitleHistory.add(data['text']);
+      if (_subtitleHistory.length > 50) {
+        _subtitleHistory.removeAt(0);
+      }
+    });
+
+    _scrollToBottom();
+  }
+
+  // 🟢 新增：自动丝滑滚动到最新字幕的底部
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_subtitleScrollController.hasClients) {
+        _subtitleScrollController.animateTo(
+          _subtitleScrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
   @override
   void dispose() {
-    _player.dispose();
+    _autoChatTimer?.cancel();
+    _ttsService.stopAndClear();
+    _subtitleScrollController.dispose(); // 🟢 2. 新增：销毁滚动控制器
     super.dispose();
   }
 
   // =========================================================
-  // 🟢 自动闲聊逻辑 (永动机核心)
+  // 自动闲聊逻辑 (保持你的原逻辑不变)
   // =========================================================
-
   void _checkAutoChat() {
     _autoChatTimer?.cancel();
-
-    // 每隔 2 秒检查一次状态
     _autoChatTimer = Timer.periodic(const Duration(seconds: 2), (timer) {
-      // 如果 没在播放 && 没在请求中 && 队列是空的
-      if (!_isSpeaking && !_isPlayingProcess && _audioQueue.isEmpty && !_isFetchingAutoChat) {
+      if (!_ttsService.isSpeaking.value && !_isFetchingAutoChat) {
         // _fetchAutoChat();
       }
     });
   }
 
-  // 请求后端获取一句闲聊
   Future<void> _fetchAutoChat() async {
     _isFetchingAutoChat = true;
     try {
-      // 🟢 调用后端接口获取闲聊 (需要后端加这个接口，或者复用 tts 接口传特定 text)
-      // 这里建议后端加一个 /api/robot/auto_chat 接口，随机返回一句语音
-      // 或者前端随机生成一句文案传给 TTS
-
-      // 简单方案：前端随机选一句文案，调 TTS
-      final topics = ["好无聊啊，大家怎么不说话？", "有人想听歌吗？点关注不迷路哦。", "今天的风儿甚是喧嚣呢。", "榜一大哥在吗？出来聊聊呗。", "有没有小哥哥带我打游戏呀？", "直播间好安静，我是不是被屏蔽了？"];
+      final topics = ["好无聊啊，大家怎么不说话？", "有人想听歌吗？", "榜一大哥在吗？出来聊聊呗。"];
       final text = topics[DateTime.now().millisecondsSinceEpoch % topics.length];
 
-      // 调用 TTS 接口
       var responseData = await HttpUtil().get('/api/robot/auto_chat', params: {'text': text, "roomId": widget.roomId});
-
       if (responseData != null && responseData is Map) {
         final text = responseData['text'];
         final audioData = responseData['audioData'];
-
         if (audioData != null && audioData.isNotEmpty) {
           speakFromSocket({'audioData': audioData, 'text': text});
         }
@@ -119,127 +165,318 @@ class VoiceRoomContentViewState extends State<VoiceRoomContentView> {
   }
 
   // =========================================================
-  // 🟢 核心方法：供 RealLivePage 通过 Key 调用
+  // UI 构建部分
   // =========================================================
-  void speakFromSocket(Map<String, dynamic> data) {
-    // 后端传回的字段：audioData (Base64), text (字幕)
-    final String? audioBase64 = data['audioData'];
-    final String? text = data['text'];
-
-    if (audioBase64 != null && audioBase64.isNotEmpty) {
-      // 加入队列
-      _audioQueue.add({'audio': audioBase64, 'text': text ?? ''});
-
-      // 如果当前没有在播放，立即开始
-      if (!_isPlayingProcess && !_isSpeaking) {
-        _playNext();
-      }
-    }
-  }
-
-  // 内部方法：处理队列播放
-  Future<void> _playNext() async {
-    if (_audioQueue.isEmpty) {
-      _isPlayingProcess = false;
-      return;
-    }
-
-    _isPlayingProcess = true;
-    final item = _audioQueue.removeFirst(); // 取出最早的一条
-    final base64String = item['audio']!;
-    final text = item['text']!;
-
-    try {
-      if (mounted) {
-        setState(() {
-          _isSpeaking = true; // 头像开始动
-          _currentSubtitle = text; // 显示字幕
-        });
-      }
-
-      // 1. 解码 Base64
-      // 注意：有的 Base64 带有 "data:audio/mp3;base64," 前缀，需要去掉
-      String cleanBase64 = base64String;
-      if (cleanBase64.contains(',')) {
-        cleanBase64 = cleanBase64.split(',').last;
-      }
-      // 去掉回车换行
-      cleanBase64 = cleanBase64.replaceAll('\n', '').replaceAll('\r', '');
-
-      Uint8List audioBytes = base64Decode(cleanBase64);
-
-      // 2. 写入临时文件 (just_audio 播文件最稳定，也不用自己写 StreamSource)
-      final tempDir = await getTemporaryDirectory();
-      // 加时间戳防止文件名冲突
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final tempFile = File('${tempDir.path}/tts_voice_$timestamp.mp3');
-      await tempFile.writeAsBytes(audioBytes);
-
-      // 3. 播放
-      await _player.setFilePath(tempFile.path);
-      _player.play();
-    } catch (e) {
-      debugPrint("❌ 语音播放失败: $e");
-      // 出错了也要把状态重置，并尝试播下一首，否则队列会卡死
-      if (mounted) setState(() => _isSpeaking = false);
-      _playNext();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // 1. 背景层
+        // 1. 房间背景
         Positioned.fill(
           child: Image.network(
             widget.currentBgImage,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(color: Colors.black),
+            errorBuilder: (_, __, ___) => Container(color: const Color(0xFF141629)),
           ),
         ),
-        Positioned.fill(child: Container(color: Colors.black.withOpacity(0.6))),
+        // 深色遮罩，突出前面的人物
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF0F1123).withOpacity(0.7),
+                  const Color(0xFF1F2445).withOpacity(0.9),
+                ],
+              ),
+            ),
+          ),
+        ),
 
-        // 2. 核心内容层
-        Center(
+        // 2. 核心语音房布局 (往下偏移避开 TopBar)
+        Positioned(
+          top: 110, // 距离顶部留出空间，刚好在头部栏下方
+          left: 16,
+          right: 16,
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center, // 改为居中，好看一点
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 头像组件
-              AvatarAnimation(
-                avatarUrl: widget.anchorAvatar,
-                name: widget.anchorName,
-                isSpeaking: _isSpeaking, // 🟢 由播放状态控制
-                isRotating: true,
+              // --- A. 主播位与字幕区 ---
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHostArea(),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildSubtitleArea()),
+                ],
               ),
 
               const SizedBox(height: 30),
 
-              // 🟢 字幕气泡 (当主播说话时显示)
-              if (_isSpeaking && _currentSubtitle.isNotEmpty)
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 40),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                      bottomRight: Radius.circular(16),
-                      bottomLeft: Radius.circular(2), // 像气泡一样的一个角
-                    ),
-                    boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
-                  ),
-                  child: Text(
-                    _currentSubtitle,
-                    style: const TextStyle(color: Colors.black87, fontSize: 14, fontWeight: FontWeight.w500),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
+              // --- B. 8个麦位网格区 ---
+              _buildSeatsGrid(),
             ],
           ),
         ),
       ],
+    );
+  }
+
+// 构建左上角主播区域
+  Widget _buildHostArea() {
+    return SizedBox(
+      width: 90, // 控制整体占用的列宽
+      child: Column(
+        children: [
+          // 🟢 彻底抛弃 AvatarAnimation，手写纯净版头像，尺寸精准控制！
+          SizedBox(
+            width: 72, // 这个 72 就是头像肉眼可见的绝对真实大小！
+            height: 72,
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none, // 允许胶囊往下溢出
+              children: [
+
+                // --- A. 纯净版头像本体 ---
+                ValueListenableBuilder<bool>(
+                    valueListenable: _ttsService.isSpeaking,
+                    builder: (context, isSpeaking, child) {
+                      return Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          // 说话时边框变成粉色，不说话时是半透明白色
+                          border: Border.all(
+                            color: isSpeaking ? Colors.pinkAccent : Colors.white.withOpacity(0.5),
+                            width: isSpeaking ? 2.0 : 1.0,
+                          ),
+                          image: DecorationImage(
+                            image: NetworkImage(widget.anchorAvatar),
+                            fit: BoxFit.cover, // 绝对填满，没有任何透明留白！
+                          ),
+                        ),
+                      );
+                    }
+                ),
+
+                // --- B. 叠加在底部的“关注一麦”胶囊 ---
+                Positioned(
+                  bottom: -8, // 🟢 往下溢出 8 像素，完美呈现半截骑在头像上的效果
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6), // 半透明黑色底
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
+                    ),
+                    child: const Text(
+                      "关注一麦",
+                      style: TextStyle(color: Colors.white, fontSize: 10),
+                    ),
+                  ),
+                ),
+
+                // --- C. 右下角的麦克风标识 ---
+                Positioned(
+                  right: -4,  // 靠右边一点
+                  bottom: 12, // 避开底部的胶囊
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      color: Colors.black54,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.mic, color: Colors.white, size: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14), // 🟢 留出空隙给溢出的胶囊，防止和昵称打架
+
+          // 主播名字
+          Text(
+            widget.anchorName,
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+// 🟢 4. 替换：构建主播右侧的字幕/公告区域 (支持无限累加和滑动)
+  Widget _buildSubtitleArea() {
+    return Container(
+      height: 100,
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      // 不再监听 TTS 的单句覆盖，而是直接判断我们的历史列表
+      child: _subtitleHistory.isEmpty
+          ? const Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text("实时字幕即将开始", style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          SizedBox(height: 6),
+          Text("欢迎体验实时字幕功能～", style: TextStyle(color: Colors.white54, fontSize: 12)),
+        ],
+      )
+          : ListView.builder(
+        controller: _subtitleScrollController,
+        physics: const BouncingScrollPhysics(),
+        itemCount: _subtitleHistory.length,
+        itemBuilder: (context, index) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6.0), // 每句话之间留点空隙
+            child: Text(
+              _subtitleHistory[index],
+              style: const TextStyle(
+                color: Colors.amberAccent,
+                fontSize: 14,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+// 构建 8 个麦位网格
+  Widget _buildSeatsGrid() {
+    return GridView.builder(
+      padding: EdgeInsets.zero,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 8,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        mainAxisSpacing: 6, // 数字越小，上下两排挨得越近
+        crossAxisSpacing: 12,
+        // 🟢 核心修复：把比例调小到 0.60，给底部的“胶囊 + 名字 + 魅力值”留出极其充足的垂直空间，彻底消灭斑马线！
+        childAspectRatio: 0.60,
+      ),
+      itemBuilder: (context, index) {
+        return _buildSingleSeat(_seats[index]);
+      },
+    );
+  }
+
+// 构建单个麦位
+  Widget _buildSingleSeat(VoiceSeatModel seat) {
+    return GestureDetector(
+      onTap: () {
+        debugPrint("点击了麦位: ${seat.index}");
+      },
+      child: Column(
+        children: [
+          // 1. 头像区 (包含头像、胶囊、闭麦图标)
+          Stack(
+            alignment: Alignment.center,
+            clipBehavior: Clip.none, // 允许胶囊溢出边界
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: seat.isEmpty ? Colors.white.withOpacity(0.1) : null,
+                  border: Border.all(
+                    color: seat.isEmpty ? Colors.transparent : Colors.white.withOpacity(0.8),
+                    width: 1.5,
+                  ),
+                  image: seat.isEmpty
+                      ? null
+                      : DecorationImage(image: NetworkImage(seat.avatar), fit: BoxFit.cover),
+                ),
+                child: seat.isEmpty
+                    ? const Icon(Icons.add, color: Colors.white54, size: 24)
+                    : null,
+              ),
+
+              if (!seat.isEmpty && seat.isMuted)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.black87,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.mic_off, color: Colors.redAccent, size: 10),
+                  ),
+                ),
+
+              // 上麦后，显示黑色半透明胶囊昵称
+              if (!seat.isEmpty)
+                Positioned(
+                  bottom: -8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    constraints: const BoxConstraints(maxWidth: 64),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      seat.name, // 这里的胶囊通常显示角色状态(如"找厅")，你可以后续换成 seat.role 等字段
+                      style: const TextStyle(color: Colors.white, fontSize: 10),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          const SizedBox(height: 14), // 给胶囊留出间隙
+
+          // 🟢 2. 永远显示麦位名称/昵称 (我把这行代码加回来了！)
+          Text(
+            seat.name,
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+
+          // 3. 如果有人，在名字下方“追加”显示魅力值
+          if (!seat.isEmpty) ...[
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.favorite, color: Colors.pinkAccent, size: 10),
+                  const SizedBox(width: 2),
+                  Text(
+                    seat.coinCount.toString(),
+                    style: const TextStyle(color: Colors.white, fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          ]
+        ],
+      ),
     );
   }
 }

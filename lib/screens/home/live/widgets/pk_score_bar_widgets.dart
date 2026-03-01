@@ -7,12 +7,14 @@ import 'package:flutter/scheduler.dart';
 enum PKStatus { idle, matching, playing, punishment, coHost }
 
 // 🟢 组件 1：PK 进度条 (血条)
+// 🟢 组件 1：PK 进度条 (血条)
 class PKScoreBar extends StatefulWidget {
   final int myScore;
   final int opponentScore;
   final PKStatus status;
   final int secondsLeft;
-  final DateTime? critEndTime; // 接收父组件传入的到期时间戳
+  final String myRoomId; // 🟢 新增：告诉组件哪个是我方的房间号
+  final Map<String, DateTime> critEndTimes; // 🟢 新增：支持 N 人的动态时间集合
 
   const PKScoreBar({
     super.key,
@@ -20,14 +22,21 @@ class PKScoreBar extends StatefulWidget {
     required this.opponentScore,
     required this.status,
     required this.secondsLeft,
-    this.critEndTime,
+    required this.myRoomId,
+    required this.critEndTimes,
   });
 
   @override
-  State<PKScoreBar> createState() => _PKScoreBarState();
+  State<PKScoreBar> createState() => PKScoreBarState();
 }
 
-class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
+class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
+  // 🟢 内部维护的动态时间集合
+  Map<String, DateTime> _currentCritEndTimes = {};
+
+  // 🟢 双方倒计时：敌方如果有多人，取最高值
+  int _myCritSecondsLeft = 0;
+  int _oppCritSecondsLeft = 0;
   // =========================================================================
   // 🛠️ 微调参数区
   // =========================================================================
@@ -54,11 +63,12 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
 
   // 内部独立计时器，隔离父级刷新
   Timer? _localCritTimer;
-  int _localCritSecondsLeft = 0;
-
+// 🟢 4. 新增敌方倒计时
   @override
   void initState() {
     super.initState();
+    _currentCritEndTimes = Map.from(widget.critEndTimes);
+    // 初始化时拿父组件传进来的初始值
     _oldMyScore = widget.myScore;
     _popController = AnimationController(vsync: this, duration: const Duration(milliseconds: 3000));
     _popScale = Tween<double>(begin: 0.5, end: 1.0).animate(
@@ -89,25 +99,45 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
     });
   }
 
+// 🟢 倒计时检测：支持 N 人遍历
   void _checkCritTime() {
-    if (widget.critEndTime == null) {
-      if (_localCritSecondsLeft > 0) {
-        setState(() => _localCritSecondsLeft = 0);
-      }
-      return;
-    }
-
     final now = DateTime.now();
-    final diff = widget.critEndTime!.difference(now).inSeconds;
+    int myMax = 0;
+    int oppMax = 0;
 
-    if (diff > 0) {
-      if (_localCritSecondsLeft != diff) {
-        setState(() => _localCritSecondsLeft = diff);
+    _currentCritEndTimes.forEach((roomId, endTime) {
+      final diff = endTime.difference(now).inSeconds;
+      if (diff > 0) {
+        if (roomId == widget.myRoomId) {
+          myMax = diff; // 我方时间
+        } else {
+          if (diff > oppMax) oppMax = diff; // 敌方如果有多人，取最长的那个时间显示在右侧
+        }
       }
-    } else {
-      if (_localCritSecondsLeft > 0) {
-        setState(() => _localCritSecondsLeft = 0);
+    });
+
+    if (_myCritSecondsLeft != myMax || _oppCritSecondsLeft != oppMax) {
+      setState(() {
+        _myCritSecondsLeft = myMax;
+        _oppCritSecondsLeft = oppMax;
+      });
+    }
+  }
+
+  // 🟢 局部刷新：精准更新某一个房间的时间
+  void updateCritTime(String targetRoomId, int secondsLeft) {
+    setState(() {
+      if (secondsLeft > 0) {
+        _currentCritEndTimes[targetRoomId] = DateTime.now().add(Duration(seconds: secondsLeft));
+      } else {
+        _currentCritEndTimes.remove(targetRoomId);
       }
+    });
+    _checkCritTime();
+
+    // 如果是我方触发暴击，播放闪电特效
+    if (targetRoomId == widget.myRoomId && _myCritSecondsLeft > 0) {
+      _lightningController.forward(from: 0.0);
     }
   }
 
@@ -115,9 +145,9 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
   void didUpdateWidget(covariant PKScoreBar oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (widget.critEndTime != oldWidget.critEndTime) {
-      _checkCritTime();
-    }
+    // 同步父组件传来的新集合
+    _currentCritEndTimes = Map.from(widget.critEndTimes);
+    _checkCritTime();
 
     if (widget.myScore > _oldMyScore) {
       _addedScore = widget.myScore - _oldMyScore;
@@ -140,7 +170,7 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
       _flashController.forward().then((_) => _flashController.reverse());
 
       // 有暴击卡生效时触发爆炸
-      if (_localCritSecondsLeft > 0) {
+      if (_myCritSecondsLeft > 0) {
         _lightningController.forward(from: 0.0);
       }
     }
@@ -173,7 +203,7 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
     final Radius centerRadius = total == 0 ? Radius.zero : const Radius.circular(20);
 
     // 🟢 核心修正：判断当前是否有暴击卡，动态设置飘字的边距
-    final double currentPopRightPadding = _localCritSecondsLeft > 0 ? 13.0 : 5.0;
+    final double currentPopRightPadding = _myCritSecondsLeft > 0 ? 13.0 : 5.0;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -237,8 +267,7 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                                       animation: _flashController,
                                       builder: (context, child) {
                                         final double t = _flashValue.value;
-                                        final double intensity = ((_isCombo ? 1.0 : 0.60) + (0.15 * t)).clamp(0.0, 1.0);
-
+                                        final double intensity = ((_isCombo ? 1.0 : 0.75) + (0.15 * t)).clamp(0.0, 1.0);
                                         return Positioned(
                                           right: 0,
                                           top: 0,
@@ -299,7 +328,7 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                         ),
 
                         // --- 5. 暴击卡图片跟随 ---
-                        if (_localCritSecondsLeft > 0)
+                        if (_myCritSecondsLeft > 0)
                           Positioned(
                             left: leftWidth + critCardOffsetX,
                             top: critCardOffsetY,
@@ -355,22 +384,54 @@ class _PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
           ),
         ),
 
-        // --- 暴击卡倒计时文字 ---
-        if (_localCritSecondsLeft > 0)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // 我方：红色向右渐变
+            _myCritSecondsLeft > 0 ? _buildCritLabel(true, _myCritSecondsLeft) : const SizedBox(),
+
+            // 敌方：蓝色向左渐变
+            _oppCritSecondsLeft > 0 ? _buildCritLabel(false, _oppCritSecondsLeft) : const SizedBox(),
+          ],
+        ),
+
+        if (widget.status == PKStatus.punishment)
           Padding(
-            padding: const EdgeInsets.only(top: 4, left: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "暴击卡生效中  ${_localCritSecondsLeft}s ",
-                  style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10, fontWeight: FontWeight.w500),
-                ),
-                Icon(Icons.arrow_forward_ios, size: 8, color: Colors.white.withOpacity(0.8)),
-              ],
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              widget.myScore >= widget.opponentScore ? "🎉 我方胜利" : "😭 对方胜利",
+              style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11),
             ),
           ),
       ],
+    );
+  }
+  // 🟢 新增：提取的红蓝双向渐变标签组件
+  Widget _buildCritLabel(bool isMe, int seconds) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: isMe ? Alignment.centerLeft : Alignment.centerRight,
+          end: isMe ? Alignment.centerRight : Alignment.centerLeft,
+          colors: isMe
+              ? [const Color(0xFFFF2E56), Colors.transparent] // 我方：狂暴红
+              : [const Color(0xFF2962FF), Colors.transparent], // 敌方：冰霜蓝
+          stops: const [0.2, 1.0],
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isMe) const Icon(Icons.arrow_back_ios, size: 8, color: Colors.white),
+          if (!isMe) const SizedBox(width: 4),
+          Text(
+            isMe ? "暴击卡生效中  ${seconds}s " : "暴击中... ",
+            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+          ),
+          if (isMe) const Icon(Icons.arrow_forward_ios, size: 8, color: Colors.white),
+        ],
+      ),
     );
   }
 }
@@ -626,6 +687,7 @@ class PKTimer extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+
                 if (status != PKStatus.punishment && status != PKStatus.coHost) ...[
                   const Text(
                     "P",
