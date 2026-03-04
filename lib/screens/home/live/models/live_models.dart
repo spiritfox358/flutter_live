@@ -77,7 +77,8 @@ class GiftEvent {
       // ✅ 保持原值
       count: count ?? this.count,
       giftPrice: giftPrice,
-      giftEffectUrl: giftEffectUrl, configJsonList: configJsonList,
+      giftEffectUrl: giftEffectUrl,
+      configJsonList: configJsonList,
     );
   }
 }
@@ -89,6 +90,7 @@ class GiftItemData {
   final bool? isLocked;
   final String iconUrl;
   final String? effectAsset; // 🟢 修改：改为可空，防止后端没配特效报错
+  final String? remark;
   final List<dynamic>? configJsonList;
   final String? tag;
   final String? expireTime;
@@ -104,7 +106,8 @@ class GiftItemData {
     this.expireTime,
     this.tabId,
     this.configJsonList,
-    this.isLocked, // 🟢 新增
+    this.isLocked,
+    this.remark, // 🟢 新增
   });
 
   factory GiftItemData.fromJson(Map<String, dynamic> json) {
@@ -116,6 +119,7 @@ class GiftItemData {
       effectAsset: json['effectUrl'],
       // 后端叫 effectUrl
       tag: json['tagName'],
+      remark: json['remark'],
       // 后端叫 tagName
       expireTime: json['expireTime'],
       // 如果后续有过期时间逻辑可开启

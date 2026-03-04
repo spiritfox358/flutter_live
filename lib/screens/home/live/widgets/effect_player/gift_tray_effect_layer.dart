@@ -156,12 +156,12 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
   // 🔧🔧🔧 智能调节区域 🔧🔧🔧
   // =======================================================
   final int _videoDurationMs = 3000;
-  final int _earlyShowMs = 120;
+  final int _earlyShowMs = 100;
 
   final double _scale = 0.8;
-  static const double _baseWidth = 400.0;
-  static const double _baseHeight = 800.0;
-  static const double _baseTop = -300.0;
+  static const double _baseWidth = 300.0;
+  static const double _baseHeight = 630.0;
+  static const double _baseTop = -220.0;
   static const double _baseLeft = -25.0;
 
   final double _bannerLeft = -5.0;
@@ -246,7 +246,8 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
     }
 
     // 🟢 情况 2: 高级礼物 (>= 1000)
-    String? effectUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4";
+    // String? effectUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4";
+    String? effectUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%982.mp4";
 
     String? path;
     if (kIsWeb) {

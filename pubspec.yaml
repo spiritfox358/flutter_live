@@ -41,6 +41,7 @@ dependencies:
   vibration: ^3.1.5
   web: ^1.1.1
   video_thumbnail: ^0.5.6
+  record: ^6.2.0
 
 dev_dependencies:
   flutter_test:

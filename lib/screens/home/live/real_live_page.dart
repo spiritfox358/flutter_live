@@ -25,8 +25,10 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 // 假设你的路径结构如下，请根据实际情况调整
 import '../../../models/user_models.dart';
+import '../../../services/ai_realtime_voice_service.dart';
 import '../../../services/gift_api.dart';
 import '../../../services/ai_music_service.dart';
+import '../../../tools/AudioTool.dart';
 import '../../../tools/HttpUtil.dart';
 
 import '../../../tools/StringTool.dart';
@@ -96,7 +98,7 @@ class RealLivePage extends StatefulWidget {
 class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMixin {
   // 加载状态，默认为 true
   bool _isLoadingDetail = true;
-
+  static const MethodChannel _nativePlayer = MethodChannel('com.ai.voice/native_player');
   // PK时长配置
   int _pkDuration = 90; // 默认为90秒
   final int _punishmentDuration = 20;
@@ -175,6 +177,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   PKStatus _pkStatus = PKStatus.idle;
   int _myPKScore = 0;
   int _opponentPKScore = 0;
+
+  // 🟢 1. 新增：专门用于 PK 分数局部刷新的触发器
+  final ValueNotifier<int> _pkScoreUpdateTrigger = ValueNotifier(0);
   int _pkTimeLeft = 0;
   Timer? _pkTimer;
 
@@ -284,6 +289,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   // 🟢 新增：滑入房间时的恢复逻辑 (把你原来 initState 里的启动代码放进来)
   void _resumeRoom() {
+    // 🟢 提前点火！设置采样率为 24000 (和后端火山TTS保持一致)
+    _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000});
     _startEnterRoomSequence();
     if (_isVideoBackground && _isBgInitialized) {
       _bgController?.play();
@@ -677,17 +684,28 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         case "PK_UPDATE":
           if (_pkStatus != PKStatus.playing) break;
           final List<dynamic> scoreList = data['data'] as List<dynamic>;
-          setState(() {
-            for (var item in scoreList) {
-              String roomId = item['roomId'].toString();
-              int score = int.tryParse(item['score'].toString()) ?? 0;
-              if (roomId == _roomId) {
+
+          // 🟢 3. 核心优化：彻底干掉 setState，在后台悄悄更新变量
+          bool hasChanged = false;
+          for (var item in scoreList) {
+            String roomId = item['roomId'].toString();
+            int score = int.tryParse(item['score'].toString()) ?? 0;
+            if (roomId == _roomId) {
+              if (_myPKScore != score) {
                 _myPKScore = score;
-              } else {
+                hasChanged = true;
+              }
+            } else {
+              if (_opponentPKScore != score) {
                 _opponentPKScore = score;
+                hasChanged = true;
               }
             }
-          });
+          }
+          // 如果分数真的发生了变化，通知局部 UI 刷新
+          if (hasChanged) {
+            _pkScoreUpdateTrigger.value++;
+          }
           break;
         case "PK_END":
           _disconnectCoHost();
@@ -719,10 +737,31 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           }
           break;
         // 🟢 新增：处理主播语音消息
-        case "HOST_SPEAK":
-          VoicePlayerTool().playBase64Audio(data["audioData"] as String?);
-          if (widget.roomType == LiveRoomType.voice && _voiceRoomKey.currentState != null) {
-            _voiceRoomKey.currentState?.updateRealTimeSubtitle("$joinerName: ${data['content']}");
+        // case "HOST_SPEAK":
+        //   VoicePlayerTool().playBase64Audio(data["audioData"] as String?);
+        //   if (widget.roomType == LiveRoomType.voice && _voiceRoomKey.currentState != null) {
+        //     _voiceRoomKey.currentState?.updateRealTimeSubtitle("$joinerName: ${data['content']}");
+        //   }
+        //   break;
+      // 🟢 收到打断指令：紧急刹车并重新点火！
+        case "INTERRUPT_AUDIO":
+          debugPrint("🛑 收到打断指令，清空原生音频队列！");
+          // 1. 瞬间停掉当前的 AudioTrack 并清空队列
+          _nativePlayer.invokeMethod('stopPlayer').then((_) {
+            // 2. 必须立刻重新初始化，否则后面来的声音就播不出来了
+            _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000});
+          });
+          break;
+
+      // 🟢 收到混流音频：直接喂给原生队列！
+        case "MIXED_AUDIO_STREAM":
+          String base64Data = data['audioData'];
+          if (base64Data.isNotEmpty) {
+            // 1. 解码出原始 PCM 字节 (完全不需要加 WAV 头了)
+            Uint8List pcmBytes = base64Decode(base64Data);
+
+            // 2. 极速喂给 Android 原生层！你的 LinkedBlockingQueue 会自动把它们丝滑拼在一起播放！
+            _nativePlayer.invokeMethod('feedAudio', {'data': pcmBytes});
           }
           break;
         case "PROP_CRIT":
@@ -1840,99 +1879,109 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                           SizedBox(
                                             height: pkVideoHeight + 18,
                                             width: size.width,
-                                            child: Stack(
-                                              children: [
-                                                Positioned(
-                                                  top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
-                                                  left: 0,
-                                                  right: 0,
-                                                  bottom: 0,
-                                                  child: PKRealBattleView(
-                                                    leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
-                                                    leftBgImage: _isVideoBackground ? null : _currentBgImage,
-                                                    leftName: _currentName,
-                                                    leftAvatarUrl: _currentAvatar,
-                                                    isRightVideoMode: _isRightVideoMode,
-                                                    rightVideoController: (_isRightVideoMode && _isRightVideoInitialized)
-                                                        ? _rightVideoController
-                                                        : null,
-                                                    isRotating: true,
-                                                    rightAvatarUrl: _participants.length > 1
-                                                        ? _participants[1]['avatar']
-                                                        : "https://picsum.photos/200",
-                                                    rightName: _participants.length > 1 ? _participants[1]['name'] : "对手主播",
-                                                    rightBgImage: _participants.length > 1 ? (_participants[1]['pkBg'] ?? "") : "",
-                                                    pkStatus: _pkStatus,
-                                                    myScore: _myPKScore,
-                                                    opponentScore: _opponentPKScore,
-                                                    onTapOpponent: _switchToOpponentRoom,
-                                                    isOpponentSpeaking: true,
-                                                  ),
-                                                ),
-                                                Positioned(
-                                                  top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
-                                                  left: 0,
-                                                  right: 0,
-                                                  child: Center(
-                                                    child: PKTimer(
-                                                      secondsLeft: _pkTimeLeft,
-                                                      status: _pkStatus,
-                                                      myScore: _myPKScore,
-                                                      opponentScore: _opponentPKScore,
-                                                    ),
-                                                  ),
-                                                ),
-                                                if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
-                                                  Positioned(
-                                                    top: 0,
-                                                    left: 0,
-                                                    right: 0,
-                                                    child: PKScoreBar(
-                                                      key: _pkScoreBarKey,
-                                                      // 🟢 2. 绑定 Key
-                                                      myScore: _myPKScore,
-                                                      opponentScore: _opponentPKScore,
-                                                      status: _pkStatus,
-                                                      secondsLeft: _pkTimeLeft,
-                                                      // 🟢 传入新的参数
-                                                      myRoomId: _roomId,
-                                                      critEndTimes: _critEndTimes,
-                                                    ),
-                                                  ),
-                                                Positioned(
-                                                  right: 10,
-                                                  bottom: 10,
-                                                  child: Column(
-                                                    children: [
-                                                      _buildCircleBtn(
-                                                        onTap: _showMusicPanel,
-                                                        icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
-                                                        borderColor: Colors.purpleAccent,
-                                                        label: "点歌",
+                                            child: ValueListenableBuilder<int>(
+                                              valueListenable: _pkScoreUpdateTrigger,
+                                              builder: (context, _, _) {
+                                                // 每次 _pkScoreUpdateTrigger.value++，只有这个 builder 里面的 UI 会重绘！
+                                                return Stack(
+                                                  children: [
+                                                    Positioned(
+                                                      top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
+                                                      left: 0,
+                                                      right: 0,
+                                                      bottom: 0,
+                                                      child: PKRealBattleView(
+                                                        leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
+                                                        leftBgImage: _isVideoBackground ? null : _currentBgImage,
+                                                        leftName: _currentName,
+                                                        leftAvatarUrl: _currentAvatar,
+                                                        isRightVideoMode: _isRightVideoMode,
+                                                        rightVideoController: (_isRightVideoMode && _isRightVideoInitialized)
+                                                            ? _rightVideoController
+                                                            : null,
+                                                        isRotating: true,
+                                                        rightAvatarUrl: _participants.length > 1
+                                                            ? _participants[1]['avatar']
+                                                            : "https://picsum.photos/200",
+                                                        rightName: _participants.length > 1 ? _participants[1]['name'] : "对手主播",
+                                                        rightBgImage: _participants.length > 1 ? (_participants[1]['pkBg'] ?? "") : "",
+                                                        pkStatus: _pkStatus,
+                                                        myScore: _myPKScore,
+                                                        opponentScore: _opponentPKScore,
+                                                        onTapOpponent: _switchToOpponentRoom,
+                                                        isOpponentSpeaking: true,
                                                       ),
-                                                      const SizedBox(height: 10),
-                                                      _buildCircleBtn(
-                                                        onTap: _toggleBackgroundMode,
-                                                        icon: Icon(_isVideoBackground ? Icons.videocam : Icons.image, color: Colors.white, size: 20),
-                                                        borderColor: Colors.cyanAccent,
-                                                        label: "背景",
-                                                      ),
-                                                      const SizedBox(height: 10),
-                                                      if (_pkStatus != PKStatus.idle)
-                                                        _buildCircleBtn(
-                                                          onTap: _toggleRightVideoMode,
-                                                          icon: Icon(
-                                                            _isRightVideoMode ? Icons.videocam : Icons.person,
-                                                            color: Colors.white,
-                                                            size: 20,
-                                                          ),
-                                                          borderColor: Colors.orangeAccent,
-                                                          label: "对手",
+                                                    ),
+                                                    Positioned(
+                                                      top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
+                                                      left: 0,
+                                                      right: 0,
+                                                      child: Center(
+                                                        child: PKTimer(
+                                                          secondsLeft: _pkTimeLeft,
+                                                          status: _pkStatus,
+                                                          myScore: _myPKScore,
+                                                          opponentScore: _opponentPKScore,
                                                         ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ],
+                                                      ),
+                                                    ),
+                                                    if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
+                                                      Positioned(
+                                                        top: 0,
+                                                        left: 0,
+                                                        right: 0,
+                                                        child: PKScoreBar(
+                                                          key: _pkScoreBarKey,
+                                                          // 🟢 2. 绑定 Key
+                                                          myScore: _myPKScore,
+                                                          opponentScore: _opponentPKScore,
+                                                          status: _pkStatus,
+                                                          secondsLeft: _pkTimeLeft,
+                                                          // 🟢 传入新的参数
+                                                          myRoomId: _roomId,
+                                                          critEndTimes: _critEndTimes,
+                                                        ),
+                                                      ),
+                                                    Positioned(
+                                                      right: 10,
+                                                      bottom: 10,
+                                                      child: Column(
+                                                        children: [
+                                                          _buildCircleBtn(
+                                                            onTap: _showMusicPanel,
+                                                            icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
+                                                            borderColor: Colors.purpleAccent,
+                                                            label: "点歌",
+                                                          ),
+                                                          const SizedBox(height: 10),
+                                                          _buildCircleBtn(
+                                                            onTap: _toggleBackgroundMode,
+                                                            icon: Icon(
+                                                              _isVideoBackground ? Icons.videocam : Icons.image,
+                                                              color: Colors.white,
+                                                              size: 20,
+                                                            ),
+                                                            borderColor: Colors.cyanAccent,
+                                                            label: "背景",
+                                                          ),
+                                                          const SizedBox(height: 10),
+                                                          if (_pkStatus != PKStatus.idle)
+                                                            _buildCircleBtn(
+                                                              onTap: _toggleRightVideoMode,
+                                                              icon: Icon(
+                                                                _isRightVideoMode ? Icons.videocam : Icons.person,
+                                                                color: Colors.white,
+                                                                size: 20,
+                                                              ),
+                                                              borderColor: Colors.orangeAccent,
+                                                              label: "对手",
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
                                             ),
                                           ),
                                         ],
@@ -2322,6 +2371,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                   ),
                 ),
               ),
+
+
+            _buildAiVoiceBtn(),
           ],
         ),
       ),
@@ -2350,8 +2402,55 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
+  // 你可以把这个 Widget 放在 Stack 的靠上层
+  Widget _buildAiVoiceBtn() {
+    return Positioned(
+      right: 16,
+      top: 120, // 放在右上角区域
+      child: GestureDetector(
+        onTap: () async {
+          // 如果正在连麦就挂断，没连麦就开启
+          if (AiRealTimeVoiceService().isSpeaking) {
+            await AiRealTimeVoiceService().stopVoiceCall();
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已挂断 AI 连麦")));
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("正在连接 AI...")));
+            bool success = await AiRealTimeVoiceService().startVoiceCall(
+              roomId: _roomId,
+              userId: _myUserId,
+            );
+            if (success) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ 连接成功，可以直接说话了！")));
+            }
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.blueAccent.withOpacity(0.8),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white, width: 1),
+          ),
+          child: Row(
+            children: const [
+              Icon(Icons.mic, color: Colors.white, size: 18),
+              SizedBox(width: 4),
+              Text("AI 连麦", style: TextStyle(color: Colors.white, fontSize: 12)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
+    // 🟢 关闭 AI 连麦通道
+    AiRealTimeVoiceService().dispose();
+    // 🟢 销毁原生播放器，释放系统硬件资源
+    _nativePlayer.invokeMethod('stopPlayer');
+
+    _pkScoreUpdateTrigger.dispose(); // 🟢 2. 新增销毁
     _isDisposed = true;
     WakelockPlus.disable();
     _socketSubscription?.cancel();

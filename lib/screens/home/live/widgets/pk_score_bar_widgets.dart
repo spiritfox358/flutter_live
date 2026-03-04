@@ -37,6 +37,7 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
   // 🟢 双方倒计时：敌方如果有多人，取最高值
   int _myCritSecondsLeft = 0;
   int _oppCritSecondsLeft = 0;
+
   // =========================================================================
   // 🛠️ 微调参数区
   // =========================================================================
@@ -61,9 +62,14 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
 
   late AnimationController _lightningController;
 
+  // 🟢 新增：暴击卡呼吸动画控制器
+  late AnimationController _critBreathController;
+  late Animation<double> _critBreathScale;
+
   // 内部独立计时器，隔离父级刷新
   Timer? _localCritTimer;
-// 🟢 4. 新增敌方倒计时
+
+  // 🟢 4. 新增敌方倒计时
   @override
   void initState() {
     super.initState();
@@ -88,6 +94,17 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
 
     _lightningController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
 
+    // 🟢 初始化呼吸动画：无限循环，时长约 1.2 秒，使用 easeInOut 曲线模拟自然呼吸
+    _critBreathController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+
+    // 范围从 1.0 (正常) 到 1.25 (放大 25%)
+    _critBreathScale = Tween<double>(begin: 1.0, end: 1.1).animate(
+      CurvedAnimation(
+        parent: _critBreathController,
+        curve: Curves.easeInOut, // 缓入缓出，更像呼吸
+      ),
+    );
+
     _checkCritTime();
     _startLocalCritTimer();
   }
@@ -99,7 +116,7 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
     });
   }
 
-// 🟢 倒计时检测：支持 N 人遍历
+  // 🟢 倒计时检测：支持 N 人遍历
   void _checkCritTime() {
     final now = DateTime.now();
     int myMax = 0;
@@ -121,6 +138,22 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
         _myCritSecondsLeft = myMax;
         _oppCritSecondsLeft = oppMax;
       });
+      // 🟢 状态改变后，立即检查是否需要启停呼吸动画
+      _updateCritBreathAnimation();
+    }
+  }
+
+  // 🟢 新增辅助方法：管理呼吸动画状态
+  void _updateCritBreathAnimation() {
+    if (_myCritSecondsLeft > 0) {
+      if (!_critBreathController.isAnimating) {
+        _critBreathController.repeat(reverse: true);
+      }
+    } else {
+      if (_critBreathController.isAnimating) {
+        _critBreathController.stop();
+        _critBreathController.reset();
+      }
     }
   }
 
@@ -175,6 +208,18 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
       }
     }
     _oldMyScore = widget.myScore;
+
+    // 🟢 新增：根据是否有暴击时间，控制呼吸动画的播放/停止
+    if (_myCritSecondsLeft > 0) {
+      if (!_critBreathController.isAnimating) {
+        _critBreathController.repeat(reverse: true); // 无限往复播放
+      }
+    } else {
+      if (_critBreathController.isAnimating) {
+        _critBreathController.stop();
+        _critBreathController.reset(); // 重置回 1.0 大小
+      }
+    }
   }
 
   @override
@@ -183,6 +228,8 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
     _flashController.dispose();
     _comboTextScaleController.dispose();
     _lightningController.dispose();
+    _critBreathController.dispose(); // 🟢 新增释放
+
     _localCritTimer?.cancel();
     super.dispose();
   }
@@ -202,210 +249,228 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
 
     final Radius centerRadius = total == 0 ? Radius.zero : const Radius.circular(20);
 
-    // 🟢 核心修正：判断当前是否有暴击卡，动态设置飘字的边距
+    // 判断当前是否有暴击卡，动态设置飘字的边距
     final double currentPopRightPadding = _myCritSecondsLeft > 0 ? 13.0 : 5.0;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0),
-          child: SizedBox(
-            height: 18,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final maxWidth = constraints.maxWidth;
+    // 🟢 核心改动 1：把 LayoutBuilder 和 TweenAnimationBuilder 提到最外层
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
 
-                return TweenAnimationBuilder<double>(
-                  tween: Tween<double>(end: targetRatio),
-                  duration: _barAnimationDuration,
-                  curve: Curves.easeOutExpo,
-                  builder: (context, ratio, child) {
-                    final leftWidth = maxWidth * ratio;
-                    final rightWidth = maxWidth - leftWidth;
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(end: targetRatio),
+          duration: _barAnimationDuration,
+          curve: Curves.easeOutExpo,
+          builder: (context, ratio, child) {
+            final leftWidth = maxWidth * ratio;
+            final rightWidth = maxWidth - leftWidth;
 
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.centerLeft,
-                      children: [
-                        // --- 1. 蓝条 ---
-                        Container(color: Colors.grey[800]),
-                        Positioned(
-                          right: 0,
-                          width: rightWidth + 20.0,
-                          top: 0,
-                          bottom: 0,
-                          child: Container(
-                            decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF448AFF), Color(0xFF2962FF)])),
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 8),
-                            child: Text(
-                              _formatScore(widget.opponentScore),
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                            ),
-                          ),
-                        ),
-
-                        // --- 2. 红条 ---
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.horizontal(right: centerRadius),
-                            child: SizedBox(
-                              width: leftWidth,
-                              height: 18,
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  Container(
-                                    decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFD32F2F), Color(0xFFFF5252)])),
-                                  ),
-
-                                  if (total > 0)
-                                    AnimatedBuilder(
-                                      animation: _flashController,
-                                      builder: (context, child) {
-                                        final double t = _flashValue.value;
-                                        final double intensity = ((_isCombo ? 1.0 : 0.75) + (0.15 * t)).clamp(0.0, 1.0);
-                                        return Positioned(
-                                          right: 0,
-                                          top: 0,
-                                          bottom: 0,
-                                          width: 40.0 + (15.0 * t),
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.centerRight,
-                                                end: Alignment.centerLeft,
-                                                stops: [0.0, 0.4 + (0.2 * t), 1.0],
-                                                colors: [
-                                                  Colors.white.withOpacity(intensity),
-                                                  Colors.white.withOpacity(intensity * 0.4),
-                                                  Colors.white.withOpacity(0.0),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-
-                                  // --- 3. 爆裂光波特效 ---
-                                  if (_lightningController.isAnimating)
-                                    Positioned.fill(
-                                      child: AnimatedBuilder(
-                                        animation: _lightningController,
-                                        builder: (context, child) {
-                                          return CustomPaint(painter: _ExplosionPainter(_lightningController.value));
-                                        },
-                                      ),
-                                    ),
-
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: Padding(
-                                      padding: const EdgeInsets.only(left: 8),
-                                      child: Text(
-                                        _formatScore(widget.myScore),
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                                      ),
-                                    ),
-                                  ),
-                                ],
+            // 🟢 核心改动 2：使用全局 Stack 包裹，控制渲染层级 Z-index
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // ==========================================
+                // 第一层：基础 UI（进度条 + 底部文本 + 惩罚提示）
+                // ==========================================
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: maxWidth, // 明确宽度，防止 Stack 塌陷
+                      height: 18,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          // --- 1. 蓝条 ---
+                          Container(color: Colors.grey[800]),
+                          Positioned(
+                            right: 0,
+                            width: rightWidth + 20.0,
+                            top: 0,
+                            bottom: 0,
+                            child: Container(
+                              decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF448AFF), Color(0xFF2962FF)])),
+                              alignment: Alignment.centerRight,
+                              padding: const EdgeInsets.only(right: 8),
+                              child: Text(
+                                _formatScore(widget.opponentScore),
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
                               ),
                             ),
                           ),
-                        ),
 
-                        // --- 4. 交界处气泡特效 ---
-                        Positioned(
-                          left: leftWidth - 30,
-                          top: -15,
-                          bottom: -15,
-                          width: 60,
-                          child: PKDividerEffect(isZeroScore: total == 0),
-                        ),
+                          // --- 2. 红条 ---
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.horizontal(right: centerRadius),
+                              child: SizedBox(
+                                width: leftWidth,
+                                height: 18,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Container(
+                                      decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFFD32F2F), Color(0xFFFF5252)])),
+                                    ),
 
-                        // --- 5. 暴击卡图片跟随 ---
-                        if (_myCritSecondsLeft > 0)
-                          Positioned(
-                            left: leftWidth + critCardOffsetX,
-                            top: critCardOffsetY,
-                            child: Image.network(
-                              'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E6%9A%B4%E5%87%BB%E5%8D%A1_prop.png',
-                              width: 28,
-                              height: 28,
-                            ),
-                          ),
-
-                        // --- 6. 飘字动画 (应用动态 Padding) ---
-                        if (_popController.isAnimating || _popController.isCompleted)
-                          Positioned(
-                            left: 0,
-                            top: scorePopTopOffset,
-                            bottom: -scorePopTopOffset,
-                            width: leftWidth,
-                            child: AnimatedBuilder(
-                              animation: _popController,
-                              builder: (context, child) {
-                                return Opacity(
-                                  opacity: _popOpacity.value,
-                                  child: Transform.scale(
-                                    scale: _isCombo ? 1.0 : _popScale.value,
-                                    child: Container(
-                                      alignment: Alignment.centerRight,
-                                      // 🟢 动态使用 Padding：没卡 5.0，有卡 25.0 完美避开遮挡！
-                                      padding: EdgeInsets.only(right: currentPopRightPadding),
-                                      child: AnimatedBuilder(
-                                        animation: _comboTextScaleController,
+                                    if (total > 0)
+                                      AnimatedBuilder(
+                                        animation: _flashController,
                                         builder: (context, child) {
-                                          return Transform.scale(
-                                            scale: _comboTextScale.value,
-                                            child: Text(
-                                              "+$_addedScore",
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                          final double t = _flashValue.value;
+                                          final double intensity = ((_isCombo ? 1.0 : 0.75) + (0.15 * t)).clamp(0.0, 1.0);
+                                          return Positioned(
+                                            right: 0,
+                                            top: 0,
+                                            bottom: 0,
+                                            width: 40.0 + (15.0 * t),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.centerRight,
+                                                  end: Alignment.centerLeft,
+                                                  stops: const [0.0, 0.4, 1.0], // 简化了一下这里的 stops 以适配动画
+                                                  colors: [
+                                                    Colors.white.withOpacity(intensity),
+                                                    Colors.white.withOpacity(intensity * 0.4),
+                                                    Colors.white.withOpacity(0.0),
+                                                  ],
+                                                ),
+                                              ),
                                             ),
                                           );
                                         },
                                       ),
+
+                                    // --- 3. 爆裂光波特效 ---
+                                    if (_lightningController.isAnimating)
+                                      Positioned.fill(
+                                        child: AnimatedBuilder(
+                                          animation: _lightningController,
+                                          builder: (context, child) {
+                                            return CustomPaint(painter: _ExplosionPainter(_lightningController.value));
+                                          },
+                                        ),
+                                      ),
+
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(left: 8),
+                                        child: Text(
+                                          _formatScore(widget.myScore),
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
+
+                          // --- 4. 交界处气泡特效 ---
+                          Positioned(
+                            left: leftWidth - 30,
+                            top: -15,
+                            bottom: -15,
+                            width: 60,
+                            child: PKDividerEffect(isZeroScore: total == 0),
+                          ),
+
+                          // --- 5. 飘字动画 (原 6，保持在这层) ---
+                          if (_popController.isAnimating || _popController.isCompleted)
+                            Positioned(
+                              left: 0,
+                              top: scorePopTopOffset,
+                              bottom: -scorePopTopOffset,
+                              width: leftWidth,
+                              child: AnimatedBuilder(
+                                animation: _popController,
+                                builder: (context, child) {
+                                  return Opacity(
+                                    opacity: _popOpacity.value,
+                                    child: Transform.scale(
+                                      scale: _isCombo ? 1.0 : _popScale.value,
+                                      child: Container(
+                                        alignment: Alignment.centerRight,
+                                        padding: EdgeInsets.only(right: currentPopRightPadding),
+                                        child: AnimatedBuilder(
+                                          animation: _comboTextScaleController,
+                                          builder: (context, child) {
+                                            return Transform.scale(
+                                              scale: _comboTextScale.value,
+                                              child: Text(
+                                                "+$_addedScore",
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    // --- 标签（暴击卡生效中 等） ---
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _myCritSecondsLeft > 0 ? _buildCritLabel(true, _myCritSecondsLeft) : const SizedBox(),
+                        _oppCritSecondsLeft > 0 ? _buildCritLabel(false, _oppCritSecondsLeft) : const SizedBox(),
                       ],
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ),
+                    ),
 
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            // 我方：红色向右渐变
-            _myCritSecondsLeft > 0 ? _buildCritLabel(true, _myCritSecondsLeft) : const SizedBox(),
+                    if (widget.status == PKStatus.punishment)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          widget.myScore >= widget.opponentScore ? "🎉 我方胜利" : "😭 对方胜利",
+                          style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11),
+                        ),
+                      ),
+                  ],
+                ),
 
-            // 敌方：蓝色向左渐变
-            _oppCritSecondsLeft > 0 ? _buildCritLabel(false, _oppCritSecondsLeft) : const SizedBox(),
-          ],
-        ),
-
-        if (widget.status == PKStatus.punishment)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              widget.myScore >= widget.opponentScore ? "🎉 我方胜利" : "😭 对方胜利",
-              style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11),
-            ),
-          ),
-      ],
+                // ==========================================
+                // 第二层：暴击卡图标 (放 Stack 最后一个，永远置顶)
+                // ==========================================
+                if (_myCritSecondsLeft > 0)
+                  Positioned(
+                    left: leftWidth + critCardOffsetX,
+                    top: critCardOffsetY,
+                    child: AnimatedBuilder(
+                      animation: _critBreathController,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: _critBreathScale.value,
+                          child: child,
+                        );
+                      },
+                      child: Image.network(
+                        'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E6%9A%B4%E5%87%BB%E5%8D%A1_prop.png',
+                        width: 28,
+                        height: 28,
+                        colorBlendMode: BlendMode.multiply,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
+
   // 🟢 新增：提取的红蓝双向渐变标签组件
   Widget _buildCritLabel(bool isMe, int seconds) {
     return Container(
@@ -687,7 +752,6 @@ class PKTimer extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-
                 if (status != PKStatus.punishment && status != PKStatus.coHost) ...[
                   const Text(
                     "P",

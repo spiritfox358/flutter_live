@@ -292,7 +292,7 @@ class _GiftItemWidget extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback onSend;
 
-  const _GiftItemWidget({Key? key, required this.gift, required this.isSelected, required this.onTap, required this.onSend}) : super(key: key);
+  const _GiftItemWidget({super.key, required this.gift, required this.isSelected, required this.onTap, required this.onSend});
 
   @override
   State<_GiftItemWidget> createState() => _GiftItemWidgetState();
@@ -442,7 +442,7 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
 
                             // --- 价格区域 ---
                             Text(
-                              "${widget.gift.price} 钻",
+                              widget.gift.price == 0 ? "${widget.gift.remark}" : "${widget.gift.price} 钻",
                               style: TextStyle(
                                 color: widget.isSelected ? Colors.white : Colors.white.withOpacity(0.4),
                                 fontSize: 10,

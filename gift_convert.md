@@ -16,7 +16,7 @@ ffmpeg -i 抖音1号_new.mov \
 
 
 
-ffmpeg -i 御龙游侠底座.mov \
+ffmpeg -i 御龙游侠礼物托盘.mov \
 -filter_complex "
 [0:v]format=rgba,split=2[rgb][a];
 [a]alphaextract,format=yuv420p,scale=-2:800[a_gray];
@@ -31,7 +31,7 @@ ffmpeg -i 御龙游侠底座.mov \
 -r 30 \
 -preset slow \
 -movflags +faststart \
-御龙游侠底座2.mp4
+御龙游侠礼物托盘2.mp4
 
 ffprobe -v quiet -show_streams 云中秘境.webm
 
