@@ -242,7 +242,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
                   ),
                   child: Padding(
                     // 🟢 关键修改2：如果有头像框，增加内边距(例如5.0)，让头像图片缩小一点，完全嵌入框的“洞”里
-                    padding: EdgeInsets.all(item.avatarFrame.isNotEmpty ? 2.0 : 2.0),
+                    padding: EdgeInsets.all(item.avatarFrame.isNotEmpty ? 6.0 : 2.0),
                     child: CircleAvatar(backgroundImage: NetworkImage(item.avatar)),
                   ),
                 ),
@@ -252,10 +252,10 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
                   Positioned(
                     // 🟢 关键修改3：根据框的素材情况，可能需要调整这个数值
                     // 如果框比较厚，可以设为 -8 或 -10，让框显得更大，完全包住头像
-                    top: -4,
+                    top: 0,
                     left: -4,
-                    right: -4,
-                    bottom: -4,
+                    right: -1,
+                    bottom: 0,
                     child: Image.network(
                       item.avatarFrame,
                       fit: BoxFit.contain, // 确保框按比例缩放

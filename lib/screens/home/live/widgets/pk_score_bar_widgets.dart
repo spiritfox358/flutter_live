@@ -95,7 +95,7 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
     _lightningController = AnimationController(vsync: this, duration: const Duration(milliseconds: 500));
 
     // 🟢 初始化呼吸动画：无限循环，时长约 1.2 秒，使用 easeInOut 曲线模拟自然呼吸
-    _critBreathController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _critBreathController = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
 
     // 范围从 1.0 (正常) 到 1.25 (放大 25%)
     _critBreathScale = Tween<double>(begin: 1.0, end: 1.1).animate(

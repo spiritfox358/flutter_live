@@ -2,10 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math';
 import 'dart:convert';
-import 'dart:math' as math;
-import 'dart:ui';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,21 +15,17 @@ import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_cont
 import 'package:flutter_live/screens/home/live/widgets/room_mode/voice_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/viewer_list.dart';
 import 'package:flutter_live/store/user_store.dart';
-import 'package:just_audio/just_audio.dart' hide AudioPlayer;
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-// 假设你的路径结构如下，请根据实际情况调整
 import '../../../models/user_models.dart';
 import '../../../services/ai_realtime_voice_service.dart';
 import '../../../services/gift_api.dart';
 import '../../../services/ai_music_service.dart';
-import '../../../tools/AudioTool.dart';
 import '../../../tools/HttpUtil.dart';
 
 import '../../../tools/StringTool.dart';
-import '../../../tools/VoicePlayerTool.dart';
 import 'models/live_models.dart';
 import 'widgets/view_mode/pk_real_battle_view.dart';
 import 'widgets/view_mode/single_mode_view.dart';
@@ -98,7 +91,10 @@ class RealLivePage extends StatefulWidget {
 class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMixin {
   // 加载状态，默认为 true
   bool _isLoadingDetail = true;
+  bool _isRoomActive = false;
+  Timer? _viewChangeTimer;
   static const MethodChannel _nativePlayer = MethodChannel('com.ai.voice/native_player');
+
   // PK时长配置
   int _pkDuration = 90; // 默认为90秒
   final int _punishmentDuration = 20;
@@ -170,6 +166,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   String _currentName = "";
   Timer? _heartbeatTimer;
   bool _isDisposed = false;
+  bool _isSwitchingRoom = false; // 🟢 新增：用来标记是否正在进入对手房间
   String _currentAvatar = "";
   late String _leftVideoUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.MOV";
   final String _rightVideoUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/234.mp4";
@@ -216,7 +213,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final ValueNotifier<UserModel> _userStatusNotifier = ValueNotifier(
     UserModel(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0, monthLevel: 0),
   );
-  final AudioPlayer _ttsPlayer = AudioPlayer();
 
   @override
   void initState() {
@@ -243,6 +239,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     // 🟢 只有当该房间处于屏幕中央时，才去真实连接服务器和播放画面！
     if (widget.isCurrentView) {
+      _isRoomActive = true;
       _resumeRoom();
     } else {
       // 如果不在屏幕中央，只显示封面加载中，不拉流不断连
@@ -272,25 +269,74 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   // 🟢 新增：监听 PageView 上下滑动带来的状态变化
+  // 🟢 终极形态：基于物理引擎状态的智能防抖
   @override
   void didUpdateWidget(covariant RealLivePage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 当滑动状态发生改变时触发
+
     if (widget.isCurrentView != oldWidget.isCurrentView) {
+      _viewChangeTimer?.cancel();
+
       if (widget.isCurrentView) {
-        debugPrint("👉 滑入直播间 ${widget.roomId}，开始连线拉流...");
-        _resumeRoom();
+        // 滑入当前直播间：立刻点火，绝不拖泥带水
+        if (mounted && !_isRoomActive) {
+          _isRoomActive = true;
+          debugPrint("👉 确定滑入直播间 ${widget.roomId}，立刻恢复视听...");
+          _resumeRoom();
+        }
       } else {
-        debugPrint("👈 滑出直播间 ${widget.roomId}，断开 Socket 并暂停视频...");
-        _pauseRoom();
+        // 尝试滑出：进入“状态巡逻”模式，防误触、防悬停
+        _checkAndPause();
       }
+    }
+  }
+
+  // 🟢 终极形态：加入“帧同步”时间差保护的巡逻兵
+  void _checkAndPause() {
+    if (!mounted || widget.isCurrentView) return;
+
+    bool isBetweenPages = false;
+
+    if (widget.pageController != null && widget.pageController!.hasClients) {
+      double page = widget.pageController!.page ?? 0.0;
+      // 只要 page 不是精确的整数（允许 0.01 的极小误差），
+      // 就说明用户的手指还在屏幕上拖拽（悬停），或者页面还在做回弹/翻页动画！
+      if ((page - page.round()).abs() > 0.01) {
+        isBetweenPages = true;
+      }
+    } else {
+      // 兜底：如果没传 pageController，退回到 500ms 盲猜模式
+      _viewChangeTimer = Timer(const Duration(milliseconds: 500), () {
+        if (mounted && !widget.isCurrentView && _isRoomActive) {
+          _isRoomActive = false;
+          _pauseRoom();
+        }
+      });
+      return;
+    }
+
+    if (isBetweenPages) {
+      // 🚨 页面悬停或正在滚动中！继续高频巡逻 (50ms)，死死咬住音频！
+      _viewChangeTimer = Timer(const Duration(milliseconds: 50), _checkAndPause);
+    } else {
+      // ✅ 页面物理滚动已经完全停止，稳稳落在了一个整数页面上。
+      // 🛑 致命关键点：此时它可能是落到了【下一个房间】，也可能是【反悔弹回了本房间】！
+      // 此时立刻给一个 200ms 的“死缓期”。
+      _viewChangeTimer = Timer(const Duration(milliseconds: 200), () {
+        // 如果 200ms 后，父组件依然没有把 isCurrentView 变成 true，说明真的滑走了！
+        if (mounted && !widget.isCurrentView && _isRoomActive) {
+          _isRoomActive = false;
+          debugPrint("👈 页面已滑出 ${widget.roomId} 且未反悔，安全清理资源...");
+          _pauseRoom();
+        }
+      });
     }
   }
 
   // 🟢 新增：滑入房间时的恢复逻辑 (把你原来 initState 里的启动代码放进来)
   void _resumeRoom() {
     // 🟢 提前点火！设置采样率为 24000 (和后端火山TTS保持一致)
-    _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000});
+    _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000, 'roomId': _roomId});
     _startEnterRoomSequence();
     if (_isVideoBackground && _isBgInitialized) {
       _bgController?.play();
@@ -471,6 +517,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     try {
       final res = await HttpUtil().get("/api/pk/detail", params: {"roomId": int.parse(_roomId), "userId": _myUserId, "userName": _myUserName});
       final data = res;
+      String bgmUrl = data['currentResourceUrl'];
+      int startTimeMs = data['bgmStartTime'];
+      if (bgmUrl.isNotEmpty) {
+        // 直接喂给你的智能闪避播放器，它会自动计算过去的时间并跳转！
+        if (widget.roomType != LiveRoomType.video) {
+          AIMusicService().syncAndPlayBgm(_roomId, bgmUrl, startTimeMs);
+        }
+      }
 
       if (data['pkInfo'] != null) {
         final pkInfo = data['pkInfo'];
@@ -716,26 +770,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _showRoomClosedDialog();
           }
           break;
-        case "AI_REPLY":
-          final content = data['content'];
-          final audioData = data['audio'];
-
-          _chatController.addMessage(
-            ChatMessage(
-              name: joinerName,
-              content: content,
-              level: 17,
-              monthLevel: _monthLevel,
-              levelColor: Colors.purpleAccent,
-              isAnchor: _isHost,
-              userId: msgUserId,
-            ),
-          );
-
-          if (audioData != null && audioData.toString().isNotEmpty) {
-            _playBase64Audio(audioData);
-          }
-          break;
         // 🟢 新增：处理主播语音消息
         // case "HOST_SPEAK":
         //   VoicePlayerTool().playBase64Audio(data["audioData"] as String?);
@@ -743,25 +777,29 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         //     _voiceRoomKey.currentState?.updateRealTimeSubtitle("$joinerName: ${data['content']}");
         //   }
         //   break;
-      // 🟢 收到打断指令：紧急刹车并重新点火！
+        // 🟢 收到打断指令：紧急刹车并重新点火！
         case "INTERRUPT_AUDIO":
           debugPrint("🛑 收到打断指令，清空原生音频队列！");
+          // 🟢 一行代码瞬间恢复 BGM 的 100% 音量
+          AIMusicService().restoreVolumeNow(_roomId);
           // 1. 瞬间停掉当前的 AudioTrack 并清空队列
-          _nativePlayer.invokeMethod('stopPlayer').then((_) {
+          _nativePlayer.invokeMethod('stopPlayer', {'roomId': _roomId}).then((_) {
             // 2. 必须立刻重新初始化，否则后面来的声音就播不出来了
-            _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000});
+            _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000, 'roomId': _roomId});
           });
           break;
 
-      // 🟢 收到混流音频：直接喂给原生队列！
+        // 🟢 收到混流音频：直接喂给原生队列！
         case "MIXED_AUDIO_STREAM":
           String base64Data = data['audioData'];
           if (base64Data.isNotEmpty) {
             // 1. 解码出原始 PCM 字节 (完全不需要加 WAV 头了)
             Uint8List pcmBytes = base64Decode(base64Data);
-
+            // 🟢 极简调用：算好时长，直接告诉 Service 去闪避音量！
+            int durationMs = (pcmBytes.length / 48.0).ceil();
+            AIMusicService().duckFor(_roomId, durationMs);
             // 2. 极速喂给 Android 原生层！你的 LinkedBlockingQueue 会自动把它们丝滑拼在一起播放！
-            _nativePlayer.invokeMethod('feedAudio', {'data': pcmBytes});
+            _nativePlayer.invokeMethod('feedAudio', {'data': pcmBytes, 'roomId': _roomId});
           }
           break;
         case "PROP_CRIT":
@@ -817,14 +855,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     try {
       _channel!.sink.add(jsonEncode(msg));
     } catch (e) {}
-  }
-
-  Future<void> _playBase64Audio(String dataUri) async {
-    if (dataUri.contains(',')) {
-      dataUri = dataUri.split(',').last;
-    }
-    Uint8List audioBytes = base64Decode(dataUri);
-    await _ttsPlayer.play(BytesSource(audioBytes));
   }
 
   void _onTapStartPK() {
@@ -1221,6 +1251,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
     if (_participants.length < 2) return;
     final opponent = _participants[1];
+    _isSwitchingRoom = true; // 🟢 核心修复 1：标记我们要切房了，保护底层播放器！
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => RealLivePage(
@@ -1734,7 +1765,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               left: 0,
               right: 0,
               child: Center(
-                child: AvatarAnimation(avatarUrl: _currentAvatar, name: _currentName, isSpeaking: true, isRotating: true),
+                child: AvatarAnimation(avatarUrl: _currentAvatar, name: _currentName, isSpeaking: true, isRotating: false),
               ),
             ),
           ],
@@ -1899,7 +1930,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                         rightVideoController: (_isRightVideoMode && _isRightVideoInitialized)
                                                             ? _rightVideoController
                                                             : null,
-                                                        isRotating: true,
+                                                        isRotating: false,
                                                         rightAvatarUrl: _participants.length > 1
                                                             ? _participants[1]['avatar']
                                                             : "https://picsum.photos/200",
@@ -2338,10 +2369,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                 width: 76,
                                 height: 76,
                                 child: CircularProgressIndicator(
-                                  value: 1.0 - _countdownController.value,
+                                  value: _countdownController.value,
                                   strokeWidth: 4,
                                   backgroundColor: Colors.white24,
-                                  valueColor: const AlwaysStoppedAnimation(Colors.amber),
+                                  valueColor: const AlwaysStoppedAnimation(Color(0xFFFF0000)),
                                 ),
                               ),
                               Container(
@@ -2350,13 +2381,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   gradient: const LinearGradient(
-                                    colors: [Color(0xFFFF0080), Color(0xFFFF8C00)],
+                                    colors: [Color(0xFFFF0000), Color(0xFFFF0000)],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
-                                  border: Border.all(color: Colors.white, width: 2),
+                                  border: Border.all(color: Colors.red, width: 2),
                                 ),
-                                alignment: const Alignment(0, -0.15),
+                                alignment: const Alignment(0, -0.05),
                                 child: const Text(
                                   "连击",
                                   textAlign: TextAlign.center,
@@ -2372,8 +2403,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                 ),
               ),
 
-
-            _buildAiVoiceBtn(),
+            // _buildAiVoiceBtn(),
           ],
         ),
       ),
@@ -2415,10 +2445,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已挂断 AI 连麦")));
           } else {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("正在连接 AI...")));
-            bool success = await AiRealTimeVoiceService().startVoiceCall(
-              roomId: _roomId,
-              userId: _myUserId,
-            );
+            bool success = await AiRealTimeVoiceService().startVoiceCall(roomId: _roomId, userId: _myUserId);
             if (success) {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ 连接成功，可以直接说话了！")));
             }
@@ -2447,8 +2474,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   void dispose() {
     // 🟢 关闭 AI 连麦通道
     AiRealTimeVoiceService().dispose();
-    // 🟢 销毁原生播放器，释放系统硬件资源
-    _nativePlayer.invokeMethod('stopPlayer');
+    // 🟢 核心修复 2：只有在真正退回到列表时，才销毁硬件！如果是切去对手房间，绝对不要销毁！
+    if (!_isSwitchingRoom) {
+      _nativePlayer.invokeMethod('stopPlayer', {'roomId': _roomId});
+    }
+    AIMusicService().stopMusic(_roomId);
 
     _pkScoreUpdateTrigger.dispose(); // 🟢 2. 新增销毁
     _isDisposed = true;
@@ -2458,9 +2488,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _heartbeatTimer?.cancel();
     _bgController?.dispose();
     _rightVideoController?.dispose(); // 销毁右侧视频
-    try {
-      AIMusicService().stopMusic();
-    } catch (e) {}
     _comboScaleController.dispose();
     _countdownController.dispose();
     _pkStartAnimationController.dispose();

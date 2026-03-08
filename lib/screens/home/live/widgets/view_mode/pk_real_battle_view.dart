@@ -1,8 +1,9 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
 import 'package:video_player/video_player.dart';
 
-import '../../../../../services/ai_music_service.dart';
 import '../pk_score_bar_widgets.dart';
 
 class PKRealBattleView extends StatefulWidget {
@@ -102,7 +103,6 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
 
   void _safePlayMusic() {
     try {
-      AIMusicService().playRandomBgm();
     } catch (e) {
       debugPrint("播放音乐失败: $e");
     }
@@ -110,7 +110,7 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
 
   void _safeStopMusic() {
     try {
-      AIMusicService().stopMusic();
+      // AIMusicService().stopMusic();
     } catch (e) {
       debugPrint("停止音乐失败: $e");
     }
@@ -193,13 +193,11 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
       );
     }
 
-    // 2. 🟢 无视频时，使用通用的头像模式 (背景 + 头像组件)
+    // 2. 🟢 无视频时，使用左侧头像作为背景并高斯模糊
     return _buildGenericImageMode(
-      bgImage: widget.leftBgImage ?? "",
       avatarUrl: widget.leftAvatarUrl,
       name: widget.leftName,
       isSpeaking: true,
-      // 左侧一般默认自己在说话
       showPunishmentMask: showPunishmentMask,
       isRotating: false,
     );
@@ -220,10 +218,20 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
         ),
       );
     } else {
-      content = Image.network(
-        widget.rightBgImage,
-        fit: BoxFit.cover,
-        errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
+      // 🟢 视频未准备好时，使用右侧头像作为背景并高斯模糊
+      content = Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            widget.rightAvatarUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
+          ),
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+            child: Container(color: Colors.black.withOpacity(0.5)),
+          ),
+        ],
       );
     }
 
@@ -232,10 +240,9 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
     );
   }
 
-  // 构建右侧非视频模式 (复用AvatarView)
+  // 构建右侧非视频模式
   Widget _buildRightImageModeContent(bool showPunishmentMask) {
     return _buildGenericImageMode(
-      bgImage: widget.rightBgImage,
       avatarUrl: widget.rightAvatarUrl,
       name: widget.rightName,
       isSpeaking: widget.isOpponentSpeaking,
@@ -244,9 +251,8 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
     );
   }
 
-  // 🟢 通用的非视频模式构建器
+  // 🟢 通用的非视频模式构建器（核心修改点）
   Widget _buildGenericImageMode({
-    required String bgImage,
     required String avatarUrl,
     required String name,
     required bool isSpeaking,
@@ -257,20 +263,20 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. 背景图
-          if (bgImage.isNotEmpty)
-            Image.network(
-              bgImage,
-              fit: BoxFit.cover,
-              errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
-            )
-          else
-            Container(color: Colors.black),
+          // 1. 底层背景：直接把头像无限放大铺满
+          Image.network(
+            avatarUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
+          ),
 
-          // 2. 黑色遮罩 (凸显头像)
-          Container(color: Colors.black.withOpacity(0.2)),
+          // 2. 滤镜层：高斯模糊 + 黑色半透明遮罩 (0.5 透明度，防止背景太花哨抢了前面内容的戏)
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+            child: Container(color: Colors.black.withOpacity(0.5)),
+          ),
 
-          // 3. 🟢 复用的头像组件
+          // 3. 原本正中间清晰的头像组件
           Center(
             child: AvatarAnimation(
               avatarUrl: avatarUrl,
@@ -280,7 +286,7 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
             ),
           ),
 
-          // 4. 惩罚滤镜
+          // 4. 惩罚滤镜 (输的一方变灰)
           if (showPunishmentMask)
             BackdropFilter(
               filter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),

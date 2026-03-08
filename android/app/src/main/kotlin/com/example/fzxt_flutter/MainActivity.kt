@@ -18,6 +18,9 @@ class MainActivity: FlutterActivity() {
     private var isPlaying = false
     private var playThread: Thread? = null
 
+    // 🟢 新增：记录当前掌控底层音频硬件的房间号
+    private var currentRoomId: String? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
@@ -30,14 +33,35 @@ class MainActivity: FlutterActivity() {
                 }
                 "feedAudio" -> {
                     val data = call.argument<ByteArray>("data")
+                    val reqRoomId = call.argument<String>("roomId") ?: ""
+
+                    // 🟢 拦截前朝余孽：如果传来的语音包是旧房间延迟到达的，直接扔进垃圾桶，防止串音！
+                    if (currentRoomId != null && reqRoomId != currentRoomId) {
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
                     if (data != null) {
-                        // 收到 Flutter 的数据，扔进队列就立刻返回，绝对不阻塞 Flutter 线程
+                        // 🟢 终极防线：收到语音包时，如果发现底层播放线程死了，立刻自动复活！
+                        if (!isPlaying || playThread == null || !playThread!!.isAlive) {
+                            initPlayer(24000)
+                        }
+
+                        // 收到 Flutter 的数据，扔进队列就立刻返回
                         audioQueue.offer(data)
                     }
                     result.success(true)
                 }
                 "stopPlayer" -> {
+                    val reqRoomId = call.argument<String>("roomId") ?: ""
+
+                    // 🟢 防误杀核心：如果旧房间来喊停，发现主人已经换了，直接忽略指令！
+                    if (currentRoomId != null && reqRoomId != currentRoomId) {
+                        result.success(false)
+                        return@setMethodCallHandler
+                    }
+
                     stopPlayer()
+                    currentRoomId = null // 释放主权
                     result.success(true)
                 }
                 else -> result.notImplemented()

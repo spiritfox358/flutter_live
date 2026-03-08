@@ -30,16 +30,10 @@ class BuildBottomInputBar extends StatelessWidget {
               onTap: onTapInput,
               child: Container(
                 height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(18),
-                ),
+                decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), borderRadius: BorderRadius.circular(18)),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 alignment: Alignment.centerLeft,
-                child: const Text(
-                  "说点什么...",
-                  style: TextStyle(color: Colors.white70, fontSize: 14),
-                ),
+                child: const Text("说点什么...", style: TextStyle(color: Colors.white70, fontSize: 14)),
               ),
             ),
           ),
@@ -47,10 +41,7 @@ class BuildBottomInputBar extends StatelessWidget {
           // 点赞按钮
           GestureDetector(
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text("点赞 +1 ❤️"),
-                duration: Duration(milliseconds: 500),
-              ));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("点赞 +1 ❤️"), duration: Duration(milliseconds: 500)));
             },
             child: const Icon(Icons.favorite_border, color: Colors.pinkAccent, size: 25),
           ),
@@ -61,11 +52,7 @@ class BuildBottomInputBar extends StatelessWidget {
             onTap: isHost ? onTapPK : onTapGift,
             child: isHost
                 ? _buildPKButton() // 🟢 调用新的无边框样式
-                : const Icon(
-              Icons.card_giftcard,
-              color: Colors.pinkAccent,
-              size: 25,
-            ),
+                : const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 25),
           ),
 
           const SizedBox(width: 10),
@@ -87,17 +74,17 @@ class BuildBottomInputBar extends StatelessWidget {
         "PK",
         style: TextStyle(
           color: Colors.pinkAccent,
-          fontSize: 20,            // 🟢 字号放大 (原12 -> 18)
-          fontWeight: FontWeight.w900, // 🟢 极粗体 (Black)
-          fontStyle: FontStyle.italic, // 斜体，增加速度感
-          height: 1.0, // 紧凑行高，防止文字偏上或偏下
+          fontSize: 20,
+          // 🟢 字号放大 (原12 -> 18)
+          fontWeight: FontWeight.w900,
+          // 🟢 极粗体 (Black)
+          fontStyle: FontStyle.italic,
+          // 斜体，增加速度感
+          height: 1.0,
+          // 紧凑行高，防止文字偏上或偏下
           shadows: [
             // 🟢 可选：加一点点淡淡的文字阴影，防止背景太亮看不清
-            Shadow(
-              color: Colors.black26,
-              offset: Offset(1, 1),
-              blurRadius: 2,
-            )
+            Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2),
           ],
         ),
       ),
@@ -107,7 +94,7 @@ class BuildBottomInputBar extends StatelessWidget {
 
 /// 状态枚举
 enum OverlayStatus {
-  idle,    // 闲置
+  idle, // 闲置
   waiting, // 已点击，正在等键盘弹完 (隐身中)
   visible, // 键盘稳住了，UI显示 (显形)
 }
@@ -116,10 +103,7 @@ enum OverlayStatus {
 class ChatInputOverlay extends StatefulWidget {
   final Function(String) onSend;
 
-  const ChatInputOverlay({
-    super.key,
-    required this.onSend,
-  });
+  const ChatInputOverlay({super.key, required this.onSend});
 
   @override
   State<ChatInputOverlay> createState() => ChatInputOverlayState();
@@ -145,14 +129,8 @@ class ChatInputOverlayState extends State<ChatInputOverlay> with SingleTickerPro
   @override
   void initState() {
     super.initState();
-    _appearController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-    );
-    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(
-      parent: _appearController,
-      curve: Curves.easeOut,
-    ));
+    _appearController = AnimationController(vsync: this, duration: const Duration(milliseconds: 150));
+    _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _appearController, curve: Curves.easeOut));
   }
 
   // 外部调用：开始输入
@@ -255,10 +233,7 @@ class ChatInputOverlayState extends State<ChatInputOverlay> with SingleTickerPro
             bottom: currentKeyboardHeight,
             child: Opacity(
               opacity: (isUIVisible && isKeyboardOpen) ? 1.0 : 0.0,
-              child: FadeTransition(
-                opacity: _opacityAnimation,
-                child: _buildInputPanel(),
-              ),
+              child: FadeTransition(opacity: _opacityAnimation, child: _buildInputPanel()),
             ),
           ),
         ],
@@ -269,7 +244,7 @@ class ChatInputOverlayState extends State<ChatInputOverlay> with SingleTickerPro
   Widget _buildInputPanel() {
     return Container(
       width: double.infinity,
-      color: const Color(0xFF171717),
+      color: const Color(0xFFEAE8E8),
       padding: const EdgeInsets.all(10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -277,15 +252,12 @@ class ChatInputOverlayState extends State<ChatInputOverlay> with SingleTickerPro
           Expanded(
             child: Container(
               constraints: const BoxConstraints(minHeight: 40, maxHeight: 100),
-              decoration: BoxDecoration(
-                color: const Color(0xFF333333),
-                borderRadius: BorderRadius.circular(20),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFFC7C6C6), borderRadius: BorderRadius.circular(20)),
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
+                style: const TextStyle(color: Colors.black, fontSize: 15),
                 maxLines: null,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _handleSend(),
@@ -293,7 +265,7 @@ class ChatInputOverlayState extends State<ChatInputOverlay> with SingleTickerPro
                 decoration: const InputDecoration(
                   border: InputBorder.none,
                   hintText: "说点什么...",
-                  hintStyle: TextStyle(color: Colors.white38),
+                  hintStyle: TextStyle(color: Colors.black26),
                   isDense: true,
                   contentPadding: EdgeInsets.symmetric(vertical: 10),
                 ),
@@ -306,10 +278,7 @@ class ChatInputOverlayState extends State<ChatInputOverlay> with SingleTickerPro
             child: Container(
               height: 40,
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE91E63),
-                borderRadius: BorderRadius.circular(20),
-              ),
+              decoration: BoxDecoration(color: const Color(0xFFE91E63), borderRadius: BorderRadius.circular(20)),
               alignment: Alignment.center,
               child: const Text(
                 "发送",
