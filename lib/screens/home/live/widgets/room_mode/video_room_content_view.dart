@@ -288,7 +288,8 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
 
             // 切歌按钮
             FloatingActionButton.small(
-              heroTag: "next_video_btn", // 防止 Hero 冲突
+              heroTag: null,
+              // heroTag: "next_video_btn", // 防止 Hero 冲突
               onPressed: _playNextRandom,
               backgroundColor: Colors.white24,
               elevation: 0,

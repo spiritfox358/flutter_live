@@ -2,16 +2,18 @@ import 'package:flutter/material.dart';
 
 class AvatarAnimation extends StatefulWidget {
   final String avatarUrl;
-  final String name;
+  final String? name;
   final bool isSpeaking;
   final bool isRotating; // 控制旋转的开关
+  final bool showName; // 控制旋转的开关
 
   const AvatarAnimation({
     super.key,
     required this.avatarUrl,
-    required this.name,
     required this.isSpeaking,
+    this.name = '',
     this.isRotating = true, // 默认为 true
+    this.showName = false,
   });
 
   @override
@@ -26,16 +28,10 @@ class _AvatarAnimationState extends State<AvatarAnimation> with TickerProviderSt
   void initState() {
     super.initState();
     // 1. 初始化旋转控制器 (10秒一圈)
-    _rotateController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 30),
-    )..repeat();
+    _rotateController = AnimationController(vsync: this, duration: const Duration(seconds: 30))..repeat();
 
     // 2. 初始化波纹控制器 (2秒一次)
-    _waveController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat();
+    _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
   }
 
   @override
@@ -58,10 +54,7 @@ class _AvatarAnimationState extends State<AvatarAnimation> with TickerProviderSt
             alignment: Alignment.center,
             children: [
               // 波纹动画
-              if (widget.isSpeaking) ...[
-                _buildFixedWave(delay: 0.0),
-                _buildFixedWave(delay: 0.5),
-              ],
+              if (widget.isSpeaking) ...[_buildFixedWave(delay: 0.0), _buildFixedWave(delay: 0.5)],
 
               // 旋转部分
               RotationTransition(
@@ -72,7 +65,7 @@ class _AvatarAnimationState extends State<AvatarAnimation> with TickerProviderSt
             ],
           ),
         ),
-        _buildNameLabel(),
+        if (widget.name!.isNotEmpty) _buildNameLabel(),
       ],
     );
   }
@@ -84,28 +77,14 @@ class _AvatarAnimationState extends State<AvatarAnimation> with TickerProviderSt
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF0080), Color(0xFFFF8C00)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFFFF4081).withOpacity(0.5),
-            blurRadius: 20,
-            spreadRadius: 5,
-          )
-        ],
+        gradient: const LinearGradient(colors: [Color(0xFFFF0080), Color(0xFFFF8C00)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        boxShadow: [BoxShadow(color: const Color(0xFFFF4081).withOpacity(0.5), blurRadius: 20, spreadRadius: 5)],
       ),
       child: Container(
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           border: Border.all(color: Colors.white, width: 2),
-          image: DecorationImage(
-            image: NetworkImage(widget.avatarUrl),
-            fit: BoxFit.cover,
-            onError: (obj, stack) {},
-          ),
+          image: DecorationImage(image: NetworkImage(widget.avatarUrl), fit: BoxFit.cover, onError: (obj, stack) {}),
         ),
       ),
     );
@@ -120,12 +99,8 @@ class _AvatarAnimationState extends State<AvatarAnimation> with TickerProviderSt
         border: Border.all(color: Colors.white24, width: 0.5),
       ),
       child: Text(
-        widget.name,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
+        widget.name ?? '',
+        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
@@ -146,10 +121,7 @@ class _AvatarAnimationState extends State<AvatarAnimation> with TickerProviderSt
           height: currentSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            border: Border.all(
-              color: const Color(0xFFFF0080).withOpacity(opacity),
-              width: borderWidth > 0 ? borderWidth : 0,
-            ),
+            border: Border.all(color: const Color(0xFFFF0080).withOpacity(opacity), width: borderWidth > 0 ? borderWidth : 0),
           ),
         );
       },

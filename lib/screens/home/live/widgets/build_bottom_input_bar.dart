@@ -195,7 +195,7 @@ class ChatInputOverlayState extends State<ChatInputOverlay> with SingleTickerPro
 
     if (_status == OverlayStatus.waiting && isKeyboardOpen) {
       if (_debounceTimer == null || !_debounceTimer!.isActive) {
-        _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+        _debounceTimer = Timer(const Duration(milliseconds: 100), () {
           if (mounted && _status == OverlayStatus.waiting) {
             setState(() {
               _status = OverlayStatus.visible;

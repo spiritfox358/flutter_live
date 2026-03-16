@@ -42,6 +42,7 @@ dependencies:
   web: ^1.1.1
   video_thumbnail: ^0.5.6
   record: ^6.2.0
+  lottie: ^3.3.2
 
 dev_dependencies:
   flutter_test:
@@ -57,4 +58,4 @@ flutter:
   # If you decide to add local HTML or images later,
   # you will uncomment and use the assets section below:
 #  assets:
-#    - assets/videos/bg.mp4
+#    - assets/lottie/FireFuego.json

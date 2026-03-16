@@ -473,6 +473,9 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
 
   // 🟢 新增：提取的红蓝双向渐变标签组件
   Widget _buildCritLabel(bool isMe, int seconds) {
+    if (!isMe) {
+      return const SizedBox.shrink();
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -741,59 +744,49 @@ class PKTimer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool isRedBg = (secondsLeft <= 10 && status == PKStatus.playing) || status == PKStatus.punishment;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        CustomPaint(
-          painter: _TrapezoidPainter(color: isRedBg ? const Color(0xFFFF1744).withOpacity(0.3) : Colors.grey.withOpacity(0.85)),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (status != PKStatus.punishment && status != PKStatus.coHost) ...[
-                  const Text(
-                    "P",
-                    style: TextStyle(color: Color(0xFFFF2E56), fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 12, height: 1.0),
-                  ),
-                  const SizedBox(width: 0),
-                  const Text(
-                    "K",
-                    style: TextStyle(color: Color(0xFF2979FF), fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 12, height: 1.0),
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  status == PKStatus.punishment
-                      ? "惩罚时间 ${_formatTime(secondsLeft)}"
-                      : status == PKStatus.coHost
-                      ? "连线中 ${_formatTime(secondsLeft)}"
-                      : _formatTime(secondsLeft),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 10,
-                    fontFeatures: [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ],
+
+    // 🟢 核心修复：去掉了 Column，去掉了重复的“我方胜利”文本，只保留绝对干净的梯形倒计时！
+    return CustomPaint(
+      painter: _TrapezoidPainter(color: isRedBg ? const Color(0xFFFF1744).withOpacity(0.3) : Colors.grey.withOpacity(0.85)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // 微调了内边距，让文字居中更完美
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (status != PKStatus.punishment && status != PKStatus.coHost) ...[
+              const Text(
+                "P",
+                style: TextStyle(color: Color(0xFFFF2E56), fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 12, height: 1.0),
+              ),
+              const SizedBox(width: 0),
+              const Text(
+                "K",
+                style: TextStyle(color: Color(0xFF2979FF), fontWeight: FontWeight.w900, fontStyle: FontStyle.italic, fontSize: 12, height: 1.0),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              status == PKStatus.punishment
+                  ? "惩罚时间 ${_formatTime(secondsLeft)}"
+                  : status == PKStatus.coHost
+                  ? "连线中 ${_formatTime(secondsLeft)}"
+                  : _formatTime(secondsLeft),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 10,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
             ),
-          ),
+          ],
         ),
-        if (status == PKStatus.punishment)
-          Padding(
-            padding: const EdgeInsets.only(top: 4),
-            child: Text(
-              myScore >= opponentScore ? "🎉 我方胜利" : "😭 对方胜利",
-              style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
 
+// 🟢 终极修复：完美平滑相切的梯形画笔
 class _TrapezoidPainter extends CustomPainter {
   final Color color;
 
@@ -804,19 +797,43 @@ class _TrapezoidPainter extends CustomPainter {
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.fill;
-    const double inset = 4.0;
-    const double r = 4.0;
-    final double effectiveR = r.clamp(0.0, size.height / 2);
-    final path = Path()
-      ..moveTo(0, 0)
-      ..lineTo(size.width, 0);
-    final brStartX = size.width - inset * (1.0 - effectiveR / size.height);
-    path.lineTo(brStartX, size.height - effectiveR);
-    path.quadraticBezierTo(size.width - inset, size.height, size.width - inset - effectiveR, size.height);
-    path.lineTo(inset + effectiveR, size.height);
-    final blEndX = inset * (1.0 - effectiveR / size.height);
-    path.quadraticBezierTo(inset, size.height, blEndX, size.height - effectiveR);
+
+    const double inset = 6.0; // 梯形左右向内倾斜的宽度
+    const double r = 5.0;     // 顶部圆角的半径 (可微调大小)
+
+    // 安全保护：防止圆角半径大于高度导致路径错乱
+    final double safeR = r.clamp(0.0, size.height / 2);
+
+    // 📐 核心数学推导：计算圆角在斜边上的精准起点，保证切线完美对齐，消除“鼓包”
+    final double dx = inset * (safeR / size.height);
+
+    final path = Path();
+    // 1. 底部贴合血条，平直的底边 (从左下角画到右下角)
+    path.moveTo(0, size.height);
+    path.lineTo(size.width, size.height);
+
+    // 2. 右侧斜切上去，画到准备开始弯曲的“相切点”
+    path.lineTo(size.width - inset + dx, safeR);
+
+    // 3. 右上角：完美相切的贝塞尔圆角
+    // 控制点刚好是锐角的顶点，这样能保证曲线和斜边完美融合
+    path.quadraticBezierTo(
+        size.width - inset, 0,           // 控制点
+        size.width - inset - safeR, 0    // 终点 (落在顶部平线上)
+    );
+
+    // 4. 顶部平直边 (从右边画到左边，到准备弯曲的相切点)
+    path.lineTo(inset + safeR, 0);
+
+    // 5. 左上角：完美相切的贝塞尔圆角
+    path.quadraticBezierTo(
+        inset, 0,                        // 控制点 (左侧锐角顶点)
+        inset - dx, safeR                // 终点 (落在左侧斜边上)
+    );
+
+    // 6. 闭合路径，自动顺着左侧斜边完美连回 (0, size.height)起点
     path.close();
+
     canvas.drawPath(path, paint);
   }
 

@@ -14,7 +14,9 @@ import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/voice_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/viewer_list.dart';
+import 'package:flutter_live/screens/home/live/widgets/view_mode/dynamic_pk_battle_view.dart';
 import 'package:flutter_live/store/user_store.dart';
+import 'package:flutter_live/tools/DictTool.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -88,7 +90,10 @@ class RealLivePage extends StatefulWidget {
   State<RealLivePage> createState() => _RealLivePageState();
 }
 
-class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMixin {
+class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMixin, WidgetsBindingObserver {
+  // 🟢 1. 新增：专门用于监听键盘高度的“局部刷新通知器”
+  final ValueNotifier<double> _keyboardNotifier = ValueNotifier(0.0);
+
   // 加载状态，默认为 true
   bool _isLoadingDetail = true;
   bool _isRoomActive = false;
@@ -217,6 +222,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     WakelockPlus.enable();
 
     _myUserId = widget.userId;
@@ -534,6 +540,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         _pkDuration = _parseInt(pkInfo['duration'], defaultValue: 90);
         setState(() {
           _participants = pkInfo['participants'] as List;
+          _pkStatus = DictTool.getPkStatus(status);
           if (_participants.length >= 2) {
             String opponentStream = _participants[1]['streamUrl'] ?? _rightVideoUrl;
             if (_isVideoBackground) {
@@ -546,18 +553,50 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _currentBgImage = _participants[0]['personalPkBg'] ?? _currentBgImage;
             _leftCurrentStreamUrl = _participants[0]['streamUrl'] ?? _leftCurrentStreamUrl;
 
-            if (_participants.length >= 2) {
-              _myPKScore = _parseInt(_participants[0]['score']);
-              _opponentPKScore = _parseInt(_participants[1]['score']);
+            // 🟢 1. 找出“我方”的阵营 ID (teamId)
+            int myCamp = 0;
+            for (var p in _participants) {
+              if (p['roomId'].toString() == _roomId) {
+                myCamp = _parseInt(p['teamId']);
+                break;
+              }
+            }
 
-              // 🟢 新增：遍历所有参与者，不论 2个 还是 10个，全部提取到期时间
-              _critEndTimes.clear();
-              for (var p in _participants) {
-                final String pRoomId = p['roomId'].toString();
-                final int critLeft = _parseInt(p['critSecondsLeft']);
-                if (critLeft > 0) {
-                  _critEndTimes[pRoomId] = DateTime.now().add(Duration(seconds: critLeft));
+            // 🟢 2. 动态计算红蓝血条分数
+            int mySum = 0;
+            int enemySum = 0;
+            for (var p in _participants) {
+              int s = _parseInt(p['score']);
+              int tId = _parseInt(p['teamId']);
+              String rId = p['roomId'].toString();
+
+              if (myCamp == 0 || tId == 0) {
+                // 🔥 抢第一模式 (teamId=0)：左边只显示我自己，右边显示其他对手里的最高分
+                if (rId == _roomId) {
+                  mySum = s;
+                } else {
+                  if (s > enemySum) enemySum = s;
                 }
+              } else {
+                // 🔥 组队/1v1模式：只要 teamId 和我一样就加到 mySum，不一样就加到 enemySum
+                if (tId == myCamp) {
+                  mySum += s;
+                } else {
+                  enemySum += s;
+                }
+              }
+            }
+
+            _myPKScore = mySum;
+            _opponentPKScore = enemySum;
+
+            // 🟢 新增：遍历所有参与者，不论 2个 还是 10个，全部提取到期时间
+            _critEndTimes.clear();
+            for (var p in _participants) {
+              final String pRoomId = p['roomId'].toString();
+              final int critLeft = _parseInt(p['critSecondsLeft']);
+              if (critLeft > 0) {
+                _critEndTimes[pRoomId] = DateTime.now().add(Duration(seconds: critLeft));
               }
             }
           }
@@ -570,6 +609,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         }
 
         if (status == 1) {
+          _pkStatus = PKStatus.playing;
           final int remaining = _pkDuration - elapsedSeconds;
           if (remaining > 0) {
             _startPKRound(initialTimeLeft: remaining);
@@ -595,6 +635,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _enterPunishmentPhase(timeLeft: remainingPunishment);
           }
         } else if (status == 3) {
+          _pkStatus = PKStatus.coHost;
           DateTime startTime = DateTime.parse(startTimeStr);
           int totalElapsed = DateTime.now().difference(startTime).inSeconds;
           int coHostElapsed = totalElapsed - _pkDuration - _punishmentDuration;
@@ -739,26 +780,60 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           if (_pkStatus != PKStatus.playing) break;
           final List<dynamic> scoreList = data['data'] as List<dynamic>;
 
-          // 🟢 3. 核心优化：彻底干掉 setState，在后台悄悄更新变量
           bool hasChanged = false;
+          // 🟢 核心改造：遍历后端发来的最新分数列表
           for (var item in scoreList) {
-            String roomId = item['roomId'].toString();
-            int score = int.tryParse(item['score'].toString()) ?? 0;
-            if (roomId == _roomId) {
-              if (_myPKScore != score) {
-                _myPKScore = score;
-                hasChanged = true;
-              }
-            } else {
-              if (_opponentPKScore != score) {
-                _opponentPKScore = score;
-                hasChanged = true;
+            String updatedRoomId = item['roomId'].toString();
+            int newScore = int.tryParse(item['score'].toString()) ?? 0;
+
+            // 去 _participants 数组里找对应的主播并更新分数
+            for (int i = 0; i < _participants.length; i++) {
+              if (_participants[i]['roomId'].toString() == updatedRoomId) {
+                int oldScore = _parseInt(_participants[i]['score']);
+                if (oldScore != newScore) {
+                  _participants[i]['score'] = newScore;
+                  hasChanged = true;
+                }
+                break;
               }
             }
           }
-          // 如果分数真的发生了变化，通知局部 UI 刷新
+
           if (hasChanged) {
-            _pkScoreUpdateTrigger.value++;
+            // 🟢 收到新分数后，重新计算全场的红蓝血条
+            int myCamp = 0;
+            for (var p in _participants) {
+              if (p['roomId'].toString() == _roomId) {
+                myCamp = _parseInt(p['teamId']);
+                break;
+              }
+            }
+
+            int mySum = 0;
+            int enemySum = 0;
+            for (var p in _participants) {
+              int s = _parseInt(p['score']);
+              int tId = _parseInt(p['teamId']);
+              String rId = p['roomId'].toString();
+
+              if (myCamp == 0 || tId == 0) {
+                if (rId == _roomId) {
+                  mySum = s;
+                } else if (s > enemySum) {
+                  enemySum = s;
+                }
+              } else {
+                if (tId == myCamp) {
+                  mySum += s;
+                } else {
+                  enemySum += s;
+                }
+              }
+            }
+            _myPKScore = mySum;
+            _opponentPKScore = enemySum;
+
+            _pkScoreUpdateTrigger.value++; // 触发 UI 刷新
           }
           break;
         case "PK_END":
@@ -817,6 +892,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             // 🟢 精准呼叫子组件，告诉它是哪个房间的卡生效了
             _pkScoreBarKey.currentState?.updateCritTime(targetRoomId, secondsLeft);
           }
+          break;
+        case "PK_RELOAD":
+          // 这个方法会重新拉取 pkInfo，更新 _participants 数组，
+          // _participants 数量一旦从 2 变成 4，你的 DynamicPKBattleView 就会瞬间从 1v1 动画裂变成 4宫格！
+          _fetchRoomDetailAndSyncState();
           break;
       }
     } catch (e) {
@@ -1664,6 +1744,116 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
+  // 🟢 核心改造：将后端数据组装成网格组件需要的 Model 列表
+  List<LivePKPlayerModel> _buildCurrentPkPlayers() {
+    List<LivePKPlayerModel> players = [];
+    if (_participants.isEmpty) return players;
+
+    DateTime now = DateTime.now();
+
+    // 1. 先找出“我”的阵营 ID (teamId)
+    int myCamp = 0;
+    for (var p in _participants) {
+      if (p['roomId'].toString() == _roomId) {
+        myCamp = _parseInt(p['teamId']);
+        break;
+      }
+    }
+
+    // 🟢 2. 新增：提取所有人的分数并降序排列，用于计算真实的排名！
+    List<int> allScores = _participants.map((p) => _parseInt(p['score'])).toList();
+    allScores.sort((a, b) => b.compareTo(a)); // 降序排列
+
+    for (int i = 0; i < _participants.length; i++) {
+      var p = _participants[i];
+      String pRoomId = p['roomId'].toString();
+      bool isMe = pRoomId == _roomId; // 判断这个格子是不是我自己
+      int currentScore = _parseInt(p['score']);
+
+      // 🟢 3. 计算真实排名 (利用 indexOf，分越高排越前，同分则并列)
+      int realRank = allScores.indexOf(currentScore) + 1;
+
+      // 4. 判断这个格子是否属于“我方阵营”
+      int tId = _parseInt(p['teamId']);
+      bool isMyTeam = false;
+      if (myCamp == 0 || tId == 0) {
+        // 抢第一模式 (各自为战)：只有我自己算我方
+        isMyTeam = isMe;
+      } else {
+        // 团队模式：只要 teamId 跟我一样，就是我方队友
+        isMyTeam = (tId == myCamp);
+      }
+
+      // 处理视频流分配
+      VideoPlayerController? vc;
+      if (isMe) {
+        vc = (_isVideoBackground && _isBgInitialized) ? _bgController : null;
+      } else if (i == 1) {
+        vc = (_isRightVideoMode && _isRightVideoInitialized) ? _rightVideoController : null;
+      }
+
+      // 处理道具状态
+      String? propText;
+      if (_critEndTimes.containsKey(pRoomId)) {
+        DateTime endTime = _critEndTimes[pRoomId]!;
+        if (endTime.isAfter(now)) {
+          int sec = endTime.difference(now).inSeconds;
+          propText = "暴击中 ${sec}s";
+        }
+      }
+
+      // 处理惩罚期变灰
+      bool isPunished = false;
+      if (_pkStatus == PKStatus.punishment) {
+        // 只要不是最高分，就接受惩罚变灰
+        if (allScores.isNotEmpty && currentScore < allScores.first) {
+          isPunished = true;
+        }
+      }
+
+      players.add(
+        LivePKPlayerModel(
+          userId: p['userId']?.toString() ?? "",
+          roomId: pRoomId,
+          name: p['name'] ?? (isMe ? _currentName : "连麦主播"),
+          avatarUrl: p['avatar'] ?? (isMe ? _currentAvatar : "https://picsum.photos/200"),
+          rank: realRank,
+          // 🟢 5. 传入动态算出来的真实排名！
+          score: currentScore,
+          isPunished: isPunished,
+          propText: propText,
+          isSpeaking: isMe,
+          isMyTeam: isMyTeam,
+          videoController: vc,
+        ),
+      );
+    }
+    return players;
+  }
+
+  // 🟢 核心改造：支持点击多个人中的任意一个进行切房
+  void _switchToTargetRoom(LivePKPlayerModel targetPlayer) {
+    if (_isHost) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
+      return;
+    }
+    _isSwitchingRoom = true;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => RealLivePage(
+          userId: widget.userId,
+          userName: widget.userName,
+          avatarUrl: widget.avatarUrl,
+          level: widget.level,
+          isHost: false,
+          roomId: targetPlayer.roomId,
+          // 动态传入被点击人的 roomId
+          monthLevel: _monthLevel,
+        ),
+      ),
+    );
+  }
+
   // 🟢 核心修改：根据类型分发中间视图
   Widget _buildSingleModeContent(double topPadding) {
     // 🟢 复用 PK 模式中的 TopBar，确保统一
@@ -1777,7 +1967,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final padding = MediaQuery.of(context).padding;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     const double topBarHeight = 50.0;
 
     double chatListHeight = 460.0; // 默认高度 (普通单人模式)
@@ -1824,17 +2013,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     final double safeBottomOffset = safeBottom > 0 ? safeBottom : 0;
     final double fixedBottomOffset = safeBottomOffset + 54; // 底部操作栏的绝对高度
 
-    // 💡 绝对底部：键盘高度 和 操作栏高度，谁高听谁的！杜绝动画过程中的“掉坑现象”
-    final double currentBottom = max(bottomInset, fixedBottomOffset);
+    const double gap1 = 68.0;
+    final double pkVideoHeight = size.width * 0.87;
 
-    // 💡 动态高度：保证弹幕区【顶部边缘】在键盘动画起伏时纹丝不动！
-    double currentHeight = (baseChatListHeight + safeBottomOffset) - currentBottom;
-    if (currentHeight < 150) currentHeight = 150.0; // 极限防挤压保底
+    // 🟢 1. 终极布局法：把外层盒子的总高度彻底焊死（绝对不随状态伸缩！）
+    // 计时器占据顶部 22px，血条占据 18px，所以给它们预留的最大顶部空间是 40px
+    const double maxTopOffset = 40.0;
+    final double fixedContainerHeight = pkVideoHeight + maxTopOffset;
 
-    const double gap1 = 105.0;
-    final double pkVideoHeight = size.width * 0.85;
-    final double pkVideoBottomY = padding.top + topBarHeight + gap1 + pkVideoHeight + 18;
+    // 🟢 2. 弹幕区和各种底边计算，全部基于这个绝对固定的 fixedContainerHeight
+    final double pkVideoBottomY = padding.top + topBarHeight + gap1 + fixedContainerHeight;
     double entranceTop = pkVideoBottomY + 4;
+
     if (_pkStatus == PKStatus.idle) {
       // entranceTop = padding.top + topBarHeight + 20;
     }
@@ -1908,239 +2098,218 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                           ),
                                           SizedBox(height: gap1),
                                           SizedBox(
-                                            height: pkVideoHeight + 18,
+                                            height: fixedContainerHeight,
                                             width: size.width,
-                                            child: ValueListenableBuilder<int>(
-                                              valueListenable: _pkScoreUpdateTrigger,
-                                              builder: (context, _, _) {
-                                                // 每次 _pkScoreUpdateTrigger.value++，只有这个 builder 里面的 UI 会重绘！
-                                                return Stack(
-                                                  children: [
-                                                    Positioned(
-                                                      top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
-                                                      left: 0,
-                                                      right: 0,
-                                                      bottom: 0,
-                                                      child: PKRealBattleView(
-                                                        leftVideoController: (_isVideoBackground && _isBgInitialized) ? _bgController : null,
-                                                        leftBgImage: _isVideoBackground ? null : _currentBgImage,
-                                                        leftName: _currentName,
-                                                        leftAvatarUrl: _currentAvatar,
-                                                        isRightVideoMode: _isRightVideoMode,
-                                                        rightVideoController: (_isRightVideoMode && _isRightVideoInitialized)
-                                                            ? _rightVideoController
-                                                            : null,
-                                                        isRotating: false,
-                                                        rightAvatarUrl: _participants.length > 1
-                                                            ? _participants[1]['avatar']
-                                                            : "https://picsum.photos/200",
-                                                        rightName: _participants.length > 1 ? _participants[1]['name'] : "对手主播",
-                                                        rightBgImage: _participants.length > 1 ? (_participants[1]['pkBg'] ?? "") : "",
-                                                        pkStatus: _pkStatus,
-                                                        myScore: _myPKScore,
-                                                        opponentScore: _opponentPKScore,
-                                                        onTapOpponent: _switchToOpponentRoom,
-                                                        isOpponentSpeaking: true,
-                                                      ),
+                                            child: Stack(
+                                              children: [
+                                                // 1. 最底层：视频网格图层 (垫在最下面)
+                                                Positioned(
+                                                  top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 36.0 : 18.0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  bottom: 0,
+                                                  child: DynamicPKBattleView(
+                                                    players: _buildCurrentPkPlayers(),
+                                                    onTapPlayer: (player) {
+                                                      if (player.roomId != _roomId) {
+                                                        _switchToTargetRoom(player);
+                                                      }
+                                                    },
+                                                  ),
+                                                ),
+
+                                                // 3. 最顶层：计时器梯形 (盖在血条的上方，绝不被遮挡)
+                                                Positioned(
+                                                  top: 0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Center(
+                                                    child: PKTimer(
+                                                      secondsLeft: _pkTimeLeft,
+                                                      status: _pkStatus,
+                                                      myScore: _myPKScore,
+                                                      opponentScore: _opponentPKScore,
                                                     ),
-                                                    Positioned(
-                                                      top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 18 : 0,
-                                                      left: 0,
-                                                      right: 0,
-                                                      child: Center(
-                                                        child: PKTimer(
-                                                          secondsLeft: _pkTimeLeft,
-                                                          status: _pkStatus,
-                                                          myScore: _myPKScore,
-                                                          opponentScore: _opponentPKScore,
-                                                        ),
-                                                      ),
+                                                  ),
+                                                ),
+
+                                                // 2. 中间层：血条图层 (盖在视频上方，确保暴击卡等特效悬浮在视频之上)
+                                                if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
+                                                  Positioned(
+                                                    top: 18,
+                                                    left: 0,
+                                                    right: 0,
+                                                    child: PKScoreBar(
+                                                      key: _pkScoreBarKey,
+                                                      myScore: _myPKScore,
+                                                      opponentScore: _opponentPKScore,
+                                                      status: _pkStatus,
+                                                      secondsLeft: _pkTimeLeft,
+                                                      myRoomId: _roomId,
+                                                      critEndTimes: _critEndTimes,
                                                     ),
-                                                    if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
-                                                      Positioned(
-                                                        top: 0,
-                                                        left: 0,
-                                                        right: 0,
-                                                        child: PKScoreBar(
-                                                          key: _pkScoreBarKey,
-                                                          // 🟢 2. 绑定 Key
-                                                          myScore: _myPKScore,
-                                                          opponentScore: _opponentPKScore,
-                                                          status: _pkStatus,
-                                                          secondsLeft: _pkTimeLeft,
-                                                          // 🟢 传入新的参数
-                                                          myRoomId: _roomId,
-                                                          critEndTimes: _critEndTimes,
-                                                        ),
+                                                  ),
+
+                                                Positioned(
+                                                  right: 10,
+                                                  bottom: 10,
+                                                  child: Column(
+                                                    children: [
+                                                      _buildCircleBtn(
+                                                        onTap: _showMusicPanel,
+                                                        icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
+                                                        borderColor: Colors.purpleAccent,
+                                                        label: "点歌",
                                                       ),
-                                                    Positioned(
-                                                      right: 10,
-                                                      bottom: 10,
-                                                      child: Column(
-                                                        children: [
-                                                          _buildCircleBtn(
-                                                            onTap: _showMusicPanel,
-                                                            icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
-                                                            borderColor: Colors.purpleAccent,
-                                                            label: "点歌",
-                                                          ),
-                                                          const SizedBox(height: 10),
-                                                          _buildCircleBtn(
-                                                            onTap: _toggleBackgroundMode,
-                                                            icon: Icon(
-                                                              _isVideoBackground ? Icons.videocam : Icons.image,
-                                                              color: Colors.white,
-                                                              size: 20,
-                                                            ),
-                                                            borderColor: Colors.cyanAccent,
-                                                            label: "背景",
-                                                          ),
-                                                          const SizedBox(height: 10),
-                                                          if (_pkStatus != PKStatus.idle)
-                                                            _buildCircleBtn(
-                                                              onTap: _toggleRightVideoMode,
-                                                              icon: Icon(
-                                                                _isRightVideoMode ? Icons.videocam : Icons.person,
-                                                                color: Colors.white,
-                                                                size: 20,
-                                                              ),
-                                                              borderColor: Colors.orangeAccent,
-                                                              label: "对手",
-                                                            ),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
+                                                      const SizedBox(height: 10),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],
                                       ),
+
                                 // 🟢 1. 弹幕区：动态感知键盘高度！
                                 Positioned(
                                   left: 0,
                                   right: 0,
-                                  bottom: currentBottom,
-                                  height: currentHeight,
-                                  child: RepaintBoundary(
-                                    child: Column(
-                                      children: [
-                                        Expanded(
-                                          // 🟢 神级交互：拦截边界滚动，直接驱动底层 PageView！
-                                          child: NotificationListener<ScrollNotification>(
-                                            onNotification: (ScrollNotification notification) {
-                                              // 1. 手指刚按上去，或刚开始滑动
-                                              if (notification is ScrollStartNotification) {
-                                                if (_parentDrag != null) {
-                                                  _parentDrag?.cancel();
-                                                  _parentDrag = null;
+                                  bottom: 0, // 永远钉在 Stack 最底部
+                                  child: ValueListenableBuilder<double>(
+                                    valueListenable: _keyboardNotifier,
+                                    builder: (context, bottomInset, child) {
+                                      // 计算逻辑
+                                      final double currentBottom = max(bottomInset, fixedBottomOffset);
+                                      double currentHeight = (baseChatListHeight + safeBottomOffset) - currentBottom;
+                                      if (currentHeight < 150) currentHeight = 150.0;
+
+                                      return Padding(
+                                        padding: EdgeInsets.only(bottom: currentBottom),
+                                        child: SizedBox(
+                                          height: currentHeight,
+                                          child: child, // 直接使用传进来的 child，杜绝重绘！
+                                        ),
+                                      );
+                                    },
+                                    child: RepaintBoundary(
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            // 🟢 神级交互：拦截边界滚动，直接驱动底层 PageView！
+                                            child: NotificationListener<ScrollNotification>(
+                                              onNotification: (ScrollNotification notification) {
+                                                // 1. 手指刚按上去，或刚开始滑动
+                                                if (notification is ScrollStartNotification) {
+                                                  if (_parentDrag != null) {
+                                                    _parentDrag?.cancel();
+                                                    _parentDrag = null;
+                                                  }
+                                                  _parentDragDistance = 0.0;
+
+                                                  // 判断手指按下瞬间，列表是否【已经】在顶部或底部边缘？
+                                                  final metrics = notification.metrics;
+                                                  if (metrics.pixels <= metrics.minScrollExtent + 2.0 ||
+                                                      metrics.pixels >= metrics.maxScrollExtent - 2.0) {
+                                                    _canForwardToParent = true;
+                                                  } else {
+                                                    _canForwardToParent = false;
+                                                  }
                                                 }
-                                                _parentDragDistance = 0.0;
+                                                // 2. 划到底部/顶部，触发了越界拖拽 (Overscroll)！
+                                                else if (notification is OverscrollNotification) {
+                                                  if (!_canForwardToParent) return false;
 
-                                                // 判断手指按下瞬间，列表是否【已经】在顶部或底部边缘？
-                                                final metrics = notification.metrics;
-                                                if (metrics.pixels <= metrics.minScrollExtent + 2.0 ||
-                                                    metrics.pixels >= metrics.maxScrollExtent - 2.0) {
-                                                  _canForwardToParent = true;
-                                                } else {
-                                                  _canForwardToParent = false;
-                                                }
-                                              }
-                                              // 2. 划到底部/顶部，触发了越界拖拽 (Overscroll)！
-                                              else if (notification is OverscrollNotification) {
-                                                if (!_canForwardToParent) return false;
+                                                  if (notification.dragDetails != null && widget.pageController != null) {
+                                                    double dy = notification.dragDetails!.delta.dy;
 
-                                                if (notification.dragDetails != null && widget.pageController != null) {
-                                                  double dy = notification.dragDetails!.delta.dy;
+                                                    // 🟢 核心修改：通过开关拦截特定方向的滑动！
+                                                    // dy < 0 代表手指正在【往上滑】 (试图看下方的直播间)
+                                                    if (dy < 0 && !_enableSwipeUpToSwitchRoom) return false;
+                                                    // dy > 0 代表手指正在【往下滑】 (试图看上方的直播间)
+                                                    if (dy > 0 && !_enableSwipeDownToSwitchRoom) return false;
 
-                                                  // 🟢 核心修改：通过开关拦截特定方向的滑动！
-                                                  // dy < 0 代表手指正在【往上滑】 (试图看下方的直播间)
-                                                  if (dy < 0 && !_enableSwipeUpToSwitchRoom) return false;
-                                                  // dy > 0 代表手指正在【往下滑】 (试图看上方的直播间)
-                                                  if (dy > 0 && !_enableSwipeDownToSwitchRoom) return false;
+                                                    if (_parentDrag == null) {
+                                                      _parentDrag ??= widget.pageController!.position.drag(
+                                                        DragStartDetails(globalPosition: notification.dragDetails!.globalPosition),
+                                                        () {
+                                                          _parentDrag = null;
+                                                        },
+                                                      );
+                                                    }
 
-                                                  if (_parentDrag == null) {
-                                                    _parentDrag ??= widget.pageController!.position.drag(
-                                                      DragStartDetails(globalPosition: notification.dragDetails!.globalPosition),
-                                                      () {
-                                                        _parentDrag = null;
-                                                      },
+                                                    _parentDragDistance += dy; // 累计拖拽距离
+
+                                                    // 1:1 绝对跟手传递，没有任何死区延迟
+                                                    _parentDrag?.update(
+                                                      DragUpdateDetails(
+                                                        sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
+                                                        delta: Offset(0, dy),
+                                                        primaryDelta: dy,
+                                                        globalPosition: notification.dragDetails!.globalPosition,
+                                                      ),
                                                     );
                                                   }
-
-                                                  _parentDragDistance += dy; // 累计拖拽距离
-
-                                                  // 1:1 绝对跟手传递，没有任何死区延迟
-                                                  _parentDrag?.update(
-                                                    DragUpdateDetails(
-                                                      sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
-                                                      delta: Offset(0, dy),
-                                                      primaryDelta: dy,
-                                                      globalPosition: notification.dragDetails!.globalPosition,
-                                                    ),
-                                                  );
                                                 }
-                                              }
-                                              // 3. 手指往回拉 (反向拉动必须跟着手指退回去)
-                                              else if (notification is ScrollUpdateNotification) {
-                                                if (_parentDrag != null && notification.dragDetails != null) {
-                                                  double dy = notification.dragDetails!.delta.dy;
-                                                  _parentDragDistance += dy;
+                                                // 3. 手指往回拉 (反向拉动必须跟着手指退回去)
+                                                else if (notification is ScrollUpdateNotification) {
+                                                  if (_parentDrag != null && notification.dragDetails != null) {
+                                                    double dy = notification.dragDetails!.delta.dy;
+                                                    _parentDragDistance += dy;
 
-                                                  _parentDrag?.update(
-                                                    DragUpdateDetails(
-                                                      sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
-                                                      delta: Offset(0, dy),
-                                                      primaryDelta: dy,
-                                                      globalPosition: notification.dragDetails!.globalPosition,
-                                                    ),
-                                                  );
-                                                }
-                                              }
-                                              // 4. 手指离开屏幕，滑动结束
-                                              else if (notification is ScrollEndNotification) {
-                                                if (_parentDrag != null) {
-                                                  Velocity finalVelocity = notification.dragDetails?.velocity ?? Velocity.zero;
-
-                                                  // 防止“稍微滑一下就切房” (拖拽不足60像素强制回弹)
-                                                  if (_parentDragDistance.abs() < 60.0) {
-                                                    finalVelocity = Velocity.zero;
+                                                    _parentDrag?.update(
+                                                      DragUpdateDetails(
+                                                        sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
+                                                        delta: Offset(0, dy),
+                                                        primaryDelta: dy,
+                                                        globalPosition: notification.dragDetails!.globalPosition,
+                                                      ),
+                                                    );
                                                   }
-
-                                                  _parentDrag?.end(
-                                                    DragEndDetails(velocity: finalVelocity, primaryVelocity: finalVelocity.pixelsPerSecond.dy),
-                                                  );
-                                                  _parentDrag = null;
                                                 }
-                                                _parentDragDistance = 0.0;
-                                                _canForwardToParent = false;
-                                              }
-                                              return false; // 不拦截，允许正常气泡冒泡
-                                            },
-                                            child: Align(
-                                              alignment: Alignment.bottomLeft,
-                                              child: SizedBox(
-                                                width: size.width * 0.80, // 保持 80% 大宽屏，左手无压力
-                                                height: double.infinity,
-                                                child: ScrollConfiguration(
-                                                  behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
-                                                  child: BuildChatList(
-                                                    key: _chatListKey,
-                                                    bottomInset: 0,
-                                                    roomId: _roomId,
-                                                    controller: _chatController,
+                                                // 4. 手指离开屏幕，滑动结束
+                                                else if (notification is ScrollEndNotification) {
+                                                  if (_parentDrag != null) {
+                                                    Velocity finalVelocity = notification.dragDetails?.velocity ?? Velocity.zero;
+
+                                                    // 防止“稍微滑一下就切房” (拖拽不足60像素强制回弹)
+                                                    if (_parentDragDistance.abs() < 60.0) {
+                                                      finalVelocity = Velocity.zero;
+                                                    }
+
+                                                    _parentDrag?.end(
+                                                      DragEndDetails(velocity: finalVelocity, primaryVelocity: finalVelocity.pixelsPerSecond.dy),
+                                                    );
+                                                    _parentDrag = null;
+                                                  }
+                                                  _parentDragDistance = 0.0;
+                                                  _canForwardToParent = false;
+                                                }
+                                                return false; // 不拦截，允许正常气泡冒泡
+                                              },
+                                              child: Align(
+                                                alignment: Alignment.bottomLeft,
+                                                child: SizedBox(
+                                                  width: size.width * 0.80, // 保持 80% 大宽屏，左手无压力
+                                                  height: double.infinity,
+                                                  child: ScrollConfiguration(
+                                                    behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+                                                    child: BuildChatList(
+                                                      key: _chatListKey,
+                                                      bottomInset: 0,
+                                                      roomId: _roomId,
+                                                      controller: _chatController,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-
                                 // 🟢 2. 底部操作栏：彻底独立，死死钉在屏幕最底部！
                                 Positioned(
                                   left: 0,
@@ -2351,61 +2520,70 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             if (_showComboButton && _lastGiftSent != null)
               Positioned(
                 right: 16,
-                bottom: bottomInset + 80,
-                child: ScaleTransition(
-                  scale: CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut),
-                  child: GestureDetector(
-                    onTap: () => _sendGift(_lastGiftSent!),
-                    child: AnimatedBuilder(
-                      animation: _countdownController,
-                      builder: (context, child) {
-                        return SizedBox(
-                          width: 76,
-                          height: 76,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              SizedBox(
-                                width: 76,
-                                height: 76,
-                                child: CircularProgressIndicator(
-                                  value: _countdownController.value,
-                                  strokeWidth: 4,
-                                  backgroundColor: Colors.white24,
-                                  valueColor: const AlwaysStoppedAnimation(Color(0xFFFF0000)),
-                                ),
-                              ),
-                              Container(
-                                width: 64,
-                                height: 64,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  gradient: const LinearGradient(
-                                    colors: [Color(0xFFFF0000), Color(0xFFFF0000)],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
+                bottom: 0, // 永远钉在最底部
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _keyboardNotifier,
+                  builder: (context, bottomInset, child) {
+                    // 用 Padding 把按钮顶上去
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: bottomInset + 80),
+                      child: child,
+                    );
+                  },
+                  child: ScaleTransition(
+                    scale: CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut),
+                    child: GestureDetector(
+                      onTap: () => _sendGift(_lastGiftSent!),
+                      child: AnimatedBuilder(
+                        animation: _countdownController,
+                        builder: (context, child) {
+                          return SizedBox(
+                            width: 76,
+                            height: 76,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                SizedBox(
+                                  width: 76,
+                                  height: 76,
+                                  child: CircularProgressIndicator(
+                                    value: _countdownController.value,
+                                    strokeWidth: 4,
+                                    backgroundColor: Colors.white24,
+                                    valueColor: const AlwaysStoppedAnimation(Color(0xFFFF0000)),
                                   ),
-                                  border: Border.all(color: Colors.red, width: 2),
                                 ),
-                                alignment: const Alignment(0, -0.05),
-                                child: const Text(
-                                  "连击",
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                Container(
+                                  width: 64,
+                                  height: 64,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFFF0000), Color(0xFFFF0000)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    border: Border.all(color: Colors.red, width: 2),
+                                  ),
+                                  alignment: const Alignment(0, -0.05),
+                                  child: const Text(
+                                    "连击",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
+                              ],
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
               ),
-
-            // _buildAiVoiceBtn(),
           ],
         ),
+        // _buildAiVoiceBtn(),
       ),
     );
   }
@@ -2470,8 +2648,23 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
+  // 🟢 4. 新增方法：绕过 MediaQuery，直接从系统底层极速获取键盘高度！
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    // 从底层 Window 获取物理像素，转换为逻辑像素
+    final bottomInset = WidgetsBinding.instance.window.viewInsets.bottom / WidgetsBinding.instance.window.devicePixelRatio;
+
+    // 如果高度变了，只通知局部组件刷新，绝对不重绘整个页面！
+    if (_keyboardNotifier.value != bottomInset) {
+      _keyboardNotifier.value = bottomInset;
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _keyboardNotifier.dispose();
     // 🟢 关闭 AI 连麦通道
     AiRealTimeVoiceService().dispose();
     // 🟢 核心修复 2：只有在真正退回到列表时，才销毁硬件！如果是切去对手房间，绝对不要销毁！
