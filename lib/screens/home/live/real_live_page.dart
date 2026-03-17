@@ -102,7 +102,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   // PK时长配置
   int _pkDuration = 90; // 默认为90秒
-  final int _punishmentDuration = 20;
+  int _punishmentDuration = 20;
 
   // 🟢 终极跟手魔法：跨层级手势劫持变量
   Drag? _parentDrag; // 保存父级 PageView 的物理拖拽句柄
@@ -537,7 +537,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         final int status = _parseInt(pkInfo['status']);
         final String startTimeStr = pkInfo['startTime'];
 
-        _pkDuration = _parseInt(pkInfo['duration'], defaultValue: 90);
+        _pkDuration = _parseInt(pkInfo['duration'], defaultValue: 300);
+        _punishmentDuration = _parseInt(pkInfo['punishmentDuration'], defaultValue: 30);
         setState(() {
           _participants = pkInfo['participants'] as List;
           _pkStatus = DictTool.getPkStatus(status);
@@ -777,7 +778,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           if (!isMe) _enterCoHostPhase(initialElapsedTime: 0);
           break;
         case "PK_UPDATE":
-          if (_pkStatus != PKStatus.playing) break;
+          if (![PKStatus.playing, PKStatus.coHost].contains(_pkStatus)) break;
           final List<dynamic> scoreList = data['data'] as List<dynamic>;
 
           bool hasChanged = false;
@@ -2109,6 +2110,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                   right: 0,
                                                   bottom: 0,
                                                   child: DynamicPKBattleView(
+                                                    pkStatus: _pkStatus,
+                                                    currentRoomId: _roomId,
                                                     players: _buildCurrentPkPlayers(),
                                                     onTapPlayer: (player) {
                                                       if (player.roomId != _roomId) {

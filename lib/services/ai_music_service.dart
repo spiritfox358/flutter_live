@@ -35,7 +35,7 @@ class AIMusicService {
 
       await _player.setUrl(bgmUrl);
       await _player.seek(Duration(milliseconds: elapsedMs));
-      _player.play();
+      // _player.play();
 
       _isPlaying = true;
       _currentUrl = bgmUrl;
