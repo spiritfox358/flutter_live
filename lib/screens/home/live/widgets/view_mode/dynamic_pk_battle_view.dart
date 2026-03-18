@@ -75,27 +75,23 @@ class DynamicPKBattleView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (players.isEmpty) return const SizedBox.shrink();
 
-    // ✨✨✨ 核心修改：在此处对数据进行一次隐式排序拷贝 ✨✨✨
     final sortedPlayers = List<LivePKPlayerModel>.from(players);
     sortedPlayers.sort((a, b) {
-      // 🟢 3. 核心修复：用 roomId 来判断谁是“当前主播”
       bool isMainAnchorA = a.roomId == currentRoomId;
       bool isMainAnchorB = b.roomId == currentRoomId;
 
-      if (isMainAnchorA && !isMainAnchorB) return -1; // A是本房主播，A绝对排第一
-      if (!isMainAnchorA && isMainAnchorB) return 1; // B是本房主播，B绝对排第一
-      // 1. 优先按阵营排：我方(true)在前，敌方(false)在后
+      if (isMainAnchorA && !isMainAnchorB) return -1;
+      if (!isMainAnchorA && isMainAnchorB) return 1;
+
       if (a.isMyTeam && !b.isMyTeam) return -1;
       if (!a.isMyTeam && b.isMyTeam) return 1;
-      // 2. 阵营相同的情况下，按分数从高到低排
+
       return b.score.compareTo(a.score);
     });
 
-    // 将排序好的列表传给渲染函数
     return Container(color: dividerColor, child: _buildDynamicPKGrid(sortedPlayers));
   }
 
-  // 🧠 接收排序后的列表进行布局
   Widget _buildDynamicPKGrid(List<LivePKPlayerModel> sortedList) {
     int count = sortedList.length;
     switch (count) {
@@ -169,7 +165,7 @@ class DynamicPKBattleView extends StatelessWidget {
   }
 
   // ==========================================
-  // 🎨 单个方块 UI 渲染 (保持不变)
+  // 🎨 单个方块 UI 渲染
   // ==========================================
   Widget _buildCell(LivePKPlayerModel player) {
     bool hasProp = player.propText != null && player.propText!.isNotEmpty;
@@ -185,9 +181,12 @@ class DynamicPKBattleView extends StatelessWidget {
     }
     bool isHighest = isBattleState && player.score == highestScore && highestScore > 0;
 
-    Color getBadgeColor(double opacity) {
+    // ✨ 核心修改 1：重构颜色获取方法，增加 isForScore 参数区分“分数牌”和“人名牌”
+    Color getBadgeColor(double opacity, {bool isForScore = false}) {
       if (isCoHostState) return Colors.black.withOpacity(0.4);
-      if (isHighest) return Colors.orange.withOpacity(0.8);
+      // 只有左上角的分数牌，在最高分时才会变黄
+      if (isForScore && isHighest) return Colors.orange.withOpacity(0.8);
+      // 其他情况（包括所有人名牌），永远显示原本的红蓝队颜色
       return player.isMyTeam ? const Color(0xFFFF2E56).withOpacity(opacity) : const Color(0xFF2962FF).withOpacity(opacity);
     }
 
@@ -222,7 +221,8 @@ class DynamicPKBattleView extends StatelessWidget {
               child: Container(
                 padding: rankBadgePadding,
                 decoration: BoxDecoration(
-                  color: getBadgeColor(0.3),
+                  // ✨ 传参 isForScore: true，允许变黄
+                  color: getBadgeColor(0.3, isForScore: true),
                   borderRadius: BorderRadius.circular(rankBadgeRadius),
                   border: isHighest ? Border.all(color: Colors.amberAccent.withAlpha(100), width: 0.5) : null,
                 ),
@@ -270,16 +270,17 @@ class DynamicPKBattleView extends StatelessWidget {
             ),
 
           Positioned(
-            bottom: 4,
+            bottom: 2,
             left: 4,
             right: 4,
             child: Align(
               alignment: Alignment.centerLeft,
               child: Container(
                 decoration: BoxDecoration(
-                  color: getBadgeColor(0.4),
+                  // ✨ 核心修改 2：传参 isForScore: false，强制保持队伍颜色
+                  color: getBadgeColor(0.4, isForScore: false),
                   borderRadius: BorderRadius.circular(12),
-                  border: isHighest ? Border.all(color: Colors.amberAccent.withAlpha(100), width: 0.5) : null,
+                  // ✨ 核心修改 3：去掉了 isHighest 的黄色边框逻辑，让人名牌完全不受最高分影响
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 child: Row(
@@ -291,7 +292,7 @@ class DynamicPKBattleView extends StatelessWidget {
                       fit: FlexFit.loose,
                       child: Text(
                         player.name,
-                        style: TextStyle(color: Colors.white, fontSize: textNameSize, fontWeight: FontWeight.w500, height: 1.2),
+                        style: TextStyle(color: Colors.white, fontSize: textNameSize, fontWeight: FontWeight.w500, height: 1.2,leadingDistribution: TextLeadingDistribution.even),
                         maxLines: 1,
                         softWrap: false,
                         overflow: TextOverflow.clip,
@@ -303,7 +304,7 @@ class DynamicPKBattleView extends StatelessWidget {
                         flex: 0,
                         child: Text(
                           player.propText!,
-                          style: TextStyle(color: Colors.yellowAccent, fontSize: textPropSize, fontWeight: FontWeight.bold, height: 1.2),
+                          style: TextStyle(fontSize: textPropSize, fontWeight: FontWeight.bold, height: 1.2,leadingDistribution: TextLeadingDistribution.even),
                           maxLines: 1,
                           softWrap: false,
                           overflow: TextOverflow.visible,
@@ -343,6 +344,15 @@ class DynamicPKBattleView extends StatelessWidget {
         ),
       );
     } else {
+      // ✨ 核心修改：根据总人数动态计算头像外边距
+      // 边距越大，中间的头像就被挤得越小
+      double avatarPadding = 12.0;
+      if (players.length == 9) {
+        avatarPadding = 18.0; // 7-9人时格子很小，边距加大，让头像明显变小
+      } else if (players.length >= 7) {
+        avatarPadding = 5.0; // 5-6人时适中
+      }
+
       content = Stack(
         fit: StackFit.expand,
         children: [
@@ -357,10 +367,21 @@ class DynamicPKBattleView extends StatelessWidget {
           ),
           Center(
             child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false),
+              padding: EdgeInsets.all(avatarPadding),
+              child: ConstrainedBox(
+                // 👇 锁死最大宽高！数值你可以自己微调，比如 80、90 或 100
+                constraints: const BoxConstraints(
+                  maxWidth: 125.0,
+                  maxHeight: 125.0,
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: AvatarAnimation(
+                      avatarUrl: player.avatarUrl,
+                      isSpeaking: player.isSpeaking,
+                      isRotating: false
+                  ),
+                ),
               ),
             ),
           ),

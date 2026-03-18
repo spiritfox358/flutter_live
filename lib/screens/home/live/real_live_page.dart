@@ -2350,15 +2350,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                         padding: const EdgeInsets.symmetric(horizontal: 10),
                                         decoration: BoxDecoration(
                                           gradient: iHaveUsedPromo
-                                              ? LinearGradient(colors: [Colors.green.withOpacity(0.8), Colors.teal.withOpacity(0.8)])
-                                              : LinearGradient(colors: [Colors.white.withOpacity(0.15), Colors.pinkAccent.withOpacity(0.5)]),
+                                              ? LinearGradient(colors: [Colors.green.withAlpha(200), Colors.teal.withAlpha(200)])
+                                              : LinearGradient(colors: [Colors.redAccent.withAlpha(200),Colors.redAccent.withAlpha(200)]),
                                           borderRadius: BorderRadius.circular(11),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              iHaveUsedPromo ? "首翻已达成" : "首送翻倍",
+                                              iHaveUsedPromo ? "首翻已达成" : "首次送礼翻倍",
                                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                                             ),
                                             const SizedBox(width: 6),
