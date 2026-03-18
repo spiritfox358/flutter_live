@@ -290,24 +290,53 @@ class DynamicPKBattleView extends StatelessWidget {
                     Flexible(
                       flex: 1,
                       fit: FlexFit.loose,
-                      child: Text(
-                        player.name,
-                        style: TextStyle(color: Colors.white, fontSize: textNameSize, fontWeight: FontWeight.w500, height: 1.2,leadingDistribution: TextLeadingDistribution.even),
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.clip,
+                      child: Transform.translate(
+                        offset: const Offset(0, 0.4), // 向上移动 1.0 像素，数值可调整 (负数向上)
+                        child: Text(
+                          player.name,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: textNameSize,
+                            fontWeight: FontWeight.w500,
+                            height: 1.2,
+                            leadingDistribution: TextLeadingDistribution.even,
+                          ),
+                          strutStyle: StrutStyle(
+                            fontSize: textNameSize,
+                            height: 1.2, // 强制行高为字体大小的 1 倍
+                            leading: 0, // 移除额外的行间距
+                            forceStrutHeight: true, // 关键：强制使用 strut 高度
+                          ),
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.clip,
+                        ),
                       ),
                     ),
                     if (hasProp) ...[
                       Container(width: 1, height: 10, margin: const EdgeInsets.symmetric(horizontal: 4), color: Colors.white38),
                       Flexible(
                         flex: 0,
-                        child: Text(
-                          player.propText!,
-                          style: TextStyle(fontSize: textPropSize, fontWeight: FontWeight.bold, height: 1.2,leadingDistribution: TextLeadingDistribution.even),
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.visible,
+                        child: Transform.translate(
+                          offset: const Offset(0, 0.4), // 向上移动 1.0 像素，数值可调整 (负数向上)
+                          child: Text(
+                            player.propText!,
+                            style: TextStyle(
+                              fontSize: textPropSize,
+                              fontWeight: FontWeight.bold,
+                              height: 1.2,
+                              leadingDistribution: TextLeadingDistribution.even,
+                            ),
+                            strutStyle: StrutStyle(
+                              fontSize: textNameSize,
+                              height: 1.2, // 强制行高为字体大小的 1 倍
+                              leading: 0, // 移除额外的行间距
+                              forceStrutHeight: true, // 关键：强制使用 strut 高度
+                            ),
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.visible,
+                          ),
                         ),
                       ),
                     ],
@@ -370,17 +399,10 @@ class DynamicPKBattleView extends StatelessWidget {
               padding: EdgeInsets.all(avatarPadding),
               child: ConstrainedBox(
                 // 👇 锁死最大宽高！数值你可以自己微调，比如 80、90 或 100
-                constraints: const BoxConstraints(
-                  maxWidth: 125.0,
-                  maxHeight: 125.0,
-                ),
+                constraints: const BoxConstraints(maxWidth: 125.0, maxHeight: 125.0),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: AvatarAnimation(
-                      avatarUrl: player.avatarUrl,
-                      isSpeaking: player.isSpeaking,
-                      isRotating: false
-                  ),
+                  child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false),
                 ),
               ),
             ),
