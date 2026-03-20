@@ -424,7 +424,7 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _myCritSecondsLeft > 0 ? _buildCritLabel(true, _myCritSecondsLeft) : const SizedBox(),
+                        // _myCritSecondsLeft > 0 ? _buildCritLabel(true, _myCritSecondsLeft) : const SizedBox(),
                         _oppCritSecondsLeft > 0 ? _buildCritLabel(false, _oppCritSecondsLeft) : const SizedBox(),
                       ],
                     ),

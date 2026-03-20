@@ -1343,6 +1343,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           isHost: false,
           roomId: opponent['roomId'].toString(),
           monthLevel: _monthLevel,
+          // 🟢 核心修复：1v1 切房时同样把对方的数据传过去
+          initialRoomData: {
+            'userName': opponent['name'],
+            'avatar': opponent['avatar'],
+            'coverImg': opponent['personalPkBg'], // 如果有背景也可以一并传
+          },
         ),
       ),
     );
@@ -1792,16 +1798,33 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       } else if (i == 1) {
         vc = (_isRightVideoMode && _isRightVideoInitialized) ? _rightVideoController : null;
       }
-
+      // ✨✨✨ 核心修改：组装真正的 activeBuffs 数组 ✨✨✨
+      List<String> currentActiveBuffs = [];
       // 处理道具状态
-      String? propText;
       if (_critEndTimes.containsKey(pRoomId)) {
         DateTime endTime = _critEndTimes[pRoomId]!;
         if (endTime.isAfter(now)) {
           int sec = endTime.difference(now).inSeconds;
-          propText = "暴击中 ${sec}s";
+          // 👇 核心修改：加入人数判断 ( _participants.length < 7 )
+          if (isMe) {
+            if (_participants.length <= 7) {
+              // 房主自己，且总人数在 2~6 人时（格子够大），显示长文本
+              currentActiveBuffs.add("暴击卡生效中 ${sec}s");
+            } else {
+              // 房主自己，且总人数在 2~6 人时（格子够大），显示长文本
+              currentActiveBuffs.add("暴击 ${sec}s");
+            }
+          } else {
+            // 其他所有人（或者房主在 7~9 人的拥挤模式下），统统显示短文本！
+            currentActiveBuffs.add("暴击中 ${sec}s");
+          }
         }
       }
+      // 2. 如果后端有传单条的 propText，也塞进去（未来你可以扩展后端字段，传一个真正的数组过来）
+      // String? originalPropText = p['propText']; // 假设后端原本有这个单条状态
+      // if (originalPropText != null && originalPropText.isNotEmpty) {
+      //   currentActiveBuffs.add(originalPropText);
+      // }
 
       // 处理惩罚期变灰
       bool isPunished = false;
@@ -1821,8 +1844,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           rank: realRank,
           // 🟢 5. 传入动态算出来的真实排名！
           score: currentScore,
+          isInitiator: p['isInitiator'] ?? false,
           isPunished: isPunished,
-          propText: propText,
+          // ✨ 不再传单条的 propText，全部通过 activeBuffs 传递
+          propText: null,
+          activeBuffs: currentActiveBuffs,
           isSpeaking: isMe,
           isMyTeam: isMyTeam,
           videoController: vc,
@@ -1850,6 +1876,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           roomId: targetPlayer.roomId,
           // 动态传入被点击人的 roomId
           monthLevel: _monthLevel,
+          initialRoomData: {
+            'userName': targetPlayer.name,
+            'avatar': targetPlayer.avatarUrl,
+          },
         ),
       ),
     );
@@ -2152,22 +2182,22 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                       critEndTimes: _critEndTimes,
                                                     ),
                                                   ),
-
-                                                Positioned(
-                                                  right: 10,
-                                                  bottom: 10,
-                                                  child: Column(
-                                                    children: [
-                                                      _buildCircleBtn(
-                                                        onTap: _showMusicPanel,
-                                                        icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
-                                                        borderColor: Colors.purpleAccent,
-                                                        label: "点歌",
-                                                      ),
-                                                      const SizedBox(height: 10),
-                                                    ],
+                                                if (1 == 2)
+                                                  Positioned(
+                                                    right: 10,
+                                                    bottom: 10,
+                                                    child: Column(
+                                                      children: [
+                                                        _buildCircleBtn(
+                                                          onTap: _showMusicPanel,
+                                                          icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
+                                                          borderColor: Colors.purpleAccent,
+                                                          label: "点歌",
+                                                        ),
+                                                        const SizedBox(height: 10),
+                                                      ],
+                                                    ),
                                                   ),
-                                                ),
                                               ],
                                             ),
                                           ),
@@ -2351,7 +2381,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                         decoration: BoxDecoration(
                                           gradient: iHaveUsedPromo
                                               ? LinearGradient(colors: [Colors.green.withAlpha(200), Colors.teal.withAlpha(200)])
-                                              : LinearGradient(colors: [Colors.redAccent.withAlpha(200),Colors.redAccent.withAlpha(200)]),
+                                              : LinearGradient(colors: [Colors.redAccent.withAlpha(200), Colors.redAccent.withAlpha(200)]),
                                           borderRadius: BorderRadius.circular(11),
                                         ),
                                         child: Row(
