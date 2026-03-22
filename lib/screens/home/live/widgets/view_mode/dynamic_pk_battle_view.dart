@@ -105,13 +105,7 @@ class DynamicPKBattleView extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         // 1. 底层大图
-        _CellWrapper(
-            player: focusedPlayer,
-            pkStatus: pkStatus,
-            currentRoomId: currentRoomId,
-            allPlayers: players,
-            onTap: onTapPlayer
-        ),
+        _CellWrapper(player: focusedPlayer, pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
 
         // 2. 顶层悬浮小窗列表
         if (otherPlayers.isNotEmpty)
@@ -132,19 +126,13 @@ class DynamicPKBattleView extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       clipBehavior: Clip.hardEdge,
-                      child: _CellWrapper(
-                          player: p,
-                          pkStatus: pkStatus,
-                          currentRoomId: currentRoomId,
-                          allPlayers: players,
-                          onTap: onTapPlayer
-                      ),
+                      child: _CellWrapper(player: p, pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
                     );
                   }).toList(),
                 ),
               ),
             ),
-          )
+          ),
       ],
     );
   }
@@ -152,33 +140,54 @@ class DynamicPKBattleView extends StatelessWidget {
   Widget _buildDynamicPKGrid(List<LivePKPlayerModel> sortedList) {
     int count = sortedList.length;
     switch (count) {
-      case 2: return _buildFlexGrid([2], sortedList);
-      case 3: return _build3PersonLayout(sortedList);
-      case 4: return _buildFlexGrid([2, 2], sortedList);
-      case 5: return _buildFlexGrid([2, 3], sortedList);
-      case 6: return _buildFlexGrid([3, 3], sortedList);
-      case 7: return _buildFlexGrid([3, 4], sortedList);
-      case 8: return _buildFlexGrid([4, 4], sortedList);
-      case 9: return _buildFlexGrid([3, 3, 3], sortedList);
-      default: return const Center(child: Text('仅支持 2-9 人', style: TextStyle(color: Colors.white)));
+      case 2:
+        return _buildFlexGrid([2], sortedList);
+      case 3:
+        return _build3PersonLayout(sortedList);
+      case 4:
+        return _buildFlexGrid([2, 2], sortedList);
+      case 5:
+        return _buildFlexGrid([2, 3], sortedList);
+      case 6:
+        return _buildFlexGrid([3, 3], sortedList);
+      case 7:
+        return _buildFlexGrid([3, 4], sortedList);
+      case 8:
+        return _buildFlexGrid([4, 4], sortedList);
+      case 9:
+        return _buildFlexGrid([3, 3, 3], sortedList);
+      default:
+        return const Center(
+          child: Text('仅支持 2-9 人', style: TextStyle(color: Colors.white)),
+        );
     }
   }
 
   Widget _vDivider() => Container(width: dividerThickness, color: dividerColor);
+
   Widget _hDivider() => Container(height: dividerThickness, color: dividerColor);
 
   Widget _build3PersonLayout(List<LivePKPlayerModel> sortedList) {
     return Row(
       children: [
-        Expanded(flex: 1, child: _CellWrapper(player: sortedList[0], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer)),
+        Expanded(
+          flex: 1,
+          child: _CellWrapper(player: sortedList[0], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
+        ),
         _vDivider(),
         Expanded(
           flex: 1,
           child: Column(
             children: [
-              Expanded(flex: 1, child: _CellWrapper(player: sortedList[1], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer)),
+              Expanded(
+                flex: 1,
+                child: _CellWrapper(player: sortedList[1], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
+              ),
               _hDivider(),
-              Expanded(flex: 1, child: _CellWrapper(player: sortedList[2], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer)),
+              Expanded(
+                flex: 1,
+                child: _CellWrapper(player: sortedList[2], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
+              ),
             ],
           ),
         ),
@@ -196,7 +205,17 @@ class DynamicPKBattleView extends StatelessWidget {
 
       for (int j = 0; j < colsInThisRow; j++) {
         if (playerIndex < sortedList.length) {
-          rowChildren.add(Expanded(child: _CellWrapper(player: sortedList[playerIndex], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer)));
+          rowChildren.add(
+            Expanded(
+              child: _CellWrapper(
+                player: sortedList[playerIndex],
+                pkStatus: pkStatus,
+                currentRoomId: currentRoomId,
+                allPlayers: players,
+                onTap: onTapPlayer,
+              ),
+            ),
+          );
           if (j < colsInThisRow - 1) rowChildren.add(_vDivider());
           playerIndex++;
         }
@@ -274,9 +293,7 @@ class _CellWrapperState extends State<_CellWrapper> {
         gradient: LinearGradient(
           begin: isMyTeam ? Alignment.centerLeft : Alignment.centerRight,
           end: isMyTeam ? Alignment.centerRight : Alignment.centerLeft,
-          colors: isMyTeam
-              ? [const Color(0xFFFF2E56), Colors.transparent]
-              : [const Color(0xFF2962FF), Colors.transparent],
+          colors: isMyTeam ? [const Color(0xFFFF2E56), Colors.transparent] : [const Color(0xFF2962FF), Colors.transparent],
           stops: const [0.1, 1.0],
         ),
       ),
@@ -350,33 +367,62 @@ class _CellWrapperState extends State<_CellWrapper> {
 
     // ✨✨✨ 分数牌 UI 组件 ✨✨✨
     Widget buildScoreBadgeWidget() {
+      // 🟢 核心修改：动态格式化分数显示
+      String displayScore = player.score.toString();
+      if (player.score >= 1000000) {
+        if (isMainAnchor) {
+          // 我方/主视角格子：显示具体万单位，例如 "125.4万"
+          displayScore = "${(player.score / 10000.0).toStringAsFixed(1)}万";
+        } else {
+          // 其他格子：模糊显示 "100万+"
+          displayScore = "100万+";
+        }
+      }
+
       return Container(
         height: 18.0,
         padding: const EdgeInsets.only(left: 2, right: 6),
         decoration: BoxDecoration(
           color: getBadgeColor(0.3, isForScore: true),
           borderRadius: BorderRadius.circular(12.0),
-          border: isHighest ? Border.all(color: Colors.amberAccent.withAlpha(100), width: 0.5) : null,
+          border: isHighest
+              ? Border.all(
+            color: player.isMyTeam
+                ? const Color(0xFFFF2E56).withAlpha(180) // 我方(红队)高亮边框
+                : const Color(0xFF2962FF).withAlpha(180), // 敌方(蓝队)高亮边框
+            width: 0.8,
+          )
+              : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Container(
-              width: 14.0, height: 14.0,
+              width: 14.0,
+              height: 14.0,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: isBattleState ? (player.isMyTeam ? const Color(0xFFD32F2F).withAlpha(100) : const Color(0xFF1565C0).withAlpha(100)) : Colors.white24,
+                color: isBattleState
+                    ? (player.isMyTeam ? const Color(0xFFD32F2F).withAlpha(100) : const Color(0xFF1565C0).withAlpha(100))
+                    : Colors.white24,
               ),
               child: Center(
-                child: Text('${player.rank}', style: const TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1)),
+                child: Text(
+                  '${player.rank}',
+                  style: const TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1),
+                ),
               ),
             ),
             const SizedBox(width: 4),
+            // 🟢 将原来的 '${player.score}' 替换为 displayScore
             Text(
-              '${player.score}',
+              displayScore,
               style: TextStyle(
-                color: Colors.white, fontSize: 10.0, fontWeight: FontWeight.w600, height: 1.1,
+                color: Colors.white,
+                fontSize: 10.0,
+                fontWeight: FontWeight.w600,
+                height: 1.1,
                 shadows: isHighest ? [const Shadow(color: Colors.black45, blurRadius: 2, offset: Offset(0, 1))] : null,
               ),
             ),
@@ -404,7 +450,9 @@ class _CellWrapperState extends State<_CellWrapper> {
             // 底部的深色半透明遮罩
             if (needsBottomGradient)
               Positioned(
-                left: 0, right: 0, bottom: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
                 child: Container(
                   height: 40.0,
                   decoration: BoxDecoration(
@@ -419,9 +467,10 @@ class _CellWrapperState extends State<_CellWrapper> {
 
             // 👉 1. 左上角逻辑
             if (isMainAnchor && hasActiveBuffs)
-            // 【房主且有道具】：左上角霸占为道具轮播
+              // 【房主且有道具】：左上角霸占为道具轮播
               Positioned(
-                top: 0.0, left: 0.0,
+                top: 0.0,
+                left: 0.0,
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
                   transitionBuilder: (Widget child, Animation<double> animation) {
@@ -431,20 +480,17 @@ class _CellWrapperState extends State<_CellWrapper> {
                 ),
               )
             else if (showScoreBadge)
-            // 【房主无道具 或 其他人】：正常显示左上角的分数牌
-              Positioned(
-                top: 4.0, left: 4.0,
-                child: buildScoreBadgeWidget(),
-              ),
+              // 【房主无道具 或 其他人】：正常显示左上角的分数牌
+              Positioned(top: 4.0, left: 4.0, child: buildScoreBadgeWidget()),
 
-            if (player.isMuted)
-              const Positioned(top: 6, right: 6, child: Icon(Icons.mic_off_outlined, color: Colors.white70, size: 16.0)),
+            if (player.isMuted) const Positioned(top: 6, right: 6, child: Icon(Icons.mic_off_outlined, color: Colors.white70, size: 16.0)),
 
             // 👉 2. 左下角逻辑 (统一 Column 纵向排列，独立胶囊)
             if (isMainAnchor && (player.isInitiator || (hasActiveBuffs && showScoreBadge)))
-            // ✨【房主自身】：左下角纵向排列
+              // ✨【房主自身】：左下角纵向排列
               Positioned(
-                bottom: 4.0, left: 4.0,
+                bottom: 4.0,
+                left: 4.0,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start, // 统一左对齐
@@ -454,46 +500,49 @@ class _CellWrapperState extends State<_CellWrapper> {
                         padding: EdgeInsets.only(bottom: (hasActiveBuffs && showScoreBadge) ? 4.0 : 0.0),
                         child: _buildInitiatorLabel(player.isMyTeam),
                       ),
-                    if (hasActiveBuffs && showScoreBadge)
-                      buildScoreBadgeWidget(),
+                    if (hasActiveBuffs && showScoreBadge) buildScoreBadgeWidget(),
                   ],
                 ),
               )
             else if (!isMainAnchor)
-            // ✨【其他人】：左下角纵向排列 (上方悬浮房主胶囊，下方显示名字条)
+              // ✨【其他人】：左下角纵向排列 (上方悬浮房主胶囊，下方显示名字条)
               Positioned(
-                bottom: 4.0, left: 4.0, right: 4.0,
+                bottom: 4.0,
+                left: 4.0,
+                right: 4.0,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start, // 统一左对齐
                   children: [
-                    if (player.isInitiator)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 2.0),
-                        child: _buildInitiatorLabel(player.isMyTeam),
-                      ),
+                    if (player.isInitiator) Padding(padding: const EdgeInsets.only(bottom: 2.0), child: _buildInitiatorLabel(player.isMyTeam)),
 
                     // 下方原来的名字和道具背景条
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Container(
-                        decoration: BoxDecoration(
-                          color: getBadgeColor(0.4, isForScore: false),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        decoration: BoxDecoration(color: getBadgeColor(0.4, isForScore: false), borderRadius: BorderRadius.circular(12)),
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Flexible(
-                              flex: 1, fit: FlexFit.loose,
+                              flex: 1,
+                              fit: FlexFit.loose,
                               child: Transform.translate(
                                 offset: const Offset(0, 0),
                                 child: Text(
                                   player.name,
-                                  style: const TextStyle(color: Colors.white, fontSize: 11.0, fontWeight: FontWeight.w500, height: 1.2, leadingDistribution: TextLeadingDistribution.even),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11.0,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.2,
+                                    leadingDistribution: TextLeadingDistribution.even,
+                                  ),
                                   strutStyle: const StrutStyle(fontSize: 11.0, height: 1.2, leading: 0, forceStrutHeight: true),
-                                  maxLines: 1, softWrap: false, overflow: TextOverflow.clip,
+                                  maxLines: 1,
+                                  softWrap: false,
+                                  overflow: TextOverflow.clip,
                                 ),
                               ),
                             ),
@@ -508,9 +557,17 @@ class _CellWrapperState extends State<_CellWrapper> {
                                     child: Text(
                                       currentBuffText,
                                       key: ValueKey(currentIndex),
-                                      style: const TextStyle(color: Colors.yellowAccent, fontSize: 10.0, fontWeight: FontWeight.bold, height: 1.2, leadingDistribution: TextLeadingDistribution.even),
+                                      style: const TextStyle(
+                                        color: Colors.yellowAccent,
+                                        fontSize: 10.0,
+                                        fontWeight: FontWeight.bold,
+                                        height: 1.2,
+                                        leadingDistribution: TextLeadingDistribution.even,
+                                      ),
                                       strutStyle: const StrutStyle(fontSize: 11.0, height: 1.2, leading: 0, forceStrutHeight: true),
-                                      maxLines: 1, softWrap: false, overflow: TextOverflow.visible,
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      overflow: TextOverflow.visible,
                                     ),
                                   ),
                                 ),
@@ -535,25 +592,41 @@ class _CellWrapperState extends State<_CellWrapper> {
       content = SizedBox.expand(
         child: FittedBox(
           fit: BoxFit.cover,
-          child: SizedBox(width: player.videoController!.value.size.width, height: player.videoController!.value.size.height, child: VideoPlayer(player.videoController!)),
+          child: SizedBox(
+            width: player.videoController!.value.size.width,
+            height: player.videoController!.value.size.height,
+            child: VideoPlayer(player.videoController!),
+          ),
         ),
       );
     } else {
       double avatarPadding = 12.0;
-      if (widget.allPlayers.length == 9) avatarPadding = 18.0;
-      else if (widget.allPlayers.length >= 7) avatarPadding = 5.0;
+      if (widget.allPlayers.length == 9)
+        avatarPadding = 18.0;
+      else if (widget.allPlayers.length >= 7)
+        avatarPadding = 5.0;
 
       content = Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(player.avatarUrl, fit: BoxFit.cover, errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900])),
-          BackdropFilter(filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0), child: Container(color: Colors.black.withOpacity(0.5))),
+          Image.network(
+            player.avatarUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
+          ),
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+            child: Container(color: Colors.black.withOpacity(0.5)),
+          ),
           Center(
             child: Padding(
               padding: EdgeInsets.all(avatarPadding),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 125.0, maxHeight: 125.0),
-                child: FittedBox(fit: BoxFit.scaleDown, child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false)),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false),
+                ),
               ),
             ),
           ),
@@ -561,7 +634,10 @@ class _CellWrapperState extends State<_CellWrapper> {
       );
     }
 
-    if (player.isPunished) return RepaintBoundary(child: ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: content));
+    if (player.isPunished)
+      return RepaintBoundary(
+        child: ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: content),
+      );
     return RepaintBoundary(child: content);
   }
 }

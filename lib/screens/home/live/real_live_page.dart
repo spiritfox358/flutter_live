@@ -208,6 +208,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   bool _showComboButton = false;
   GiftItemData? _lastGiftSent;
   late AnimationController _comboScaleController;
+  late Animation<double> _comboScaleAnimation; // 🟢 补上这个缺失的声明！
   late AnimationController _countdownController;
 
   bool _showPKStartAnimation = false;
@@ -253,7 +254,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       _isLoadingDetail = true;
     }
 
-    _comboScaleController = AnimationController(vsync: this, duration: const Duration(milliseconds: 150), lowerBound: 0.0, upperBound: 1.0);
+    _comboScaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+      lowerBound: 0.0,
+      upperBound: 1.0,
+      debugLabel: 'real_live_page',
+    );
+    // 🟢 极其重要：必须在这里把曲线动画定义好，绝不能在 build 方法里直接 new！
+    _comboScaleAnimation = CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut);
     _countdownController = AnimationController(vsync: this, duration: const Duration(seconds: 3));
     _countdownController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
@@ -2563,7 +2572,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                     );
                   },
                   child: ScaleTransition(
-                    scale: _comboScaleController.drive(CurveTween(curve: Curves.elasticOut)),
+                    scale: _comboScaleAnimation,
                     child: GestureDetector(
                       onTap: () => _sendGift(_lastGiftSent!),
                       child: AnimatedBuilder(

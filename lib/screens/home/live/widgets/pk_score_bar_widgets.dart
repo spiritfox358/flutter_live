@@ -256,12 +256,35 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
 
     final total = widget.myScore + widget.opponentScore;
     double targetRatio = total == 0 ? 0.5 : widget.myScore / total;
-    targetRatio = targetRatio.clamp(0.15, 0.85);
 
     final Radius centerRadius = total == 0 ? Radius.zero : const Radius.circular(20);
-
-    // 判断当前是否有暴击卡，动态设置飘字的边距
     final double currentPopRightPadding = _myCritSecondsLeft > 0 ? 13.0 : 5.0;
+
+    String myScoreText = _formatScore(widget.myScore);
+    String oppScoreText = _formatScore(widget.opponentScore);
+    bool isHighScore = widget.myScore >= 1000000 || widget.opponentScore >= 1000000;
+
+    if (isHighScore) {
+      int diff = widget.myScore - widget.opponentScore;
+      int absDiff = diff.abs(); // 获取差值的绝对值
+
+      // 🟢 核心修复：差值本身超过 100万，才使用“万”单位，否则直接显示原数字
+      String diffStr = absDiff >= 1000000 ? "${(absDiff / 10000.0).toStringAsFixed(1)}万" : absDiff.toString();
+
+      if (diff > 0) {
+        myScoreText = "领先 $diffStr";
+      } else if (diff < 0) {
+        myScoreText = "落后 $diffStr";
+      } else {
+        myScoreText = "平局";
+      }
+
+      // 直接把敌方的文字设为空字符串，让它隐身！
+      oppScoreText = "";
+    }
+
+    // 动态限制最小比例。
+    targetRatio = targetRatio.clamp(isHighScore ? 0.26 : 0.15, 0.85);
 
     // 🟢 核心改动 1：把 LayoutBuilder 和 TweenAnimationBuilder 提到最外层
     return LayoutBuilder(
@@ -306,8 +329,15 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                               alignment: Alignment.centerRight,
                               padding: const EdgeInsets.only(right: 8),
                               child: Text(
-                                _formatScore(widget.opponentScore),
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                                oppScoreText,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 10,
+                                  // 🟢 核心修复：同样加上这两行
+                                  height: 1.1,
+                                  leadingDistribution: TextLeadingDistribution.even,
+                                ),
                               ),
                             ),
                           ),
@@ -370,10 +400,22 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                                     Align(
                                       alignment: Alignment.centerLeft,
                                       child: Padding(
-                                        padding: const EdgeInsets.only(left: 8),
-                                        child: Text(
-                                          _formatScore(widget.myScore),
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                                        padding: const EdgeInsets.only(left: 8, right: 12), // 给右边留点缝隙，防紧贴
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            myScoreText,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 10,
+                                              // 🟢 核心修复：强制行高并让文字在行内绝对垂直居中！
+                                              height: 1.1,
+                                              leadingDistribution: TextLeadingDistribution.even,
+                                              // shadows: [Shadow(color: Colors.black54, blurRadius: 2, offset: Offset(1, 1))],
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -461,10 +503,7 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
                     child: AnimatedBuilder(
                       animation: _critBreathController,
                       builder: (context, child) {
-                        return Transform.scale(
-                          scale: _critBreathScale.value,
-                          child: child,
-                        );
+                        return Transform.scale(scale: _critBreathScale.value, child: child);
                       },
                       child: Image.network(
                         'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/icon/%E6%9A%B4%E5%87%BB%E5%8D%A1_prop.png',
@@ -783,12 +822,7 @@ class PKTimer extends StatelessWidget {
                   : status == PKStatus.coHost
                   ? "连线中 ${_formatTime(secondsLeft)}"
                   : _formatTime(secondsLeft),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 10,
-                fontFeatures: [FontFeature.tabularFigures()],
-              ),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10, fontFeatures: [FontFeature.tabularFigures()]),
             ),
           ],
         ),
@@ -810,7 +844,7 @@ class _TrapezoidPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     const double inset = 6.0; // 梯形左右向内倾斜的宽度
-    const double r = 5.0;     // 顶部圆角的半径 (可微调大小)
+    const double r = 5.0; // 顶部圆角的半径 (可微调大小)
 
     // 安全保护：防止圆角半径大于高度导致路径错乱
     final double safeR = r.clamp(0.0, size.height / 2);
@@ -829,8 +863,10 @@ class _TrapezoidPainter extends CustomPainter {
     // 3. 右上角：完美相切的贝塞尔圆角
     // 控制点刚好是锐角的顶点，这样能保证曲线和斜边完美融合
     path.quadraticBezierTo(
-        size.width - inset, 0,           // 控制点
-        size.width - inset - safeR, 0    // 终点 (落在顶部平线上)
+      size.width - inset,
+      0, // 控制点
+      size.width - inset - safeR,
+      0, // 终点 (落在顶部平线上)
     );
 
     // 4. 顶部平直边 (从右边画到左边，到准备弯曲的相切点)
@@ -838,8 +874,10 @@ class _TrapezoidPainter extends CustomPainter {
 
     // 5. 左上角：完美相切的贝塞尔圆角
     path.quadraticBezierTo(
-        inset, 0,                        // 控制点 (左侧锐角顶点)
-        inset - dx, safeR                // 终点 (落在左侧斜边上)
+      inset,
+      0, // 控制点 (左侧锐角顶点)
+      inset - dx,
+      safeR, // 终点 (落在左侧斜边上)
     );
 
     // 6. 闭合路径，自动顺着左侧斜边完美连回 (0, size.height)起点

@@ -13,6 +13,9 @@ Run flutter app
 
 `flutter run`
 
+- Run ios app
+`flutter run --release`
+
 
 > 101.200.77.1
 - administrator weileyouFZXT2017

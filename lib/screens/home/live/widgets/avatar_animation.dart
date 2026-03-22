@@ -34,6 +34,14 @@ class _AvatarAnimationState extends State<AvatarAnimation> with TickerProviderSt
     _waveController = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
   }
 
+  // 🟢 新增：在组件被移出屏幕的瞬间，立刻叫停无限循环的动画
+  @override
+  void deactivate() {
+    _rotateController.stop();
+    _waveController.stop();
+    super.deactivate();
+  }
+
   @override
   void dispose() {
     // 组件销毁时，自动释放控制器，不用父组件操心

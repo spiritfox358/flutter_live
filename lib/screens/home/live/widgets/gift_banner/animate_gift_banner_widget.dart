@@ -52,6 +52,14 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
     });
   }
 
+  // 🟢 新增：当礼物横幅被移出屏幕时，立刻叫停所有动画
+  @override
+  void deactivate() {
+    _entryController.stop();
+    _comboController.stop();
+    super.deactivate();
+  }
+
   @override
   void dispose() {
     _entryController.dispose();
