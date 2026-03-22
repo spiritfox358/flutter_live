@@ -145,6 +145,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   late int _onlineCount = 0;
   late bool _isHost = false;
+  late bool _isRobotActive = false;
   final GlobalKey _chatListKey = GlobalKey();
 
   // 用户余额
@@ -257,10 +258,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _countdownController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         _comboScaleController.reverse().then((_) {
-          setState(() {
-            _showComboButton = false;
-            _lastGiftSent = null;
-          });
+          // 🟢 终极修复 3：异步动画结束后的回调，必须再次判断 mounted！
+          if (mounted) {
+            setState(() {
+              _showComboButton = false;
+              _lastGiftSent = null;
+            });
+          }
         });
       }
     });
@@ -653,6 +657,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
       setState(() {
         _currentUserId = data['anchorId'] ?? _currentUserId;
+        _isRobotActive = data['isRobotActive'];
         _isHost = _currentUserId.toString() == UserStore.to.userId;
       });
     } catch (e) {
@@ -1188,7 +1193,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _dismissKeyboard();
 
     // 1. 如果是观众：直接退出
-    if (!_isHost) {
+    if (!_isHost || _isRobotActive) {
       Navigator.of(context).pop();
       return;
     }
@@ -1445,15 +1450,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         senderMonthLevel: senderMonthLevel,
         isHost: isHost,
       );
+      if (_pkStatus == PKStatus.playing) {
+        if (_isFirstGiftPromoActive && !_usersWhoUsedPromo.contains(senderId)) {
+          _usersWhoUsedPromo.add(senderId);
+        }
+      }
 
-      // if (_pkStatus == PKStatus.playing) {
-      //   int scoreToAdd = giftData.price * count;
-      //
-      //   if (_isFirstGiftPromoActive && !_usersWhoUsedPromo.contains(senderId)) {
-      //     scoreToAdd = scoreToAdd * 2;
-      //     _usersWhoUsedPromo.add(senderId);
-      //   }
-      //
       //   // 2. 💥 暴击卡翻倍逻辑 (新增) 💥
       //   final now = DateTime.now();
       //   // 只要当前有暴击卡在生效期内，并且是我方送的（或者你要给所有人算也可以去掉 isMe 判断）
@@ -1860,7 +1862,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   // 🟢 核心改造：支持点击多个人中的任意一个进行切房
   void _switchToTargetRoom(LivePKPlayerModel targetPlayer) {
-    if (_isHost) {
+    if (_isHost && !_isRobotActive) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
       return;
     }
@@ -1876,10 +1878,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           roomId: targetPlayer.roomId,
           // 动态传入被点击人的 roomId
           monthLevel: _monthLevel,
-          initialRoomData: {
-            'userName': targetPlayer.name,
-            'avatar': targetPlayer.avatarUrl,
-          },
+          initialRoomData: {'userName': targetPlayer.name, 'avatar': targetPlayer.avatarUrl},
         ),
       ),
     );
@@ -2564,7 +2563,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                     );
                   },
                   child: ScaleTransition(
-                    scale: CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut),
+                    scale: _comboScaleController.drive(CurveTween(curve: Curves.elasticOut)),
                     child: GestureDetector(
                       onTap: () => _sendGift(_lastGiftSent!),
                       child: AnimatedBuilder(

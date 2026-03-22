@@ -26,6 +26,8 @@ class _RechargePopupState extends State<RechargePopup> {
     {'amount': 300, 'diamond': 3000},
     {'amount': 500, 'diamond': 5000},
     {'amount': 1000, 'diamond': 10000},
+    {'amount': 5000, 'diamond': 50000},
+    {'amount': 10000, 'diamond': 100000},
   ];
 
   int _selectedIndex = 0;

@@ -222,6 +222,17 @@ class PKScoreBarState extends State<PKScoreBar> with TickerProviderStateMixin {
     }
   }
 
+  // 🟢 终极修复 1：当组件带有 GlobalKey 被暂时移出树时，必须立刻叫停所有动画！
+  @override
+  void deactivate() {
+    _critBreathController.stop();
+    _lightningController.stop();
+    _popController.stop();
+    _flashController.stop();
+    _comboTextScaleController.stop();
+    super.deactivate();
+  }
+
   @override
   void dispose() {
     _popController.dispose();

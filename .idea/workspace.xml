@@ -5,12 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/chat/build_chat_item.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/chat/build_chat_item.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_score_bar_widgets.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/pk_score_bar_widgets.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/recharge/recharge_popup.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/recharge/recharge_popup.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/dynamic_pk_battle_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/dynamic_pk_battle_view.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/macos/Podfile.lock" beforeDir="false" afterPath="$PROJECT_DIR$/macos/Podfile.lock" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -109,14 +111,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1768925595133</updated>
-    </task>
-    <task id="LOCAL-00010" summary="1. initial">
-      <option name="closed" value="true" />
-      <created>1769180944613</created>
-      <option name="number" value="00010" />
-      <option name="presentableId" value="LOCAL-00010" />
-      <option name="project" value="LOCAL" />
-      <updated>1769180944613</updated>
     </task>
     <task id="LOCAL-00011" summary="1. initial">
       <option name="closed" value="true" />
@@ -502,7 +496,15 @@
       <option name="project" value="LOCAL" />
       <updated>1773853457389</updated>
     </task>
-    <option name="localTasksCounter" value="59" />
+    <task id="LOCAL-00059" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1773983787713</created>
+      <option name="number" value="00059" />
+      <option name="presentableId" value="LOCAL-00059" />
+      <option name="project" value="LOCAL" />
+      <updated>1773983787713</updated>
+    </task>
+    <option name="localTasksCounter" value="60" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -542,32 +544,32 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>984</line>
+          <line>989</line>
           <option name="timeStamp" value="95" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1316</line>
+          <line>1321</line>
           <option name="timeStamp" value="106" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/recharge/recharge_popup.dart</url>
-          <line>43</line>
+          <line>45</line>
           <option name="timeStamp" value="122" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/recharge/recharge_popup.dart</url>
-          <line>70</line>
+          <line>72</line>
           <option name="timeStamp" value="124" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/recharge/recharge_popup.dart</url>
-          <line>84</line>
+          <line>86</line>
           <option name="timeStamp" value="125" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/widgets/recharge/recharge_popup.dart</url>
-          <line>52</line>
+          <line>54</line>
           <option name="timeStamp" value="126" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -577,7 +579,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1004</line>
+          <line>1009</line>
           <option name="timeStamp" value="139" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -612,18 +614,18 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>942</line>
+          <line>947</line>
           <option name="timeStamp" value="170" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>536</line>
-          <option name="timeStamp" value="172" />
+          <line>1195</line>
+          <option name="timeStamp" value="174" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>542</line>
-          <option name="timeStamp" value="173" />
+          <line>528</line>
+          <option name="timeStamp" value="175" />
         </line-breakpoint>
       </breakpoints>
       <default-breakpoints>

@@ -488,7 +488,7 @@ class _CellWrapperState extends State<_CellWrapper> {
                             Flexible(
                               flex: 1, fit: FlexFit.loose,
                               child: Transform.translate(
-                                offset: const Offset(0, 0.4),
+                                offset: const Offset(0, 0),
                                 child: Text(
                                   player.name,
                                   style: const TextStyle(color: Colors.white, fontSize: 11.0, fontWeight: FontWeight.w500, height: 1.2, leadingDistribution: TextLeadingDistribution.even),
