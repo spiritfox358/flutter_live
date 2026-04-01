@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/pk_score_bar_widgets.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -68,6 +69,7 @@ class DynamicPKBattleView extends StatefulWidget {
 class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
   final double dividerThickness = 1.0;
   final Color dividerColor = Colors.black;
+  static const _screenChannel = MethodChannel('app.channel.screen');
   List<List<double>> _currentLayouts = [];
   int? _textureId;
 
@@ -95,6 +97,7 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
     super.initState();
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _initHardcoreEngine();
+      _screenChannel.invokeMethod('keepScreenOn', {'on': true}); // 🚀 开灯
     });
 
     // 🚀 每半秒查一次底层就足够了，不要用 200ms
@@ -115,6 +118,7 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
   @override
   void dispose() {
     _globalRadarTimer?.cancel();
+    _screenChannel.invokeMethod('keepScreenOn', {'on': false}); // 🚀 关灯
     super.dispose();
   }
 

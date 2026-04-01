@@ -5,21 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/plugins/hardcore_mixer/android/CMakeLists.txt" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/plugins/hardcore_mixer/android/src/main/cpp/hardcore_jni.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/bridge/hardcore_mixer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/bridge/hardcore_mixer.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/subpages/dynamic_pk_view/widgets/player_action_bottom_sheet.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/subpages/dynamic_pk_view/widgets/player_action_bottom_sheet.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/android/app/src/main/kotlin/com/example/fzxt_flutter/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/android/app/src/main/kotlin/com/example/fzxt_flutter/MainActivity.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/dynamic_pk_battle_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/dynamic_pk_battle_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plugins/hardcore_mixer/android/build.gradle" beforeDir="false" afterPath="$PROJECT_DIR$/plugins/hardcore_mixer/android/build.gradle" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plugins/hardcore_mixer/android/src/main/kotlin/com/example/hardcore_mixer/HardcoreMixerPlugin.kt" beforeDir="false" afterPath="$PROJECT_DIR$/plugins/hardcore_mixer/android/src/main/kotlin/com/example/hardcore_mixer/HardcoreMixerPlugin.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plugins/hardcore_mixer/android/src/main/kotlin/com/example/hardcore_mixer/HardcoreRenderer.kt" beforeDir="false" afterPath="$PROJECT_DIR$/plugins/hardcore_mixer/android/src/main/kotlin/com/example/hardcore_mixer/HardcoreRenderer.kt" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plugins/hardcore_mixer/android/src/main/kotlin/com/example/hardcore_mixer/VideoDecoderPool.kt" beforeDir="false" afterPath="$PROJECT_DIR$/plugins/hardcore_mixer/android/src/main/kotlin/com/example/hardcore_mixer/VideoDecoderPool.kt" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/plugins/hardcore_mixer/ios/Classes/HardcoreDecoder.cpp" beforeDir="false" afterPath="$PROJECT_DIR$/plugins/hardcore_mixer/ios/Classes/HardcoreDecoder.cpp" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/plugins/hardcore_mixer/ios/Classes/HardcoreMixerPlugin.swift" beforeDir="false" afterPath="$PROJECT_DIR$/plugins/hardcore_mixer/ios/Classes/HardcoreMixerPlugin.swift" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -118,14 +107,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1768925595133</updated>
-    </task>
-    <task id="LOCAL-00015" summary="1. initial">
-      <option name="closed" value="true" />
-      <created>1769513210888</created>
-      <option name="number" value="00015" />
-      <option name="presentableId" value="LOCAL-00015" />
-      <option name="project" value="LOCAL" />
-      <updated>1769513210888</updated>
     </task>
     <task id="LOCAL-00016" summary="1. initial">
       <option name="closed" value="true" />
@@ -511,7 +492,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775006816323</updated>
     </task>
-    <option name="localTasksCounter" value="64" />
+    <task id="LOCAL-00064" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1775050248216</created>
+      <option name="number" value="00064" />
+      <option name="presentableId" value="LOCAL-00064" />
+      <option name="project" value="LOCAL" />
+      <updated>1775050248216</updated>
+    </task>
+    <option name="localTasksCounter" value="65" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

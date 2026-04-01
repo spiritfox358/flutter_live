@@ -67,10 +67,11 @@ bool HardcoreDecoder::isVideoDead() {
 }
 
 void HardcoreDecoder::decodeLoop() {
-    // 🚀 1. 错峰点火防网络拥堵
-    if (_index > 0) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(_index * 100));
-    }
+    // 🚀🚀🚀 优化 1：彻底废除“错峰点火”！
+    // 现在的手机和网络完全扛得住 9 个线程并发，直接让它们瞬间同时起跑，告别排队！
+    // if (_index > 0) {
+    //     std::this_thread::sleep_for(std::chrono::milliseconds(_index * 100));
+    // }
 
     // ==========================================
     // 🦅 2. 不死鸟外层循环：无论网络怎么断，绝不自杀！无限重连！
@@ -83,14 +84,21 @@ void HardcoreDecoder::decodeLoop() {
         av_dict_set(&options, "fflags", "nobuffer", 0);
         av_dict_set(&options, "timeout", "5000000", 0); // 5秒超时
 
+        // 🚀🚀🚀 优化 2：终极加速魔法（限制 FFmpeg 的探针大小和分析时间）
+        // 强行把探针大小从默认的 5MB 缩减到 32KB，把分析时间从 5秒 压到 0.5秒！
+        // 这样 FFmpeg 只要摸到视频的第一帧，就会瞬间结束分析直接出画，速度比肩原生！
+        av_dict_set(&options, "probesize", "32768", 0);
+        av_dict_set(&options, "analyzeduration", "500000", 0);
+
         if (avformat_open_input(&_formatCtx, _url.c_str(), nullptr, &options) != 0) {
             if (_formatCtx) {
                 avformat_free_context(_formatCtx);
                 _formatCtx = nullptr;
             }
-            std::this_thread::sleep_for(std::chrono::seconds(2)); // 连不上？休息2秒继续冲！
+            std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
         }
+
         if (avformat_find_stream_info(_formatCtx, nullptr) < 0) {
             if (_formatCtx) {
                 avformat_close_input(&_formatCtx);
@@ -131,19 +139,16 @@ void HardcoreDecoder::decodeLoop() {
             avcodec_parameters_to_context(_audioCodecCtx, apar);
             avcodec_open2(_audioCodecCtx, acodec, nullptr);
 
-            // ✅ 替换为全新的 5.x/6.0 语法：
             AVChannelLayout out_ch_layout;
-            // 1. 初始化输出声道布局为单声道 (1 channel = Mono)
             av_channel_layout_default(&out_ch_layout, 1);
 
-            // 2. 使用带有 '2' 的新版重采样初始化函数
             swr_alloc_set_opts2(&_swrCtx,
-                                &out_ch_layout,                    // 目标输出声道布局 (结构体指针)
-                                AV_SAMPLE_FMT_FLT,                 // 目标输出采样格式
-                                44100,                             // 目标输出采样率
-                                &apar->ch_layout,                  // 源输入声道布局 (6.0 新增的结构体字段)
-                                (enum AVSampleFormat) apar->format, // 源输入采样格式
-                                apar->sample_rate,                 // 源输入采样率
+                                &out_ch_layout,
+                                AV_SAMPLE_FMT_FLT,
+                                44100,
+                                &apar->ch_layout,
+                                (enum AVSampleFormat) apar->format,
+                                apar->sample_rate,
                                 0, nullptr);
             swr_init(_swrCtx);
         }
@@ -198,7 +203,6 @@ void HardcoreDecoder::decodeLoop() {
                     if (avcodec_send_packet(_audioCodecCtx, packet) == 0) {
                         while (avcodec_receive_frame(_audioCodecCtx, frame) == 0) {
 
-                            // 🔪 幽灵猎手：丢弃早于视频画面的声音，防止声画不同步！
                             double a_pts = frame->best_effort_timestamp == AV_NOPTS_VALUE ? 0
                                                                                           : frame->best_effort_timestamp;
                             double a_pts_sec = a_pts *
@@ -224,26 +228,20 @@ void HardcoreDecoder::decodeLoop() {
                                     for (int k = 0; k < real_out_samples; k++) {
                                         float sample = out_buffer[k];
 
-                                        // 🚀🚀🚀 终极防爆音：0.2秒绝对静音 + 1.0秒平滑曲线淡入
-                                        // 44100 采样率下：0.2秒 = 8820个点，1.2秒 = 52920个点
                                         if (_totalAudioSamples < 52920) {
 
                                             if (_totalAudioSamples < 8820) {
-                                                // 🔪 第一段：前 0.2 秒的 FFmpeg 脏数据/电流音，无情抹零！
                                                 sample = 0.0f;
                                             } else {
-                                                // 🎼 第二段：剩下的 1.0 秒 (44100 采样点)，执行丝滑的抛物线淡入
                                                 float progress =
                                                         (float) (_totalAudioSamples - 8820) /
                                                         44100.0f;
-                                                // 抛物线 Ease-In 算法 (progress * progress)，比直线听起来舒服无数倍！
                                                 sample *= (progress * progress);
                                             }
 
                                             _totalAudioSamples++;
                                         }
 
-                                        // 兜底：防止后续正常播放时的破音削波
                                         if (sample > 1.0f) sample = 1.0f;
                                         else if (sample < -1.0f) sample = -1.0f;
 
@@ -258,7 +256,6 @@ void HardcoreDecoder::decodeLoop() {
                 }
                 av_packet_unref(packet);
             } else {
-                // 💥 读流失败/断流：立刻跳出内层循环，进入打扫战场阶段！
                 break;
             }
         }
@@ -285,7 +282,6 @@ void HardcoreDecoder::decodeLoop() {
             _formatCtx = nullptr;
         }
 
-        // 断网了？休息 2 秒后外层循环会自动发起冲锋重连！
         if (_isRunning) {
             std::this_thread::sleep_for(std::chrono::seconds(2));
         }

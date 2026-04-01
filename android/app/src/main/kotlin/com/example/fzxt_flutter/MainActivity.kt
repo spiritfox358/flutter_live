@@ -5,6 +5,7 @@ package com.example.flutter_live
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.view.WindowManager // 🚀 1. 新增：控制屏幕必须导入这个包
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -12,6 +13,9 @@ import java.util.concurrent.LinkedBlockingQueue
 
 class MainActivity: FlutterActivity() {
     private val CHANNEL = "com.ai.voice/native_player"
+    // 🚀 2. 新增：定义屏幕常亮的专属通道名
+    private val SCREEN_CHANNEL = "app.channel.screen"
+
     private var audioTrack: AudioTrack? = null
     // 🟢 核心：一个线程安全的阻塞队列，专门用来接 Flutter 发来的音频块
     private val audioQueue = LinkedBlockingQueue<ByteArray>()
@@ -24,6 +28,9 @@ class MainActivity: FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
+        // ==========================================
+        // 🎧 原有的语音播放底层通道（原封不动）
+        // ==========================================
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "initPlayer" -> {
@@ -65,6 +72,25 @@ class MainActivity: FlutterActivity() {
                     result.success(true)
                 }
                 else -> result.notImplemented()
+            }
+        }
+
+        // ==========================================
+        // 💡 🚀 新增：屏幕常亮控制专属通道
+        // ==========================================
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SCREEN_CHANNEL).setMethodCallHandler { call, result ->
+            if (call.method == "keepScreenOn") {
+                val on = call.argument<Boolean>("on") ?: false
+                if (on) {
+                    // 收到了 Flutter 发来的开灯指令 -> 屏幕常亮！
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    // 收到了 Flutter 发来的关灯指令 -> 允许手机正常息屏休眠
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+                result.success(null)
+            } else {
+                result.notImplemented()
             }
         }
     }
