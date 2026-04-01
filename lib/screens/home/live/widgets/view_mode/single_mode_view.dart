@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+// 🟢 换成 media_kit
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/build_top_bar.dart';
 
 import '../top_bar/viewer_list.dart';
@@ -13,11 +14,10 @@ class SingleModeView extends StatelessWidget {
   final int anchorId;
   final bool isVideoBackground;
   final bool isBgInitialized;
-  final VideoPlayerController? bgController;
+  final VideoController? bgController; // 🟢 修改为 VideoController
   final String currentBgImage;
   final VoidCallback? onClose;
 
-  // 🟢 2. 新增：定义变量，接收外层传来的 Key
   final GlobalKey<ViewerListState>? viewerListKey;
 
   const SingleModeView({
@@ -33,7 +33,7 @@ class SingleModeView extends StatelessWidget {
     required this.currentBgImage,
     required this.anchorId,
     this.onClose,
-    this.viewerListKey, // 🟢 3. 加入构造函数
+    this.viewerListKey,
   });
 
   @override
@@ -43,13 +43,13 @@ class SingleModeView extends StatelessWidget {
       children: [
         // 1. 背景层
         isVideoBackground
+        // 🟢 直接利用 media_kit 的 Video 渲染
             ? (isBgInitialized && bgController != null
-            ? FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: bgController!.value.size.width,
-            height: bgController!.value.size.height,
-            child: VideoPlayer(bgController!),
+            ? SizedBox.expand(
+          child: Video(
+            controller: bgController!,
+            fit: BoxFit.cover,
+            controls: NoVideoControls, // 隐藏默认控制条
           ),
         )
             : Container(color: Colors.black))
@@ -82,7 +82,7 @@ class SingleModeView extends StatelessWidget {
               avatar: avatar,
               onClose: onClose,
               anchorId: anchorId,
-              viewerListKey: viewerListKey, // 🟢 4. 彻底连通：把这根“风筝线”递给顶部的榜单！
+              viewerListKey: viewerListKey,
             ),
           ),
         ),

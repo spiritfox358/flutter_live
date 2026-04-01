@@ -101,7 +101,7 @@ class ViewerListState extends State<ViewerList> {
     // 格式化人数显示
     String countStr = "$_currentOnlineCount";
     if (widget.onlineCount > 10000) {
-      countStr = "${(widget.onlineCount / 10000).toStringAsFixed(1)}w";
+      countStr = "${(widget.onlineCount / 10000).toStringAsFixed(1)}万";
     }
 
     return GestureDetector(

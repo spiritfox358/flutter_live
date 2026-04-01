@@ -6,6 +6,7 @@ import 'package:flutter_live/screens/me/profile/user_profile_page.dart';
 import 'package:flutter_live/screens/message/message_page.dart';
 import 'package:flutter_live/screens/works/publish_work_page.dart';
 import 'package:flutter_live/store/user_store.dart';
+import 'package:media_kit/media_kit.dart';
 
 // 🟢 1. 定义全局的 navigatorKey
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -14,6 +15,9 @@ final ValueNotifier<int> globalRefreshRecommendNotifier = ValueNotifier(0);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await UserStore.to.init();
+
+  // 🟢 极其重要：初始化 media_kit 底层引擎！
+  MediaKit.ensureInitialized();
   runApp(const MyApp());
 }
 

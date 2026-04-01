@@ -3,7 +3,7 @@ import 'dart:ui'; // 需要导入此包以使用 ImageFilter
 import 'package:flutter/material.dart';
 
 // 定义图片链接常量，方便复用
-const String _rankImageUrl = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/pk_rank/%E9%92%BB%E7%9F%B3%E4%BA%94%E6%98%9F.png';
+const String _rankImageUrl = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/pk_rank/%E9%92%BB%E7%9F%B3%E4%BA%94%E6%98%9F.png?v=7';
 
 class PkRankIndex extends StatelessWidget {
   const PkRankIndex({Key? key}) : super(key: key);

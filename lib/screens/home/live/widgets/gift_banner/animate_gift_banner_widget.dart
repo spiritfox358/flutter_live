@@ -47,7 +47,12 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
     _stayTimer?.cancel();
     _stayTimer = Timer(_displayDuration, () {
       if (mounted) {
-        _entryController.reverse().then((_) => widget.onFinished());
+        _entryController.reverse().then((_) {
+          // 🚨 终极防线：在 300ms 倒放动画结束后，必须再次检查组件是否存活！
+          if (mounted) {
+            widget.onFinished();
+          }
+        });
       }
     });
   }
@@ -55,8 +60,10 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
   // 🟢 新增：当礼物横幅被移出屏幕时，立刻叫停所有动画
   @override
   void deactivate() {
-    _entryController.stop();
-    _comboController.stop();
+    // 1. 组件准备移出屏幕时，立刻叫停所有动画！
+    if (_entryController.isAnimating) _entryController.stop();
+    // 如果有连击动画也停掉
+    if (_comboController.isAnimating) _comboController.stop();
     super.deactivate();
   }
 
@@ -82,7 +89,7 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
     final darkLeft = const Color(0xFF8B0000).withOpacity(0.95);
     final darkRight = const Color(0xFF1A0000).withOpacity(0.90);
 
-    if (count < 3) {
+    if (count < 30000) {
       // 3连击以下保持基础色
       return [baseLeft, baseRight];
     } else if (count <= 10) {

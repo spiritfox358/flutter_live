@@ -1,14 +1,13 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
-import 'package:video_player/video_player.dart';
-
+// 🟢 替换为 media_kit
+import 'package:media_kit_video/media_kit_video.dart';
 import '../pk_score_bar_widgets.dart';
 
 class PKRealBattleView extends StatefulWidget {
   // --- 左侧配置 (我方/主播) ---
-  final VideoPlayerController? leftVideoController;
+  final VideoController? leftVideoController; // 🟢 修改类型
   final String? leftBgImage;
 
   // 🟢 新增：左侧头像和名字 (用于非视频模式)
@@ -17,7 +16,7 @@ class PKRealBattleView extends StatefulWidget {
 
   // --- 右侧配置 (对手) ---
   final bool isRightVideoMode;
-  final VideoPlayerController? rightVideoController;
+  final VideoController? rightVideoController; // 🟢 修改类型
   final String rightAvatarUrl;
   final String rightName;
   final bool isRotating;
@@ -37,8 +36,8 @@ class PKRealBattleView extends StatefulWidget {
     // 左侧参数
     required this.leftVideoController,
     required this.leftBgImage,
-    required this.leftAvatarUrl, // 🟢 必传
-    required this.leftName, // 🟢 必传
+    required this.leftAvatarUrl,
+    required this.leftName,
     // 右侧参数
     this.isRightVideoMode = false,
     this.rightVideoController,
@@ -67,53 +66,14 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
   void initState() {
     super.initState();
     _rotateController = AnimationController(vsync: this, duration: const Duration(seconds: 12))..repeat();
-
     _waveController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))..repeat();
-
-    if (widget.pkStatus == PKStatus.playing) {
-      // _safePlayMusic();
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant PKRealBattleView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.pkStatus != widget.pkStatus) {
-      if (widget.pkStatus == PKStatus.playing) {
-        _safePlayMusic();
-      } else {
-        _safeStopMusic();
-      }
-    }
-  }
-
-  @override
-  void deactivate() {
-    _safeStopMusic();
-    super.deactivate();
   }
 
   @override
   void dispose() {
     _rotateController.dispose();
     _waveController.dispose();
-    _safeStopMusic();
     super.dispose();
-  }
-
-  void _safePlayMusic() {
-    try {
-    } catch (e) {
-      debugPrint("播放音乐失败: $e");
-    }
-  }
-
-  void _safeStopMusic() {
-    try {
-      // AIMusicService().stopMusic();
-    } catch (e) {
-      debugPrint("停止音乐失败: $e");
-    }
   }
 
   @override
@@ -175,16 +135,13 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
 
   // 构建左侧内容 (视频 或 复用AvatarView)
   Widget _buildLeftContent(bool showPunishmentMask) {
-    // 1. 优先显示视频
-    if (widget.leftVideoController != null && widget.leftVideoController!.value.isInitialized) {
+    // 1. 优先显示视频 (🟢 直接用 Video，不需要判断 isInitialized)
+    if (widget.leftVideoController != null) {
       Widget video = SizedBox.expand(
-        child: FittedBox(
+        child: Video(
+          controller: widget.leftVideoController!,
           fit: BoxFit.cover,
-          child: SizedBox(
-            width: widget.leftVideoController!.value.size.width,
-            height: widget.leftVideoController!.value.size.height,
-            child: VideoPlayer(widget.leftVideoController!),
-          ),
+          controls: NoVideoControls,
         ),
       );
 
@@ -193,7 +150,7 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
       );
     }
 
-    // 2. 🟢 无视频时，使用左侧头像作为背景并高斯模糊
+    // 2. 无视频时，使用左侧头像作为背景并高斯模糊
     return _buildGenericImageMode(
       avatarUrl: widget.leftAvatarUrl,
       name: widget.leftName,
@@ -206,19 +163,17 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
   // 构建右侧视频内容
   Widget _buildRightVideoContent(bool isGrayscale) {
     Widget content;
-    if (widget.rightVideoController != null && widget.rightVideoController!.value.isInitialized) {
+    // 🟢 直接判断 != null
+    if (widget.rightVideoController != null) {
       content = SizedBox.expand(
-        child: FittedBox(
+        child: Video(
+          controller: widget.rightVideoController!,
           fit: BoxFit.cover,
-          child: SizedBox(
-            width: widget.rightVideoController!.value.size.width,
-            height: widget.rightVideoController!.value.size.height,
-            child: VideoPlayer(widget.rightVideoController!),
-          ),
+          controls: NoVideoControls,
         ),
       );
     } else {
-      // 🟢 视频未准备好时，使用右侧头像作为背景并高斯模糊
+      // 视频未准备好时，使用右侧头像作为背景并高斯模糊
       content = Stack(
         fit: StackFit.expand,
         children: [
@@ -251,7 +206,7 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
     );
   }
 
-  // 🟢 通用的非视频模式构建器（核心修改点）
+  // 通用的非视频模式构建器
   Widget _buildGenericImageMode({
     required String avatarUrl,
     required String name,
@@ -263,20 +218,15 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. 底层背景：直接把头像无限放大铺满
           Image.network(
             avatarUrl,
             fit: BoxFit.cover,
             errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
           ),
-
-          // 2. 滤镜层：高斯模糊 + 黑色半透明遮罩 (0.5 透明度，防止背景太花哨抢了前面内容的戏)
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
             child: Container(color: Colors.black.withOpacity(0.5)),
           ),
-
-          // 3. 原本正中间清晰的头像组件
           Center(
             child: AvatarAnimation(
               avatarUrl: avatarUrl,
@@ -285,8 +235,6 @@ class _PKRealBattleViewState extends State<PKRealBattleView> with TickerProvider
               isRotating: isRotating,
             ),
           ),
-
-          // 4. 惩罚滤镜 (输的一方变灰)
           if (showPunishmentMask)
             BackdropFilter(
               filter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),

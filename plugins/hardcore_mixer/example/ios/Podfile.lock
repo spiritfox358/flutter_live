@@ -1,0 +1,34 @@
+PODS:
+  - ffmpeg-kit-ios-full (6.0)
+  - Flutter (1.0.0)
+  - hardcore_mixer (0.0.1):
+    - ffmpeg-kit-ios-full
+    - Flutter
+  - integration_test (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - ffmpeg-kit-ios-full (from `https://raw.githubusercontent.com/luthviar/ffmpeg-kit-ios-full/main/ffmpeg-kit-ios-full.podspec`)
+  - Flutter (from `Flutter`)
+  - hardcore_mixer (from `.symlinks/plugins/hardcore_mixer/ios`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
+
+EXTERNAL SOURCES:
+  ffmpeg-kit-ios-full:
+    :podspec: https://raw.githubusercontent.com/luthviar/ffmpeg-kit-ios-full/main/ffmpeg-kit-ios-full.podspec
+  Flutter:
+    :path: Flutter
+  hardcore_mixer:
+    :path: ".symlinks/plugins/hardcore_mixer/ios"
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
+
+SPEC CHECKSUMS:
+  ffmpeg-kit-ios-full: 2da77324b0e9fb007195ab6661f64be4cf31dc12
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  hardcore_mixer: 799a82036130ddf8f1bf10cdb3b4592700693559
+  integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
+
+PODFILE CHECKSUM: 5c9283a041c9b3eb3471c58c7fb33c25a4db61d1
+
+COCOAPODS: 1.16.2

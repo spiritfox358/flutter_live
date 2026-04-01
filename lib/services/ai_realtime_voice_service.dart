@@ -34,6 +34,13 @@ class AiRealTimeVoiceService {
   bool _isPlayingStreamStarted = false;
   bool get isSpeaking => _isSpeaking;
 
+  // 🚀🚀🚀 1. 新增：物理麦克风静音总闸！
+  bool _isUserMuted = false;
+  void setMicMute(bool isMuted) {
+    _isUserMuted = isMuted;
+    debugPrint("🎤 本地麦克风总闸已被切换为：${isMuted ? '静音' : '收音'}");
+  }
+
   /// 🟢 计算这段音频的平均音量（本地噪音门算法）
   bool _isLoudEnough(Uint8List data) {
     int sum = 0;
@@ -182,16 +189,22 @@ class AiRealTimeVoiceService {
       _micStreamSub = recordStream.listen((data) {
         if (_channel == null || !_isSpeaking) return;
 
-        // 🟢 核心修复 2：绝不能用 return 暴力拔网线！
-        if (DateTime.now().isBefore(_muteMicUntil)) {
-          // Dart 的 Uint8List 默认会用 0 填充。
-          // 我们发送一段与真实录音等长、但全是 0 的“绝对静音包”给服务器。
-          // 这样既保证了网络音频流的连续性（服务器不会爆音错乱），又没有任何声音干扰 AI！
+        // 🚀🚀🚀 2. 核心拦截：如果你被禁言了，或者主动闭麦了，强行发送“静音包”！
+        // 这样服务器收到的是没有声音的空数据，别人就绝对听不到你说话了！
+        if (_isUserMuted) {
           _channel!.sink.add(Uint8List(data.length));
           return;
         }
 
-        // 不在禁言期时，原汁原味地发送你的声音
+        // 🟢 核心修复 2：绝不能用 return 暴力拔网线！
+        if (DateTime.now().isBefore(_muteMicUntil)) {
+          // Dart 的 Uint8List 默认会用 0 填充。
+          // 我们发送一段与真实录音等长、但全是 0 的“绝对静音包”给服务器。
+          _channel!.sink.add(Uint8List(data.length));
+          return;
+        }
+
+        // 不在禁言期时，原汁原味地发送你的真实声音
         _channel!.sink.add(data);
       });
     } catch (e) {
@@ -228,9 +241,17 @@ class AiRealTimeVoiceService {
   }
 
   void dispose() {
-    stopVoiceCall();
-    try {
-      _audioRecorder.dispose();
-    } catch (e) {}
+    // 🚀 核心修复：排队执行！
+    // 必须等 stopVoiceCall (释放录音) 彻底走完之后，再去调用 dispose (销毁硬件)！
+    // 并且用 .catchError 把所有底层的异步报错死死捂在肚子里！
+    stopVoiceCall().then((_) {
+      try {
+        _audioRecorder.dispose().catchError((e) {
+          debugPrint("⚠️ 拦截到麦克风销毁异常，安全忽略: $e");
+        });
+      } catch (e) {}
+    }).catchError((e) {
+      debugPrint("⚠️ 拦截到挂断异常，安全忽略: $e");
+    });
   }
 }

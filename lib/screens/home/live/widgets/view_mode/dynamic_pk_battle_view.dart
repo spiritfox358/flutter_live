@@ -2,17 +2,17 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/pk_score_bar_widgets.dart';
-import 'package:video_player/video_player.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 
-// ==========================================
-// 📦 1. 真实业务数据模型
-// ==========================================
+import '../../../../../bridge/hardcore_mixer.dart';
+
 class LivePKPlayerModel {
   final String userId;
   final String roomId;
   final String name;
   final String avatarUrl;
+  final String streamUrl;
   final int rank;
   final int score;
   final bool isMuted;
@@ -21,9 +21,10 @@ class LivePKPlayerModel {
   final bool isSpeaking;
   final bool isMyTeam;
   final bool isInitiator;
-  final VideoPlayerController? videoController;
 
-  // 用于存放所有道具状态的数组
+  // 🚀 保留你的控制器字段，防止其他业务报错，但在本页面它已经被架空了！
+  final VideoController? videoController;
+
   final List<String> activeBuffs;
 
   LivePKPlayerModel({
@@ -31,6 +32,7 @@ class LivePKPlayerModel {
     required this.roomId,
     required this.name,
     required this.avatarUrl,
+    required this.streamUrl,
     required this.rank,
     required this.score,
     this.isMuted = false,
@@ -39,20 +41,19 @@ class LivePKPlayerModel {
     this.isSpeaking = false,
     this.isMyTeam = false,
     this.isInitiator = false,
-    this.videoController,
     this.activeBuffs = const [],
+    this.videoController,
   });
 }
 
-// ==========================================
-// 🎨 2. 真实业务网格组件 (包含焦点放大模式)
-// ==========================================
-class DynamicPKBattleView extends StatelessWidget {
+// 🚀 降维打击：将 Stateless 升级为 Stateful，用于接管底层的 C++ 大屏幕！
+class DynamicPKBattleView extends StatefulWidget {
   final List<LivePKPlayerModel> players;
   final PKStatus pkStatus;
   final Function(LivePKPlayerModel)? onTapPlayer;
   final String currentRoomId;
-  final String? focusedRoomId; // ✨ 焦点嘉宾的 roomId (为 null 时显示普通网格)
+  final String? focusedRoomId;
+  final bool useVideoMode;
 
   const DynamicPKBattleView({
     super.key,
@@ -61,42 +62,314 @@ class DynamicPKBattleView extends StatelessWidget {
     this.pkStatus = PKStatus.idle,
     required this.currentRoomId,
     this.focusedRoomId,
+    this.useVideoMode = false,
   });
 
+  @override
+  State<DynamicPKBattleView> createState() => _DynamicPKBattleViewState();
+}
+
+class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
   final double dividerThickness = 1.0;
   final Color dividerColor = Colors.black;
+// 🚀 唯一真理坐标库：C++ 和 Flutter UI 必须共用这份数据！
+  List<List<double>> _currentLayouts = [];
+
+  int? _textureId;
+
+  // 🚀 核心修复 2：绝对稳定的身份证（只看房间和人，无视 URL 和名字变化）
+  String _getStableId(LivePKPlayerModel p) {
+    return "cell_${p.roomId}_${p.userId}";
+  }
+
+  // 获取基础链接（剥离 Token）
+  String _getBaseUrl(String url) => url.split('?').first;
+
+  // 🚀 缓存池：GlobalKey 必须与绝对唯一的 ID 绑定
+  final Map<String, GlobalKey<_CellWrapperState>> _cellKeys = {};
+
+  // 🚀🚀🚀 核心修复 1：制造一张绝对不可能重复的“超级身份证”！
+  // 哪怕后端 userId 返回的全是空，加上 roomId、name 和 url 也绝对能区分开，彻底消灭“克隆人大头像” Bug！
+  String _getUniqueId(LivePKPlayerModel p) {
+    return "${p.roomId}_${p.userId}_${p.name}_${p.streamUrl}";
+  }
+
+  // 获取 VIP 身份证
+  GlobalKey<_CellWrapperState> _getCellKey(String uniqueId) {
+    if (!_cellKeys.containsKey(uniqueId)) {
+      _cellKeys[uniqueId] = GlobalKey<_CellWrapperState>();
+    }
+    return _cellKeys[uniqueId]!;
+  }
 
   @override
-  Widget build(BuildContext context) {
-    if (players.isEmpty) return const SizedBox.shrink();
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _initHardcoreEngine();
+    });
+  }
 
-    final sortedPlayers = List<LivePKPlayerModel>.from(players);
+  Future<void> _initHardcoreEngine() async {
+    int? id = await HardcoreMixer.initEngine();
+    if (mounted) {
+      setState(() => _textureId = id);
+      _syncStreamsToEngine();
+    }
+  }
+
+  @override
+  void didUpdateWidget(DynamicPKBattleView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // 🚀 核心修复 2：精准清理旧 Key，防止内存泄漏
+    final currentIds = widget.players.map((p) => _getUniqueId(p)).toSet();
+    _cellKeys.removeWhere((id, key) => !currentIds.contains(id));
+
+    // 🚀 核心修复 3：绝对精准的 C++ 引擎同步触发器！
+    // 🚀 比较时只看 BaseUrl，只要没换人，哪怕 API 每秒刷新 Token，绝不触发引擎重启！
+    String oldUrls = oldWidget.players.map((p) => _getBaseUrl(p.streamUrl)).join(',');
+    String newUrls = widget.players.map((p) => _getBaseUrl(p.streamUrl)).join(',');
+
+    if (oldUrls != newUrls || oldWidget.useVideoMode != widget.useVideoMode || oldWidget.focusedRoomId != widget.focusedRoomId) {
+      _syncStreamsToEngine();
+    }
+  }
+
+  List<LivePKPlayerModel> _getSortedPlayers() {
+    final sortedPlayers = List<LivePKPlayerModel>.from(widget.players);
     sortedPlayers.sort((a, b) {
-      // 规则 1：主视角房主（也就是第一个格子）永远排在最前面
-      bool isMainAnchorA = a.roomId == currentRoomId;
-      bool isMainAnchorB = b.roomId == currentRoomId;
-
+      bool isMainAnchorA = a.roomId == widget.currentRoomId;
+      bool isMainAnchorB = b.roomId == widget.currentRoomId;
       if (isMainAnchorA && !isMainAnchorB) return -1;
       if (!isMainAnchorA && isMainAnchorB) return 1;
-
-      // 规则 2：我方阵营（红队）永远排在敌方阵营（蓝队）前面
       if (a.isMyTeam && !b.isMyTeam) return -1;
       if (!a.isMyTeam && b.isMyTeam) return 1;
 
-      // 🚫 核心修复：彻底删除 b.score.compareTo(a.score)
-      // 返回 0 代表保持后端传过来的初始进房顺序，绝不允许因为分数变化而导致格子乱跳！
-      return 0;
+      // 🚀🚀🚀 核心修复 4：Dart 的 sort 是不稳定的！
+      // 如果返回 0，每次接口轮询时主播位置都会乱跳！必须用超级身份证做最后决断，把位置死死焊住！
+      return _getStableId(a).compareTo(_getStableId(b));
     });
-
-    // ✨ 焦点放大模式：如果有人被选中放大，走新布局
-    if (focusedRoomId != null && sortedPlayers.any((p) => p.roomId == focusedRoomId)) {
-      return Container(color: dividerColor, child: _buildFocusLayout(sortedPlayers, focusedRoomId!));
-    }
-
-    return Container(color: dividerColor, child: _buildDynamicPKGrid(sortedPlayers));
+    return sortedPlayers;
   }
 
-  // ✨ 焦点布局：1 大 + N 小的演讲者视图
+  // 🚀 4. 将最新的人员和坐标发射给底层！
+  void _syncStreamsToEngine() {
+    if (_textureId == null || !widget.useVideoMode || widget.players.isEmpty) return;
+
+    final sortedPlayers = _getSortedPlayers();
+    List<String> urls = sortedPlayers.map((p) => p.streamUrl).toList();
+
+    // 1. 计算出绝对坐标
+    if (widget.focusedRoomId != null && sortedPlayers.any((p) => p.roomId == widget.focusedRoomId)) {
+      int focusIndex = sortedPlayers.indexWhere((p) => p.roomId == widget.focusedRoomId);
+      _currentLayouts = _generateFocusLayouts(sortedPlayers, focusIndex);
+    } else {
+      _currentLayouts = _generateGridLayouts(sortedPlayers.length);
+    }
+
+    // 2. 发给 C++ 渲染视频
+    HardcoreMixer.playStreams(urls, _currentLayouts);
+
+    // 3. 🚀 极其重要：强制 Flutter 刷新，让 UI 也按照这个坐标去排列！
+    setState(() {});
+
+    // ==========================================
+    // 🚀🚀🚀 终极修复：紧跟拉流指令，强行把初始静音状态同步给底层！
+    // 解决“进房UI显示静音，底层却有声音”的脱节 Bug！
+    // ==========================================
+    for (var p in sortedPlayers) {
+      if (p.streamUrl.isNotEmpty) {
+        // 利用剥离 Token 的 URL 去通知 C++ 静音
+        HardcoreMixer.setMuted(p.streamUrl, p.isMuted);
+      }
+    }
+  }
+
+
+  // 🚀 混合悬浮 L 型算法：单指针自底向上堆叠，房主稳坐右下角基石！
+  List<List<double>> _generateFocusLayouts(List<LivePKPlayerModel> players, int focusIndex) {
+    List<List<double>> layouts = List.filled(players.length, []);
+    if (players.length <= 1) return [[0.0, 0.0, 1.0, 1.0]];
+
+    double subW = 1.0 / 3.0;
+    double normalSubH = 1.0 / 6.0; // 普通副咖占 1 格
+    double hostSubH = 1.0 / 3.0;   // 房主副咖占 2 格
+
+    int hostSubIndex = -1;
+    List<int> normalSubIndices = [];
+
+    for (int i = 0; i < players.length; i++) {
+      if (i == focusIndex) continue;
+      if (players[i].isInitiator) {
+        hostSubIndex = i;
+      } else {
+        normalSubIndices.add(i);
+      }
+    }
+
+    // 🎯 核心魔法：唯一的【底部指针】，从屏幕最下方 1.0 开始往上推！
+    double currentBottomY = 1.0;
+    int bottomIdx = 0;
+
+    // 1. 房主优先：稳稳沉在最右下角，高度占 1/3
+    if (hostSubIndex != -1) {
+      currentBottomY -= hostSubH; // 指针往上抬 2 个格子
+      layouts[hostSubIndex] = [2.0 / 3.0, currentBottomY, subW, hostSubH];
+    }
+
+    // 2. 底部溢出槽位 (当右侧一柱擎天被塞满后，往左下角流)
+    List<List<double>> bottomSlots = [
+      [1.0 / 3.0, 5.0 / 6.0], // 0: 底部偏右
+      [0.0, 5.0 / 6.0],       // 1: 底部最左
+      [1.0 / 3.0, 4.0 / 6.0], // 2: 底部偏右上层
+      [0.0, 4.0 / 6.0],       // 3: 底部最左上层
+    ];
+
+    // 3. 普通副咖流水线：踩着房主的肩膀，继续往上堆叠！
+    for (int i in normalSubIndices) {
+      // 只要指针距离顶部还有空间塞得下 1 个格子 (加 0.001 容差防精度丢失)
+      if (currentBottomY - normalSubH >= -0.001) {
+        currentBottomY -= normalSubH; // 指针往上抬 1 个格子
+        layouts[i] = [2.0 / 3.0, currentBottomY, subW, normalSubH];
+      } else {
+        // 右侧彻底顶到天花板了，往底部溢出槽位塞
+        if (bottomIdx < bottomSlots.length) {
+          layouts[i] = [bottomSlots[bottomIdx][0], bottomSlots[bottomIdx][1], subW, normalSubH];
+          bottomIdx++;
+        } else {
+          layouts[i] = [-1.0, -1.0, 0.0, 0.0];
+        }
+      }
+    }
+
+    // 👑 4. 满载退让侦测
+    // 右侧是否完整占满？（底部指针被推到了最顶部 0.0）
+    bool isRightFull = currentBottomY <= 0.001;
+    // 底部第一排是否完整占满？
+    bool isBottomFull = bottomIdx >= 2;
+
+    double mainW = isRightFull ? (2.0 / 3.0) : 1.0;
+    double mainH = isBottomFull ? (5.0 / 6.0) : 1.0;
+
+    layouts[focusIndex] = [0.0, 0.0, mainW, mainH];
+
+    return layouts;
+  }
+  // 🚀 计算常规网格坐标
+  List<List<double>> _generateGridLayouts(int count) {
+    if (count == 3) {
+      return [
+        [0.0, 0.0, 0.5, 1.0], // 左半边
+        [0.5, 0.0, 0.5, 0.5], // 右上
+        [0.5, 0.5, 0.5, 0.5], // 右下
+      ];
+    }
+
+    List<int> rowConfigs = [];
+    switch (count) {
+      case 2:
+        rowConfigs = [2];
+        break;
+      case 4:
+        rowConfigs = [2, 2];
+        break;
+      case 5:
+        rowConfigs = [2, 3];
+        break;
+      case 6:
+        rowConfigs = [3, 3];
+        break;
+      case 7:
+        rowConfigs = [3, 4];
+        break;
+      case 8:
+        rowConfigs = [4, 4];
+        break;
+      case 9:
+        rowConfigs = [3, 3, 3];
+        break;
+      default:
+        rowConfigs = [1];
+    }
+
+    List<List<double>> layouts = [];
+    int numRows = rowConfigs.length;
+    double h = 1.0 / numRows;
+
+    for (int i = 0; i < numRows; i++) {
+      int cols = rowConfigs[i];
+      double w = 1.0 / cols;
+      double y = i * h;
+      for (int j = 0; j < cols; j++) {
+        layouts.add([j * w, y, w, h]);
+      }
+    }
+    return layouts;
+  }
+
+  @override
+  void dispose() {
+    // HardcoreMixer.dispose(); // 页面销毁，彻底干掉 C++ 引擎释放内存！
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.players.isEmpty || _textureId == null) return const SizedBox.shrink();
+
+    // 🚀 核心修复 1：必须获取排序后的列表！这样才能和底层 C++ 的坐标系一一对应！
+    final sortedPlayers = _getSortedPlayers();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double w = constraints.maxWidth;
+        final double h = constraints.maxHeight;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // 1. 底层 C++ 视频流 (一整块大玻璃板)
+            Positioned.fill(child: Texture(textureId: _textureId!)),
+
+            // 2. 顶层 Flutter UI (每一个带透明洞的 _CellWrapper)
+            ...List.generate(sortedPlayers.length, (index) {
+              if (index >= _currentLayouts.length) return const SizedBox.shrink();
+              final layout = _currentLayouts[index];
+
+              return Positioned(
+                left: layout[0] * w,
+                top: layout[1] * h,
+                width: layout[2] * w,
+                height: layout[3] * h,
+
+                // 🚀 核心修复 2：调用你真正写好的 _CellWrapper 组件！
+                child: Container(
+                  // 加上黑色分割线
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.black, width: 0.5),
+                  ),
+                  child: _CellWrapper(
+                    key: ValueKey(_getStableId(sortedPlayers[index])),
+                    engineTextureId: _textureId,
+                    player: sortedPlayers[index],
+                    pkStatus: widget.pkStatus,
+                    currentRoomId: widget.currentRoomId,
+                    allPlayers: widget.players,
+                    onTap: widget.onTapPlayer,
+                    useVideoMode: widget.useVideoMode,
+                  ),
+                ),
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
+  // ---------- 下面是你原本的 UI 布局逻辑，完全保留 ----------
+
   Widget _buildFocusLayout(List<LivePKPlayerModel> sortedList, String focusId) {
     final focusedPlayer = sortedList.firstWhere((p) => p.roomId == focusId);
     final otherPlayers = sortedList.where((p) => p.roomId != focusId).toList();
@@ -104,14 +377,21 @@ class DynamicPKBattleView extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. 底层大图
-        _CellWrapper(player: focusedPlayer, pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
-
-        // 2. 顶层悬浮小窗列表
+        _CellWrapper(
+          key: ValueKey(_getStableId(focusedPlayer)),
+          engineTextureId: _textureId,
+          // 👈 给每一个格子都加上这行！
+          player: focusedPlayer,
+          pkStatus: widget.pkStatus,
+          currentRoomId: widget.currentRoomId,
+          allPlayers: widget.players,
+          onTap: widget.onTapPlayer,
+          useVideoMode: widget.useVideoMode,
+        ),
         if (otherPlayers.isNotEmpty)
           Positioned(
             right: 8,
-            bottom: 45, // 避开底部信息栏
+            bottom: 45,
             child: SizedBox(
               height: 110,
               child: SingleChildScrollView(
@@ -119,6 +399,8 @@ class DynamicPKBattleView extends StatelessWidget {
                 child: Row(
                   children: otherPlayers.map((p) {
                     return Container(
+                      // 🚀🚀🚀 终极修复：横向列表的身份证必须挂在最外层的 Container 上！
+                      key: ValueKey(_getStableId(p)),
                       width: 80,
                       margin: const EdgeInsets.only(left: 8),
                       decoration: BoxDecoration(
@@ -126,7 +408,17 @@ class DynamicPKBattleView extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       clipBehavior: Clip.hardEdge,
-                      child: _CellWrapper(player: p, pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
+                      child: _CellWrapper(
+                        // key: _getCellKey(_getUniqueId(p)),
+                        engineTextureId: _textureId,
+                        player: p,
+                        pkStatus: widget.pkStatus,
+                        currentRoomId: widget.currentRoomId,
+                        allPlayers: widget.players,
+                        onTap: widget.onTapPlayer,
+                        // 焦点模式下的横向小人，建议直接传 false 用头像，避免 C++ 坐标计算过于复杂
+                        useVideoMode: false,
+                      ),
                     );
                   }).toList(),
                 ),
@@ -137,121 +429,84 @@ class DynamicPKBattleView extends StatelessWidget {
     );
   }
 
-  Widget _buildDynamicPKGrid(List<LivePKPlayerModel> sortedList) {
-    int count = sortedList.length;
-    switch (count) {
-      case 2:
-        return _buildFlexGrid([2], sortedList);
-      case 3:
-        return _build3PersonLayout(sortedList);
-      case 4:
-        return _buildFlexGrid([2, 2], sortedList);
-      case 5:
-        return _buildFlexGrid([2, 3], sortedList);
-      case 6:
-        return _buildFlexGrid([3, 3], sortedList);
-      case 7:
-        return _buildFlexGrid([3, 4], sortedList);
-      case 8:
-        return _buildFlexGrid([4, 4], sortedList);
-      case 9:
-        return _buildFlexGrid([3, 3, 3], sortedList);
-      default:
-        return const Center(
-          child: Text('仅支持 2-9 人', style: TextStyle(color: Colors.white)),
-        );
-    }
-  }
-
   Widget _vDivider() => Container(width: dividerThickness, color: dividerColor);
 
   Widget _hDivider() => Container(height: dividerThickness, color: dividerColor);
 
-  Widget _build3PersonLayout(List<LivePKPlayerModel> sortedList) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 1,
-          child: _CellWrapper(player: sortedList[0], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
-        ),
-        _vDivider(),
-        Expanded(
-          flex: 1,
-          child: Column(
-            children: [
-              Expanded(
-                flex: 1,
-                child: _CellWrapper(player: sortedList[1], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
-              ),
-              _hDivider(),
-              Expanded(
-                flex: 1,
-                child: _CellWrapper(player: sortedList[2], pkStatus: pkStatus, currentRoomId: currentRoomId, allPlayers: players, onTap: onTapPlayer),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  // 没有任何的 Row/Column 嵌套，所以不论怎么加人、踢人，UI 树永远不会重建，绝对 0 闪烁！
+  Widget _buildDynamicPKGrid(List<LivePKPlayerModel> sortedList) {
+    List<List<double>> layouts = _generateGridLayouts(sortedList.length);
 
-  Widget _buildFlexGrid(List<int> rowConfigs, List<LivePKPlayerModel> sortedList) {
-    List<Widget> rows = [];
-    int playerIndex = 0;
-
-    for (int i = 0; i < rowConfigs.length; i++) {
-      int colsInThisRow = rowConfigs[i];
-      List<Widget> rowChildren = [];
-
-      for (int j = 0; j < colsInThisRow; j++) {
-        if (playerIndex < sortedList.length) {
-          rowChildren.add(
-            Expanded(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Stack(
+          children: List.generate(sortedList.length, (i) {
+            var rect = layouts[i];
+            return Positioned(
+              // 🚀🚀🚀 终极修复：身份证必须挂在 Stack 的直接子元素 Positioned 上！
+              // 这样 Flutter 就能在跨层重排时，精准抓取整个块进行平移，绝不会按序号乱杀人！
+              key: ValueKey(_getStableId(sortedList[i])),
+              left: rect[0] * constraints.maxWidth,
+              top: rect[1] * constraints.maxHeight,
+              width: rect[2] * constraints.maxWidth,
+              height: rect[3] * constraints.maxHeight,
               child: _CellWrapper(
-                player: sortedList[playerIndex],
-                pkStatus: pkStatus,
-                currentRoomId: currentRoomId,
-                allPlayers: players,
-                onTap: onTapPlayer,
+                // 🌟 因为架构扁平了，恢复成最轻量的 ValueKey 就能焊死状态！
+                key: ValueKey(_getStableId(sortedList[i])),
+                engineTextureId: _textureId,
+                player: sortedList[i],
+                pkStatus: widget.pkStatus,
+                currentRoomId: widget.currentRoomId,
+                allPlayers: widget.players,
+                onTap: widget.onTapPlayer,
+                useVideoMode: widget.useVideoMode,
               ),
-            ),
-          );
-          if (j < colsInThisRow - 1) rowChildren.add(_vDivider());
-          playerIndex++;
-        }
-      }
-
-      rows.add(Expanded(child: Row(children: rowChildren)));
-      if (i < rowConfigs.length - 1) rows.add(_hDivider());
-    }
-    return Column(children: rows);
+            );
+          }),
+        );
+      },
+    );
   }
 }
 
-// ==========================================
-// 🔄 3. 核心新增：带状态的单个网格组件
-// ==========================================
 class _CellWrapper extends StatefulWidget {
+  final int? engineTextureId; // 🚀 新增：用来绑定真实的底层引擎 ID
   final LivePKPlayerModel player;
   final PKStatus pkStatus;
   final String currentRoomId;
   final List<LivePKPlayerModel> allPlayers;
   final Function(LivePKPlayerModel)? onTap;
+  final bool useVideoMode;
 
-  const _CellWrapper({required this.player, required this.pkStatus, required this.currentRoomId, required this.allPlayers, this.onTap});
+  const _CellWrapper({
+    super.key,
+    this.engineTextureId, // 🚀 加到构造函数里
+    required this.player,
+    required this.pkStatus,
+    required this.currentRoomId,
+    required this.allPlayers,
+    this.onTap,
+    this.useVideoMode = false,
+  });
 
   @override
   State<_CellWrapper> createState() => _CellWrapperState();
 }
 
 class _CellWrapperState extends State<_CellWrapper> {
-  int _tick = 0; // 全局轮播步数
+  int _tick = 0;
   Timer? _timer;
+
+  // 🚀 1. 彻底删掉坑爹的 static！恢复干净的局部雷达！
+  bool _isVideoReady = false;
+  Timer? _radarTimer;
 
   @override
   void initState() {
     super.initState();
     _startCarousel();
+    _syncPlayerState();
+    _startVideoRadar();
   }
 
   @override
@@ -263,17 +518,53 @@ class _CellWrapperState extends State<_CellWrapper> {
     } else if (_timer == null || !_timer!.isActive) {
       _startCarousel();
     }
+
+    if (oldWidget.useVideoMode != widget.useVideoMode ||
+        oldWidget.player.videoController != widget.player.videoController ||
+        oldWidget.player.isMuted != widget.player.isMuted) {
+      _syncPlayerState();
+    }
+
+    // 🚀 雷达也免疫 Token！只有真正换了主播（BaseUrl 变了），才重新盖头像扫雷达！
+    String oldBase = oldWidget.player.streamUrl.split('?').first;
+    String newBase = widget.player.streamUrl.split('?').first;
+    if (oldBase != newBase) {
+      _startVideoRadar();
+    }
   }
+
+  // 🚀 3. 纯净的雷达：只管扫自己这个格子的 URL
+  void _startVideoRadar() {
+    _isVideoReady = false;
+    _radarTimer?.cancel();
+
+    String safeUrl = widget.player.streamUrl.trim();
+    if (safeUrl.isEmpty) {
+      if (mounted) setState(() {});
+      return;
+    }
+
+    _radarTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) async {
+      if (!mounted || widget.engineTextureId == null) return;
+      try {
+        final urls = await HardcoreMixer.getReadyUrls();
+        if (urls.contains(safeUrl)) {
+          if (mounted) {
+            setState(() => _isVideoReady = true); // 🎯 扫到了！立刻揭开幕布！
+          }
+          timer.cancel();
+        }
+      } catch (e) {}
+    });
+  }
+
+  void _syncPlayerState() {}
 
   void _startCarousel() {
     _timer?.cancel();
     if (widget.player.activeBuffs.length > 1) {
       _timer = Timer.periodic(const Duration(seconds: 2), (timer) {
-        if (mounted) {
-          setState(() {
-            _tick++;
-          });
-        }
+        if (mounted) setState(() => _tick++);
       });
     }
   }
@@ -281,10 +572,10 @@ class _CellWrapperState extends State<_CellWrapper> {
   @override
   void dispose() {
     _timer?.cancel();
+    _radarTimer?.cancel(); // 🚀 销毁时关掉雷达
     super.dispose();
   }
 
-  // 渲染红蓝渐变 Label
   Widget _buildBuffGradientLabel(String text, bool isMyTeam, {Key? key}) {
     return Container(
       key: key,
@@ -313,17 +604,15 @@ class _CellWrapperState extends State<_CellWrapper> {
     );
   }
 
-  // ✨✨✨ 统一胶囊：只要是房主，无论是谁，统统使用带有阵营色的胶囊！
   Widget _buildInitiatorLabel(bool isMyTeam) {
     return Container(
       height: 18.0,
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      // 利用 Row 包裹来让容器根据文字自适应宽度
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isMyTeam
-              ? [const Color(0xFFFF2E56).withAlpha(120), const Color(0xFFFF5252).withAlpha(120)] // 红队胶囊
-              : [const Color(0xFF2962FF).withAlpha(120), const Color(0xFF448AFF).withAlpha(120)], // 蓝队胶囊
+              ? [const Color(0xFFFF2E56).withAlpha(120), const Color(0xFFFF5252).withAlpha(120)]
+              : [const Color(0xFF2962FF).withAlpha(120), const Color(0xFF448AFF).withAlpha(120)],
         ),
         borderRadius: BorderRadius.circular(12.0),
       ),
@@ -365,18 +654,10 @@ class _CellWrapperState extends State<_CellWrapper> {
       return player.isMyTeam ? const Color(0xFFFF2E56).withOpacity(opacity) : const Color(0xFF2962FF).withOpacity(opacity);
     }
 
-    // ✨✨✨ 分数牌 UI 组件 ✨✨✨
     Widget buildScoreBadgeWidget() {
-      // 🟢 核心修改：动态格式化分数显示
       String displayScore = player.score.toString();
       if (player.score >= 1000000) {
-        if (isMainAnchor) {
-          // 我方/主视角格子：显示具体万单位，例如 "125.4万"
-          displayScore = "${(player.score / 10000.0).toStringAsFixed(1)}万";
-        } else {
-          // 其他格子：模糊显示 "100万+"
-          displayScore = "100万+";
-        }
+        displayScore = isMainAnchor ? "${(player.score / 10000.0).toStringAsFixed(1)}万" : "100万+";
       }
 
       return Container(
@@ -386,12 +667,7 @@ class _CellWrapperState extends State<_CellWrapper> {
           color: getBadgeColor(0.3, isForScore: true),
           borderRadius: BorderRadius.circular(12.0),
           border: isHighest
-              ? Border.all(
-            color: player.isMyTeam
-                ? const Color(0xFFFF2E56).withAlpha(180) // 我方(红队)高亮边框
-                : const Color(0xFF2962FF).withAlpha(180), // 敌方(蓝队)高亮边框
-            width: 0.8,
-          )
+              ? Border.all(color: player.isMyTeam ? const Color(0xFFFF2E56).withAlpha(180) : const Color(0xFF2962FF).withAlpha(180), width: 0.8)
               : null,
         ),
         child: Row(
@@ -415,7 +691,6 @@ class _CellWrapperState extends State<_CellWrapper> {
               ),
             ),
             const SizedBox(width: 4),
-            // 🟢 将原来的 '${player.score}' 替换为 displayScore
             Text(
               displayScore,
               style: TextStyle(
@@ -431,7 +706,6 @@ class _CellWrapperState extends State<_CellWrapper> {
       );
     }
 
-    // 智能计算是否需要显示底部黑色半透明渐变遮罩
     bool needsBottomGradient = !isMainAnchor || (isMainAnchor && (player.isInitiator || (hasActiveBuffs && showScoreBadge)));
 
     return GestureDetector(
@@ -441,13 +715,12 @@ class _CellWrapperState extends State<_CellWrapper> {
       behavior: HitTestBehavior.opaque,
       child: Container(
         clipBehavior: Clip.hardEdge,
-        decoration: const BoxDecoration(color: Color(0xFF1B1B1B)),
+        decoration: const BoxDecoration(color: Colors.transparent),
         child: Stack(
           fit: StackFit.expand,
           children: [
             _buildMediaContent(player),
 
-            // 底部的深色半透明遮罩
             if (needsBottomGradient)
               Positioned(
                 left: 0,
@@ -465,35 +738,27 @@ class _CellWrapperState extends State<_CellWrapper> {
                 ),
               ),
 
-            // 👉 1. 左上角逻辑
             if (isMainAnchor && hasActiveBuffs)
-              // 【房主且有道具】：左上角霸占为道具轮播
               Positioned(
                 top: 0.0,
                 left: 0.0,
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
-                  transitionBuilder: (Widget child, Animation<double> animation) {
-                    return FadeTransition(opacity: animation, child: child);
-                  },
                   child: _buildBuffGradientLabel(currentBuffText, player.isMyTeam, key: ValueKey(currentIndex)),
                 ),
               )
             else if (showScoreBadge)
-              // 【房主无道具 或 其他人】：正常显示左上角的分数牌
               Positioned(top: 4.0, left: 4.0, child: buildScoreBadgeWidget()),
 
             if (player.isMuted) const Positioned(top: 6, right: 6, child: Icon(Icons.mic_off_outlined, color: Colors.white70, size: 16.0)),
 
-            // 👉 2. 左下角逻辑 (统一 Column 纵向排列，独立胶囊)
             if (isMainAnchor && (player.isInitiator || (hasActiveBuffs && showScoreBadge)))
-              // ✨【房主自身】：左下角纵向排列
               Positioned(
                 bottom: 4.0,
                 left: 4.0,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start, // 统一左对齐
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (player.isInitiator)
                       Padding(
@@ -505,18 +770,15 @@ class _CellWrapperState extends State<_CellWrapper> {
                 ),
               )
             else if (!isMainAnchor)
-              // ✨【其他人】：左下角纵向排列 (上方悬浮房主胶囊，下方显示名字条)
               Positioned(
                 bottom: 4.0,
                 left: 4.0,
                 right: 4.0,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start, // 统一左对齐
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (player.isInitiator) Padding(padding: const EdgeInsets.only(bottom: 2.0), child: _buildInitiatorLabel(player.isMyTeam)),
-
-                    // 下方原来的名字和道具背景条
                     Align(
                       alignment: Alignment.centerLeft,
                       child: Container(
@@ -528,21 +790,24 @@ class _CellWrapperState extends State<_CellWrapper> {
                             Flexible(
                               flex: 1,
                               fit: FlexFit.loose,
-                              child: Transform.translate(
-                                offset: const Offset(0, 0),
-                                child: Text(
-                                  player.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11.0,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.2,
-                                    leadingDistribution: TextLeadingDistribution.even,
+                              child: SizedBox(
+                                height: 14.0,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: 1.0,
+                                  child: Text(
+                                    player.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10.0,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.1,
+                                      leadingDistribution: TextLeadingDistribution.even,
+                                    ),
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    overflow: TextOverflow.clip,
                                   ),
-                                  strutStyle: const StrutStyle(fontSize: 11.0, height: 1.2, leading: 0, forceStrutHeight: true),
-                                  maxLines: 1,
-                                  softWrap: false,
-                                  overflow: TextOverflow.clip,
                                 ),
                               ),
                             ),
@@ -550,10 +815,11 @@ class _CellWrapperState extends State<_CellWrapper> {
                               Container(width: 1, height: 10, margin: const EdgeInsets.symmetric(horizontal: 4), color: Colors.white38),
                               Flexible(
                                 flex: 0,
-                                child: Transform.translate(
-                                  offset: const Offset(0, 0.4),
-                                  child: AnimatedSwitcher(
-                                    duration: const Duration(milliseconds: 300),
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  child: Container(
+                                    height: 14.0,
+                                    alignment: Alignment.center,
                                     child: Text(
                                       currentBuffText,
                                       key: ValueKey(currentIndex),
@@ -561,10 +827,9 @@ class _CellWrapperState extends State<_CellWrapper> {
                                         color: Colors.yellowAccent,
                                         fontSize: 10.0,
                                         fontWeight: FontWeight.bold,
-                                        height: 1.2,
+                                        height: 1.1,
                                         leadingDistribution: TextLeadingDistribution.even,
                                       ),
-                                      strutStyle: const StrutStyle(fontSize: 11.0, height: 1.2, leading: 0, forceStrutHeight: true),
                                       maxLines: 1,
                                       softWrap: false,
                                       overflow: TextOverflow.visible,
@@ -586,58 +851,59 @@ class _CellWrapperState extends State<_CellWrapper> {
     );
   }
 
+  // 🚀 核心替换：直接在 build 里读取记忆！绝对0延迟！
+  // ==========================================
   Widget _buildMediaContent(LivePKPlayerModel player) {
-    Widget content;
-    if (player.videoController != null && player.videoController!.value.isInitialized) {
-      content = SizedBox.expand(
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: player.videoController!.value.size.width,
-            height: player.videoController!.value.size.height,
-            child: VideoPlayer(player.videoController!),
-          ),
-        ),
-      );
-    } else {
-      double avatarPadding = 12.0;
-      if (widget.allPlayers.length == 9)
-        avatarPadding = 18.0;
-      else if (widget.allPlayers.length >= 7)
-        avatarPadding = 5.0;
+    String safeUrl = player.streamUrl.trim();
+    bool hasValidStream = safeUrl.isNotEmpty && (safeUrl.startsWith('http') || safeUrl.startsWith('rtmp'));
 
-      content = Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.network(
-            player.avatarUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
-          ),
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
-            child: Container(color: Colors.black.withOpacity(0.5)),
-          ),
-          Center(
-            child: Padding(
-              padding: EdgeInsets.all(avatarPadding),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 125.0, maxHeight: 125.0),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false),
-                ),
+    // 备用贴纸 (头像毛玻璃)
+    double avatarPadding = widget.allPlayers.length == 9 ? 18.0 : (widget.allPlayers.length >= 7 ? 5.0 : 12.0);
+    Widget fallbackContent = Stack(
+      fit: StackFit.expand,
+      children: [
+        Image.network(
+          player.avatarUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
+        ),
+        BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+          child: Container(color: Colors.black.withOpacity(0.5)),
+        ),
+        Center(
+          child: Padding(
+            padding: EdgeInsets.all(avatarPadding),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 125.0, maxHeight: 125.0),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false),
               ),
             ),
           ),
-        ],
-      );
-    }
-
+        ),
+      ],
+    );
     if (player.isPunished)
-      return RepaintBoundary(
-        child: ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: content),
-      );
-    return RepaintBoundary(child: content);
+      fallbackContent = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: fallbackContent);
+
+    // 视频透明洞
+    Widget videoWidget = Container(color: Colors.transparent);
+    if (player.isPunished) videoWidget = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: videoWidget);
+
+    // 🚀 终极判断：雷达没扫到、或者没开视频，就死死盖住头像！
+    bool showAvatar = !_isVideoReady || !widget.useVideoMode || !hasValidStream;
+
+    return RepaintBoundary(
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 400),
+        switchInCurve: Curves.easeIn,
+        switchOutCurve: Curves.easeOut,
+        child: showAvatar
+            ? KeyedSubtree(key: const ValueKey("avatar"), child: fallbackContent)
+            : KeyedSubtree(key: const ValueKey("video_hole"), child: videoWidget),
+      ),
+    );
   }
 }

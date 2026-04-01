@@ -69,7 +69,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
   String _formatScore(int score) {
     if (score == 0) return "0";
     if (score < 10000) return score.toString();
-    return "${(score / 10000).toStringAsFixed(1)}w";
+    return "${(score / 10000).toStringAsFixed(1)}万";
   }
 
   @override

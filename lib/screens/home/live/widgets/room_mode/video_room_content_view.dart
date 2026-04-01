@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'dart:math'; // 🟢 引入随机数库
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+// 🟢 换成 media_kit
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import '../../../../../tools/HttpUtil.dart';
 
 class VideoRoomContentView extends StatefulWidget {
@@ -27,7 +29,10 @@ class VideoRoomContentView extends StatefulWidget {
 }
 
 class _VideoRoomContentViewState extends State<VideoRoomContentView> {
-  VideoPlayerController? _controller;
+  // 🟢 替换为 media_kit 的双控制器架构
+  Player? _player;
+  VideoController? _videoController;
+
   bool _isInitialized = false;
   bool _hasError = false;
 
@@ -104,10 +109,8 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
   // 🟢 3. 核心播放逻辑
   void _playVideo(String url) async {
     // 销毁旧的
-    final oldController = _controller;
-    if (oldController != null) {
-      oldController.removeListener(_videoListener);
-      await oldController.dispose();
+    if (_player != null) {
+      await _player!.dispose();
     }
 
     if (!mounted) return;
@@ -121,24 +124,30 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
 
     try {
       debugPrint("🎬 开始播放视频: $url");
-      final controller = VideoPlayerController.networkUrl(
-        Uri.parse(url),
-        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-      );
 
-      _controller = controller;
-      await controller.initialize();
+      // 🟢 初始化 media_kit
+      final player = Player();
+      final controller = VideoController(player);
+
+      _player = player;
+      _videoController = controller;
 
       // 🟢 监听播放结束，自动切歌
-      controller.addListener(_videoListener);
+      player.stream.completed.listen((completed) {
+        if (completed && mounted) {
+          debugPrint("✅ 视频播放结束，自动切歌...");
+          _playNextRandom();
+        }
+      });
 
+      // 设置音量 (media_kit 范围 0.0 - 100.0)
       if (widget.isMuted) {
-        controller.setVolume(0);
+        player.setVolume(0.0);
       } else {
-        controller.setVolume(0.5);
+        player.setVolume(50.0);
       }
 
-      await controller.play();
+      await player.open(Media(url));
 
       if (mounted) {
         setState(() {
@@ -157,18 +166,6 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
     }
   }
 
-  // 🟢 监听器：检测视频是否播放结束
-  void _videoListener() {
-    if (_controller != null &&
-        _controller!.value.isInitialized &&
-        !_controller!.value.isPlaying &&
-        _controller!.value.position >= _controller!.value.duration) {
-      // 播放结束，切下一首
-      debugPrint("✅ 视频播放结束，自动切歌...");
-      _playNextRandom();
-    }
-  }
-
   @override
   void didUpdateWidget(covariant VideoRoomContentView oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -180,8 +177,8 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
 
   @override
   void dispose() {
-    _controller?.removeListener(_videoListener);
-    _controller?.dispose();
+    // 🟢 清理 media_kit 播放器
+    _player?.dispose();
     super.dispose();
   }
 
@@ -243,7 +240,7 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
       );
     }
 
-    if (!_isInitialized || _controller == null) {
+    if (!_isInitialized || _videoController == null) {
       return const SizedBox(
         width: 20,
         height: 20,
@@ -251,12 +248,12 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
       );
     }
 
-    return FittedBox(
-      fit: BoxFit.contain,
-      child: SizedBox(
-        width: _controller!.value.size.width,
-        height: _controller!.value.size.height,
-        child: VideoPlayer(_controller!),
+    // 🟢 极简 Video 组件渲染，自带 Fit 支持
+    return SizedBox.expand(
+      child: Video(
+        controller: _videoController!,
+        fit: BoxFit.contain, // 保证音乐 MV 不被过度裁切
+        controls: NoVideoControls, // 隐藏默认进度条
       ),
     );
   }
@@ -289,7 +286,6 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
             // 切歌按钮
             FloatingActionButton.small(
               heroTag: null,
-              // heroTag: "next_video_btn", // 防止 Hero 冲突
               onPressed: _playNextRandom,
               backgroundColor: Colors.white24,
               elevation: 0,

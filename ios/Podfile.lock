@@ -6,7 +6,11 @@ PODS:
     - FlutterMacOS
   - device_info_plus (0.0.1):
     - Flutter
+  - ffmpeg-kit-ios-full (6.0)
   - Flutter (1.0.0)
+  - hardcore_mixer (0.0.1):
+    - ffmpeg-kit-ios-full
+    - Flutter
   - image_picker_ios (0.0.1):
     - Flutter
   - just_audio (0.0.1):
@@ -24,6 +28,10 @@ PODS:
   - libwebp/sharpyuv (1.5.0)
   - libwebp/webp (1.5.0):
     - libwebp/sharpyuv
+  - media_kit_libs_ios_video (1.0.4):
+    - Flutter
+  - media_kit_video (0.0.1):
+    - Flutter
   - my_alpha_player (0.0.1):
     - Flutter
   - open_file_ios (1.0.3):
@@ -44,9 +52,6 @@ PODS:
     - FlutterMacOS
   - vibration (3.0.0):
     - Flutter
-  - video_player_avfoundation (0.0.1):
-    - Flutter
-    - FlutterMacOS
   - video_thumbnail (0.0.1):
     - Flutter
     - libwebp
@@ -60,9 +65,13 @@ DEPENDENCIES:
   - audio_session (from `.symlinks/plugins/audio_session/ios`)
   - audioplayers_darwin (from `.symlinks/plugins/audioplayers_darwin/darwin`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
+  - ffmpeg-kit-ios-full (from `https://raw.githubusercontent.com/luthviar/ffmpeg-kit-ios-full/main/ffmpeg-kit-ios-full.podspec`)
   - Flutter (from `Flutter`)
+  - hardcore_mixer (from `.symlinks/plugins/hardcore_mixer/ios`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
   - just_audio (from `.symlinks/plugins/just_audio/darwin`)
+  - media_kit_libs_ios_video (from `.symlinks/plugins/media_kit_libs_ios_video/ios`)
+  - media_kit_video (from `.symlinks/plugins/media_kit_video/ios`)
   - my_alpha_player (from `.symlinks/plugins/my_alpha_player/ios`)
   - open_file_ios (from `.symlinks/plugins/open_file_ios/ios`)
   - package_info_plus (from `.symlinks/plugins/package_info_plus/ios`)
@@ -72,7 +81,6 @@ DEPENDENCIES:
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
   - vibration (from `.symlinks/plugins/vibration/ios`)
-  - video_player_avfoundation (from `.symlinks/plugins/video_player_avfoundation/darwin`)
   - video_thumbnail (from `.symlinks/plugins/video_thumbnail/ios`)
   - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
   - webview_flutter_wkwebview (from `.symlinks/plugins/webview_flutter_wkwebview/darwin`)
@@ -88,12 +96,20 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/audioplayers_darwin/darwin"
   device_info_plus:
     :path: ".symlinks/plugins/device_info_plus/ios"
+  ffmpeg-kit-ios-full:
+    :podspec: https://raw.githubusercontent.com/luthviar/ffmpeg-kit-ios-full/main/ffmpeg-kit-ios-full.podspec
   Flutter:
     :path: Flutter
+  hardcore_mixer:
+    :path: ".symlinks/plugins/hardcore_mixer/ios"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
   just_audio:
     :path: ".symlinks/plugins/just_audio/darwin"
+  media_kit_libs_ios_video:
+    :path: ".symlinks/plugins/media_kit_libs_ios_video/ios"
+  media_kit_video:
+    :path: ".symlinks/plugins/media_kit_video/ios"
   my_alpha_player:
     :path: ".symlinks/plugins/my_alpha_player/ios"
   open_file_ios:
@@ -112,8 +128,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/sqflite_darwin/darwin"
   vibration:
     :path: ".symlinks/plugins/vibration/ios"
-  video_player_avfoundation:
-    :path: ".symlinks/plugins/video_player_avfoundation/darwin"
   video_thumbnail:
     :path: ".symlinks/plugins/video_thumbnail/ios"
   wakelock_plus:
@@ -125,10 +139,14 @@ SPEC CHECKSUMS:
   audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   audioplayers_darwin: 835ced6edd4c9fc8ebb0a7cc9e294a91d99917d5
   device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
+  ffmpeg-kit-ios-full: 2da77324b0e9fb007195ab6661f64be4cf31dc12
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  hardcore_mixer: 799a82036130ddf8f1bf10cdb3b4592700693559
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   just_audio: 4e391f57b79cad2b0674030a00453ca5ce817eed
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
+  media_kit_libs_ios_video: 5a18affdb97d1f5d466dc79988b13eff6c5e2854
+  media_kit_video: 1746e198cb697d1ffb734b1d05ec429d1fcd1474
   my_alpha_player: 9536419deceb9a459adf5295b13e49cd420b1aeb
   open_file_ios: 46184d802ee7959203f6392abcfa0dd49fdb5be0
   package_info_plus: af8e2ca6888548050f16fa2f1938db7b5a5df499
@@ -138,11 +156,10 @@ SPEC CHECKSUMS:
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
   vibration: ca8104a8875b9c493e15b21b04e456befd0ff6eb
-  video_player_avfoundation: dd410b52df6d2466a42d28550e33e4146928280a
   video_thumbnail: b637e0ad5f588ca9945f6e2c927f73a69a661140
   wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
-PODFILE CHECKSUM: 3c63482e143d1b91d2d2560aee9fb04ecc74ac7e
+PODFILE CHECKSUM: 33e29fffabd94826d945ef0b9e65454d3a3072ae
 
 COCOAPODS: 1.16.2
