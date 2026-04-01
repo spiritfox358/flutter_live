@@ -1,7 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
-// 记得引入你的 LivePKPlayerModel 所在的路径
+// 引入 LivePKPlayerModel 所在的路径
 import 'package:flutter_live/screens/home/live/widgets/view_mode/dynamic_pk_battle_view.dart';
 
 class PlayerActionBottomSheet extends StatelessWidget {
@@ -13,9 +13,8 @@ class PlayerActionBottomSheet extends StatelessWidget {
   final VoidCallback onMuteAllExceptMe;
   final VoidCallback onSetFocus;
   final VoidCallback onViewProfile;
-
-  // 🚀 新增：进入对方直播间的回调
   final VoidCallback onEnterRoom;
+  final VoidCallback? onViewRank;
 
   const PlayerActionBottomSheet({
     super.key,
@@ -26,7 +25,8 @@ class PlayerActionBottomSheet extends StatelessWidget {
     required this.onMuteAllExceptMe,
     required this.onSetFocus,
     required this.onViewProfile,
-    required this.onEnterRoom, // 🚀 别忘了加到构造函数里
+    required this.onEnterRoom,
+    this.onViewRank,
   });
 
   @override
@@ -36,7 +36,7 @@ class PlayerActionBottomSheet extends StatelessWidget {
     return Container(
       padding: EdgeInsets.only(bottom: bottomPadding + 16, top: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A).withOpacity(0.9),
+        color: const Color(0xFF1A1A1A).withOpacity(0.95),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1), width: 1)),
       ),
@@ -56,13 +56,23 @@ class PlayerActionBottomSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                Container(
-                  width: 50,
-                  height: 50,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white24, width: 1),
-                    image: DecorationImage(image: NetworkImage(targetPlayer.avatarUrl), fit: BoxFit.cover),
+                // 🚀 优化 1：点击头像跳转主页
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    onViewProfile();
+                  },
+                  child: Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.pinkAccent.withOpacity(0.5), width: 1.5),
+                      image: DecorationImage(
+                        image: NetworkImage(targetPlayer.avatarUrl),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -81,17 +91,15 @@ class PlayerActionBottomSheet extends StatelessWidget {
                     ],
                   ),
                 ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    onViewProfile();
-                  },
-                  style: TextButton.styleFrom(
-                    backgroundColor: Colors.white10,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+
+                // 🚀 优化 2：放大版“进直播间”按钮
+                if (!isMe)
+                  _buildBigEnterButton(
+                    onTap: () {
+                      Navigator.pop(context);
+                      onEnterRoom();
+                    },
                   ),
-                  child: const Text("主页", style: TextStyle(color: Colors.white, fontSize: 12)),
-                ),
               ],
             ),
           ),
@@ -100,63 +108,93 @@ class PlayerActionBottomSheet extends StatelessWidget {
           const Divider(color: Colors.white10, height: 1),
           const SizedBox(height: 20),
 
-          // 3. 按钮操作区
+          // 3. 底部操作区 (左对齐)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Wrap(
-              spacing: 24,
-              runSpacing: 20,
-              alignment: WrapAlignment.start,
-              children: [
-                // 🚀 新增按钮：进入TA的直播间！
-                // 如果点的是我自己，就不需要显示这个按钮了
-                if (!isMe)
+            child: SizedBox(
+              width: double.infinity,
+              child: Wrap(
+                spacing: 22,
+                runSpacing: 20,
+                alignment: WrapAlignment.start,
+                children: [
+                  // 榜单
                   _buildActionButton(
-                    icon: Icons.login, // 或者用 Icons.meeting_room
-                    iconColor: Colors.pinkAccent,
-                    label: "进直播间",
+                    icon: Icons.bar_chart_rounded,
+                    iconColor: Colors.yellowAccent,
+                    label: "榜单",
                     onTap: () {
                       Navigator.pop(context);
-                      onEnterRoom();
+                      onViewRank?.call();
                     },
                   ),
 
-                // 原来的其他按钮...
-                _buildActionButton(
-                  icon: targetPlayer.isMuted ? Icons.mic : Icons.mic_off,
-                  iconColor: targetPlayer.isMuted ? Colors.greenAccent : Colors.redAccent,
-                  label: targetPlayer.isMuted ? "解除静音" : (isMe ? "闭麦" : "禁麦"),
-                  onTap: () {
-                    Navigator.pop(context);
-                    onToggleMute();
-                  },
-                ),
-
-                if (isHost || isMe)
+                  // 闭麦/禁麦
                   _buildActionButton(
-                    icon: Icons.fullscreen,
-                    iconColor: Colors.blueAccent,
-                    label: "设为主咖",
+                    icon: targetPlayer.isMuted ? Icons.mic : Icons.mic_off,
+                    iconColor: targetPlayer.isMuted ? Colors.greenAccent : Colors.redAccent,
+                    label: targetPlayer.isMuted ? "解除静音" : (isMe ? "闭麦" : "禁麦"),
                     onTap: () {
                       Navigator.pop(context);
-                      onSetFocus();
+                      onToggleMute();
                     },
                   ),
 
-                if (isHost)
-                  _buildActionButton(
-                    icon: Icons.volume_off,
-                    iconColor: Colors.orangeAccent,
-                    label: "全员闭麦",
-                    onTap: () {
-                      Navigator.pop(context);
-                      onMuteAllExceptMe();
-                    },
-                  ),
-              ],
+                  // 设为主咖
+                  if (isHost || isMe)
+                    _buildActionButton(
+                      icon: Icons.fullscreen,
+                      iconColor: Colors.blueAccent,
+                      label: "设为主咖",
+                      onTap: () {
+                        Navigator.pop(context);
+                        onSetFocus();
+                      },
+                    ),
+
+                  // 全员闭麦
+                  if (isHost)
+                    _buildActionButton(
+                      icon: Icons.volume_off,
+                      iconColor: Colors.orangeAccent,
+                      label: "全员闭麦",
+                      onTap: () {
+                        Navigator.pop(context);
+                        onMuteAllExceptMe();
+                      },
+                    ),
+                ],
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // 🚀 特制的大号“进直播间”按钮
+  Widget _buildBigEnterButton({required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF2E56), Color(0xFFFF5252)],
+          ),
+          borderRadius: BorderRadius.circular(25),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.pinkAccent.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            )
+          ],
+        ),
+        child: const Text(
+          "进直播间",
+          style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -169,14 +207,14 @@ class PlayerActionBottomSheet extends StatelessWidget {
         child: Column(
           children: [
             Container(
-              width: 50,
-              height: 50,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.05),
                 shape: BoxShape.circle,
                 border: Border.all(color: Colors.white10, width: 1),
               ),
-              child: Icon(icon, color: iconColor, size: 24),
+              child: Icon(icon, color: iconColor, size: 26),
             ),
             const SizedBox(height: 8),
             Text(

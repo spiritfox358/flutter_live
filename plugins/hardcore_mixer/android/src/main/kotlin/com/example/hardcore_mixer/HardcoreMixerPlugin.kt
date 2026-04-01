@@ -19,6 +19,12 @@ class HardcoreMixerPlugin: FlutterPlugin, MethodCallHandler {
     private var renderer: HardcoreRenderer? = null
     private var decoderPool: VideoDecoderPool? = null
 
+    companion object {
+        init { System.loadLibrary("hardcore_mixer") }
+    }
+
+    private external fun nativeInitEngine()
+
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "hardcore_mixer")
         channel.setMethodCallHandler(this)
@@ -28,26 +34,58 @@ class HardcoreMixerPlugin: FlutterPlugin, MethodCallHandler {
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
         when (call.method) {
-            "initializeMixer" -> {
-                // 1. 向 Flutter 申请一块共享显存画板
+            "initEngine", "initializeMixer" -> {
+                decoderPool?.release()
+                renderer?.release()
+
+                try { nativeInitEngine() } catch (e: Exception) {}
+
                 val textureEntry = textureRegistry.createSurfaceTexture()
                 val textureId = textureEntry.id()
 
-                // 2. 启动 OpenGL 渲染引擎
                 renderer = HardcoreRenderer(textureEntry)
                 renderer?.start()
 
-                // 3. 启动解码器池，并把渲染器传给它
                 decoderPool = VideoDecoderPool(context, renderer!!)
                 decoderPool?.initialize()
 
-                // 4. 将这块画板的 ID 传给 Flutter
                 result.success(textureId)
             }
             "playStreams" -> {
-                // 接收 Flutter 传过来的 视频 URL 数组
                 val urls = call.argument<List<String>>("urls") ?: emptyList()
+
+                // 🚀🚀🚀 核心修复 1：使用 Number 泛型防崩溃！完美接收 Flutter 传来的任何数值！
+                val containerW = (call.argument<Any>("containerWidth") as? Number)?.toFloat() ?: 1080f
+                val containerH = (call.argument<Any>("containerHeight") as? Number)?.toFloat() ?: 1080f
+
                 decoderPool?.playStreams(urls)
+
+                // 🚀🚀🚀 核心修复 2：手动安全遍历强转，防止 Flutter 的 [0.0, 1.0] 整数塌陷导致整盘崩溃！
+                val rawLayouts = call.argument<List<*>>("layouts")
+                if (rawLayouts != null && rawLayouts.isNotEmpty()) {
+                    val flatLayouts = FloatArray(rawLayouts.size * 4)
+                    for (i in rawLayouts.indices) {
+                        val row = rawLayouts[i] as? List<*>
+                        if (row != null && row.size >= 4) {
+                            flatLayouts[i * 4 + 0] = (row[0] as? Number)?.toFloat() ?: 0f
+                            flatLayouts[i * 4 + 1] = (row[1] as? Number)?.toFloat() ?: 0f
+                            flatLayouts[i * 4 + 2] = (row[2] as? Number)?.toFloat() ?: 0f
+                            flatLayouts[i * 4 + 3] = (row[3] as? Number)?.toFloat() ?: 0f
+                        }
+                    }
+                    // 只有这里执行成功了，底层才会真正根据屏幕缩放！
+                    renderer?.updateLayouts(flatLayouts, containerW, containerH)
+                }
+                result.success(null)
+            }
+            "getReadyUrls" -> {
+                val readyUrls = decoderPool?.getReadyUrls() ?: emptyList<String>()
+                result.success(readyUrls)
+            }
+            "setMuted" -> {
+                val url = call.argument<String>("url") ?: ""
+                val isMuted = call.argument<Boolean>("isMuted") ?: false
+                decoderPool?.setMuted(url, isMuted)
                 result.success(null)
             }
             "disposeMixer" -> {

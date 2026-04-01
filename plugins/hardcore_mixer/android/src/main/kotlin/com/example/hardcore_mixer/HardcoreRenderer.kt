@@ -6,37 +6,56 @@ import android.opengl.GLES20
 import android.opengl.Matrix
 import android.os.Handler
 import android.os.HandlerThread
-import android.util.Log
 import android.view.Surface
 import io.flutter.view.TextureRegistry
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.atomic.AtomicIntegerArray
+import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.thread
 
 import android.opengl.EGL14
 import android.opengl.EGLConfig
 import android.opengl.EGLContext
 import android.opengl.EGLDisplay
-import android.opengl.EGLSurface
 
 class HardcoreRenderer(private val flutterTextureEntry: TextureRegistry.SurfaceTextureEntry) {
 
-    private val TAG = "HardcoreRenderer"
-    @Volatile private var isRunning = false
+    // 🚀 新增：这把锁用来让 OpenGL 线程在没有新画面时休眠，拯救 GPU！
+    private val frameSync = Object()
 
+    @Volatile private var isRunning = false
     val inputTextureIds = IntArray(9)
     val inputSurfaceTextures = arrayOfNulls<SurfaceTexture>(9)
     val inputSurfaces = arrayOfNulls<Surface>(9)
     val xformMatrices = Array(9) { FloatArray(16) }
 
     @Volatile var activeStreamCount = 0
-
-    private val frameAvailable = AtomicIntegerArray(9)
-    // 🚀 核心修复 1：记录每个视频通道是否已经收到了“第一帧”
     private val pendingFrames = AtomicIntegerArray(9)
     private val hasFirstFrame = BooleanArray(9)
     private var surfaceCallbackThread: HandlerThread? = null
+
+    private val initLatch = CountDownLatch(1)
+    @Volatile var currentLayouts = FloatArray(36) { 0f }
+
+    @Volatile var containerW = 1080f
+    @Volatile var containerH = 1920f
+
+    @Volatile var videoRatios = FloatArray(9) { 9f / 16f }
+
+    fun updateLayouts(layouts: FloatArray, w: Float, h: Float) {
+        for (i in layouts.indices) {
+            if (i < 36) currentLayouts[i] = layouts[i]
+        }
+        containerW = w
+        containerH = h
+    }
+
+    fun updateVideoRatio(index: Int, ratio: Float) {
+        if (index in 0..8) {
+            videoRatios[index] = ratio
+        }
+    }
 
     private val vertexShaderCode = """
         attribute vec4 a_position;
@@ -66,93 +85,59 @@ class HardcoreRenderer(private val flutterTextureEntry: TextureRegistry.SurfaceT
         uniform int u_hasFrame6; uniform int u_hasFrame7; uniform int u_hasFrame8;
 
         uniform int u_activeCount;
+        uniform vec4 u_layouts[9]; 
+        
+        uniform float u_videoRatios[9];
+        uniform float u_canvasRatio;
 
-        // 🚀 核心升级：智能感知格子长宽比 + 自动吃黑边算法！
-        vec2 dynamicCenterCrop(vec2 coord, float cellRatio) { 
+        vec2 dynamicCenterCrop(vec2 coord, float cellNormW, float cellNormH, float vidRatio) { 
             vec2 c = coord - vec2(0.5, 0.5); 
-            float videoRatio = 9.0 / 16.0; // 0.5625
+            float physicalCellRatio = (cellNormW / cellNormH) * u_canvasRatio;
             
-            // 1. 先进行完美的比例对齐（防拉伸变形）
-            if (cellRatio > videoRatio) {
-                c.y *= videoRatio / cellRatio;
+            // 完美的 1:1 无损裁剪公式
+            if (physicalCellRatio > vidRatio) {
+                c.y *= vidRatio / physicalCellRatio;
             } else {
-                c.x *= cellRatio / videoRatio;
+                c.x *= physicalCellRatio / vidRatio;
             }
             
-            // 🚀🚀🚀 2. 终极黑边杀手：统一向中心放大画面！
-            // 乘以 0.85 意味着抽取中心 85% 的有效画面，强行放大填满格子，完美切掉四周的黑边！
-            // 如果你的黑边特别大，可以把 0.85 改成 0.80 甚至更小。 以后改回 c *= 1.0;
+            // 🚀🚀🚀 绝杀黑边！把你最早写的最牛逼的这行代码加回来！
+            // 画面放大 15%，彻底切掉推流自带的恶心黑边！
             c *= 0.85; 
             
             return c + vec2(0.5, 0.5); 
         }
 
+        #define CHECK_HIT(i) \
+            if (i < u_activeCount) { \
+                vec4 rect = u_layouts[i]; \
+                if (uiX >= rect.x && uiX <= rect.x + rect.z && uiY >= rect.y && uiY <= rect.y + rect.w) { \
+                    index = i; \
+                    localCoord = vec2((uiX - rect.x) / rect.z, (uiY - rect.y) / rect.w); \
+                    vidRatio = u_videoRatios[i]; \
+                    cellW = rect.z; \
+                    cellH = rect.w; \
+                } \
+            }
+
         void main() {
             vec4 color = vec4(0.0); 
-            
             float uiY = 1.0 - v_texCoord.y; 
             float uiX = v_texCoord.x;
             
             int index = -1;
             vec2 localCoord = vec2(0.0);
-            float cellRatio = 1.0; // 记录当前格子的长宽比例 (宽/高)
+            float vidRatio = 0.5625;
+            float cellW = 1.0;
+            float cellH = 1.0;
 
-            // ==========================================
-            // 🎨 精准复刻 Flutter Flex 布局并计算格子比例
-            // ==========================================
-            if (u_activeCount == 9) { 
-                float col = floor(uiX * 3.0); float row = floor(uiY * 3.0);
-                index = int(row * 3.0 + col); localCoord = vec2(fract(uiX * 3.0), fract(uiY * 3.0));
-                cellRatio = 1.0; // 3/3
-            } else if (u_activeCount == 8) { 
-                float col = floor(uiX * 4.0); float row = floor(uiY * 2.0);
-                index = int(row * 4.0 + col); localCoord = vec2(fract(uiX * 4.0), fract(uiY * 2.0));
-                cellRatio = 0.5; // 2/4
-            } else if (u_activeCount == 7) { 
-                float row = floor(uiY * 2.0);
-                if (row == 0.0) { 
-                    float col = floor(uiX * 3.0); index = int(col); 
-                    localCoord = vec2(fract(uiX * 3.0), fract(uiY * 2.0)); cellRatio = 0.6666; // 2/3
-                } else { 
-                    float col = floor(uiX * 4.0); index = 3 + int(col); 
-                    localCoord = vec2(fract(uiX * 4.0), fract(uiY * 2.0)); cellRatio = 0.5; // 2/4
-                }
-            } else if (u_activeCount == 6) { 
-                float col = floor(uiX * 3.0); float row = floor(uiY * 2.0);
-                index = int(row * 3.0 + col); localCoord = vec2(fract(uiX * 3.0), fract(uiY * 2.0));
-                cellRatio = 0.6666; // 2/3
-            } else if (u_activeCount == 5) { 
-                float row = floor(uiY * 2.0);
-                if (row == 0.0) { 
-                    float col = floor(uiX * 2.0); index = int(col); 
-                    localCoord = vec2(fract(uiX * 2.0), fract(uiY * 2.0)); cellRatio = 1.0; // 2/2
-                } else { 
-                    float col = floor(uiX * 3.0); index = 2 + int(col); 
-                    localCoord = vec2(fract(uiX * 3.0), fract(uiY * 2.0)); cellRatio = 0.6666; // 2/3
-                }
-            } else if (u_activeCount == 4) { 
-                float col = floor(uiX * 2.0); float row = floor(uiY * 2.0);
-                index = int(row * 2.0 + col); localCoord = vec2(fract(uiX * 2.0), fract(uiY * 2.0));
-                cellRatio = 1.0; // 2/2
-            } else if (u_activeCount == 3) { 
-                if (uiX < 0.5) { 
-                    index = 0; localCoord = vec2(uiX * 2.0, uiY); cellRatio = 0.5; // 1/2
-                } else { 
-                    float row = floor(uiY * 2.0); index = 1 + int(row); 
-                    localCoord = vec2((uiX - 0.5) * 2.0, fract(uiY * 2.0)); cellRatio = 1.0; // 2/2
-                }
-            } else if (u_activeCount == 2) { 
-                float col = floor(uiX * 2.0); index = int(col); localCoord = vec2(fract(uiX * 2.0), uiY);
-                cellRatio = 0.5; // 1/2
-            } else if (u_activeCount == 1) { 
-                index = 0; localCoord = vec2(uiX, uiY);
-                cellRatio = 1.0;
-            }
+            CHECK_HIT(0); CHECK_HIT(1); CHECK_HIT(2);
+            CHECK_HIT(3); CHECK_HIT(4); CHECK_HIT(5);
+            CHECK_HIT(6); CHECK_HIT(7); CHECK_HIT(8);
 
-            if (index != -1) {
+            if (index != -1 && cellW > 0.001 && cellH > 0.001) {
                 localCoord.y = 1.0 - localCoord.y;
-                // 传入刚才动态算出的该格子的正确长宽比例
-                vec2 cropped = dynamicCenterCrop(localCoord, cellRatio);
+                vec2 cropped = dynamicCenterCrop(localCoord, cellW, cellH, vidRatio);
                 
                 if (index == 0 && u_hasFrame0 == 1) color = texture2D(u_tex0, (u_xform0 * vec4(cropped, 0.0, 1.0)).xy);
                 else if (index == 1 && u_hasFrame1 == 1) color = texture2D(u_tex1, (u_xform1 * vec4(cropped, 0.0, 1.0)).xy);
@@ -171,11 +156,9 @@ class HardcoreRenderer(private val flutterTextureEntry: TextureRegistry.SurfaceT
     fun start() {
         if (isRunning) return
         isRunning = true
-
-        // 开启专属回调线程
         surfaceCallbackThread = HandlerThread("OES_Callback_Thread").apply { start() }
-
         thread { renderLoop() }
+        try { initLatch.await() } catch (e: Exception) {}
     }
 
     fun release() {
@@ -203,7 +186,6 @@ class HardcoreRenderer(private val flutterTextureEntry: TextureRegistry.SurfaceT
         val eglContext = EGL14.eglCreateContext(eglDisplay, configs[0], EGL14.EGL_NO_CONTEXT, intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, EGL14.EGL_NONE), 0)
 
         val outputSurfaceTexture = flutterTextureEntry.surfaceTexture()
-        outputSurfaceTexture.setDefaultBufferSize(1080, 1080)
         val outputSurface = Surface(outputSurfaceTexture)
 
         val eglSurface = EGL14.eglCreateWindowSurface(eglDisplay, configs[0], outputSurface, intArrayOf(EGL14.EGL_NONE), 0)
@@ -219,14 +201,17 @@ class HardcoreRenderer(private val flutterTextureEntry: TextureRegistry.SurfaceT
 
             inputSurfaceTextures[i] = SurfaceTexture(inputTextureIds[i]).apply {
                 setOnFrameAvailableListener({
-                    // 🚀 核心修复 2：只要来一帧，计数器就 +1
                     pendingFrames.incrementAndGet(i)
+                    // 🚀 性能修复 1：收到新画面，立刻踹醒 OpenGL 渲染线程！
+                    synchronized(frameSync) { frameSync.notifyAll() }
                 }, callbackHandler)
             }
             inputSurfaces[i] = Surface(inputSurfaceTextures[i])
             hasFirstFrame[i] = false
             Matrix.setIdentityM(xformMatrices[i], 0)
         }
+
+        initLatch.countDown()
 
         val program = GLES20.glCreateProgram()
         val vShader = GLES20.glCreateShader(GLES20.GL_VERTEX_SHADER).also {
@@ -241,59 +226,81 @@ class HardcoreRenderer(private val flutterTextureEntry: TextureRegistry.SurfaceT
         }
         GLES20.glLinkProgram(program)
 
-        val vertexData = floatArrayOf(
-            -1.0f,  1.0f,   0.0f, 1.0f,
-            -1.0f, -1.0f,   0.0f, 0.0f,
-            1.0f,  1.0f,   1.0f, 1.0f,
-            1.0f, -1.0f,   1.0f, 0.0f
-        )
+        val vertexData = floatArrayOf(-1.0f,1.0f,0.0f,1.0f, -1.0f,-1.0f,0.0f,0.0f, 1.0f,1.0f,1.0f,1.0f, 1.0f,-1.0f,1.0f,0.0f)
         val vertexBuffer = ByteBuffer.allocateDirect(vertexData.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().put(vertexData).apply { position(0) }
         val posHandle = GLES20.glGetAttribLocation(program, "a_position")
         val texHandle = GLES20.glGetAttribLocation(program, "a_texCoord")
+
         val countHandle = GLES20.glGetUniformLocation(program, "u_activeCount")
+        val layoutsHandle = GLES20.glGetUniformLocation(program, "u_layouts")
+        val canvasRatioHandle = GLES20.glGetUniformLocation(program, "u_canvasRatio")
+        val videoRatiosHandle = GLES20.glGetUniformLocation(program, "u_videoRatios")
+
+        var lastW = 0f
+        var lastH = 0f
 
         while (isRunning) {
+            // 🚀 性能修复 2：检查是否有任何流传来了新帧
+            var hasNewFrame = false
+            for (i in 0 until 9) {
+                if (pendingFrames.get(i) > 0) {
+                    hasNewFrame = true
+                    break
+                }
+            }
+
+            // 🚀 性能修复 3：如果没有新帧，立刻休眠，绝对不空跑 GPU！最多睡 50ms 兜底。
+            if (!hasNewFrame) {
+                synchronized(frameSync) {
+                    try {
+                        frameSync.wait(50)
+                    } catch (e: InterruptedException) {}
+                }
+                continue // 醒来后重新从 while 开始检查
+            }
+
+            if (containerW != lastW || containerH != lastH) {
+                if (containerW > 0 && containerH > 0) {
+                    outputSurfaceTexture.setDefaultBufferSize(containerW.toInt(), containerH.toInt())
+                    lastW = containerW
+                    lastH = containerH
+                }
+            }
+
             for (i in 0 until 9) {
                 var updated = false
-
-                // 🚀🚀🚀 核心修复 3：抽水泵算法！
-                // 只要队列里有积压的帧，就一直死循环把它抽干，绝不让底层解码器憋死！
                 while (pendingFrames.get(i) > 0) {
                     try {
-                        // 极其重要：更新前必须先激活它自己的坑位，防止踩踏！
                         GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + i)
                         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, inputTextureIds[i])
-
                         inputSurfaceTextures[i]?.updateTexImage()
-                        pendingFrames.decrementAndGet(i) // 抽走一帧，计数器 -1
+                        pendingFrames.decrementAndGet(i)
                         updated = true
                     } catch (e: Exception) {
-                        pendingFrames.set(i, 0) // 如果报错，直接清零防死循环
-                        break
+                        pendingFrames.set(i, 0); break
                     }
                 }
-
-                // 只要这 16ms 内抽到过画面，就更新一次矩阵和状态
                 if (updated) {
                     inputSurfaceTextures[i]?.getTransformMatrix(xformMatrices[i])
                     hasFirstFrame[i] = true
                 }
             }
 
+            GLES20.glViewport(0, 0, containerW.toInt(), containerH.toInt())
             GLES20.glClearColor(0f, 0f, 0f, 0f)
             GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
             GLES20.glUseProgram(program)
-            GLES20.glUniform1i(countHandle, activeStreamCount)
 
-            // 绑定纹理、矩阵，并告诉 GPU 哪些视频是安全的
+            GLES20.glUniform1i(countHandle, activeStreamCount)
+            GLES20.glUniform4fv(layoutsHandle, 9, currentLayouts, 0)
+            GLES20.glUniform1f(canvasRatioHandle, containerW / containerH)
+            GLES20.glUniform1fv(videoRatiosHandle, 9, videoRatios, 0)
+
             for (i in 0 until 9) {
                 GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + i)
                 GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, inputTextureIds[i])
                 GLES20.glUniform1i(GLES20.glGetUniformLocation(program, "u_tex$i"), i)
-
                 GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(program, "u_xform$i"), 1, false, xformMatrices[i], 0)
-
-                // 将安全状态告诉 GPU 的片段着色器
                 GLES20.glUniform1i(GLES20.glGetUniformLocation(program, "u_hasFrame$i"), if (hasFirstFrame[i]) 1 else 0)
             }
 
@@ -307,7 +314,7 @@ class HardcoreRenderer(private val flutterTextureEntry: TextureRegistry.SurfaceT
 
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4)
             EGL14.eglSwapBuffers(eglDisplay, eglSurface)
-            Thread.sleep(16)
+            // 🚀 性能修复 4：已经删除了导致死循环空耗的 Thread.sleep(16)
         }
 
         EGL14.eglMakeCurrent(eglDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
@@ -316,6 +323,5 @@ class HardcoreRenderer(private val flutterTextureEntry: TextureRegistry.SurfaceT
         EGL14.eglReleaseThread()
         EGL14.eglTerminate(eglDisplay)
         outputSurface.release()
-        Log.d(TAG, "OpenGL 渲染线程已安全退出")
     }
 }

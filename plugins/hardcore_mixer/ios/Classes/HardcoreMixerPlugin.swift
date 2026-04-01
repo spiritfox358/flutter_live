@@ -44,7 +44,7 @@ public class HardcoreMixerPlugin: NSObject, FlutterPlugin {
                 print("🔊 [Swift 桥接] 收到静音指令: url=\(url), isMuted=\(isMuted)")
             }
             result(nil)
-        } else if call.method == "dispose" {
+        } else if call.method == "disposeMixer" {
             engine?.stop()
             engine = nil
             result(nil)

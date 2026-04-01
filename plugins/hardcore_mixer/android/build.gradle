@@ -41,10 +41,31 @@ android {
     sourceSets {
         main.java.srcDirs += "src/main/kotlin"
         test.java.srcDirs += "src/test/kotlin"
+        main {
+            // 路径指向你刚刚放 .so 文件的那个 libs 文件夹
+            jniLibs.srcDirs = ['src/main/cpp/ffmpeg/libs']
+        }
     }
 
     defaultConfig {
         minSdk = 24
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++17" // 启用现代 C++ 支持
+                // 如果需要用到 OpenGL，这里加上链接库
+                // arguments "-DANDROID_STL=c++_shared"
+
+                // 🚀🚀🚀 加上这行防御锁：只编译我们提供了 .so 文件的这4个架构！
+                abiFilters "arm64-v8a", "armeabi-v7a", "x86", "x86_64"
+            }
+        }
+    }
+
+    // 🚀 2. 告诉 Gradle 你的 CMakeLists.txt 在哪
+    externalNativeBuild {
+        cmake {
+            path "CMakeLists.txt"
+        }
     }
 
     dependencies {

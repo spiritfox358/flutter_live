@@ -9,17 +9,20 @@ class HardcoreMixer {
     return textureId;
   }
 
-  // 2. 发射视频源和排版坐标！
-  static Future<void> playStreams(List<String> urls, List<List<double>> layouts) async {
+  // hardcore_mixer.dart
+  static Future<void> playStreams(List<String> urls, List<List<double>> layouts, double containerWidth, double containerHeight) async {
     await _channel.invokeMethod('playStreams', {
       'urls': urls,
       'layouts': layouts,
+      // 🚀 终极钥匙：把 Flutter 容器的真实像素尺寸传给底层！
+      'containerWidth': containerWidth,
+      'containerHeight': containerHeight,
     });
   }
 
   // 3. 销毁引擎，打扫战场
   static Future<void> dispose() async {
-    await _channel.invokeMethod('dispose');
+    await _channel.invokeMethod('disposeMixer');
   }
 
   // 🚀 新增：闭环雷达查询接口

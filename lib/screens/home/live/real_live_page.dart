@@ -831,22 +831,34 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       final int joinerMonthLevel = int.tryParse(data['monthLevel']?.toString() ?? '') ?? 0;
       switch (type) {
         case "ENTER":
-          Future.delayed(const Duration(milliseconds: 800), () {
-            if (mounted) {
-              if ([2, 6, 163].contains(int.parse(joinerId))) {
-                _entranceEffectKey.currentState?.addEntrance(EntranceModel(userName: joinerName, avatar: joinerAvatar));
-              } else {
-                _simulateVipEnter(
-                  overrideUserId: joinerId,
-                  overrideName: joinerName,
-                  overrideAvatar: joinerAvatar,
-                  overrideLevel: joinerLevel,
-                  overrideMonthLevel: joinerMonthLevel,
-                  isHost: senderIsHost,
-                );
-              }
+        // 定义执行逻辑的闭包
+          void executeLogic() {
+            if (!mounted) return;
+            // 提取 ID 解析逻辑，避免重复调用 int.parse
+            final int userId = int.parse(joinerId);
+
+            if ([2, 6, 163].contains(userId)) {
+              _entranceEffectKey.currentState?.addEntrance(
+                EntranceModel(userName: joinerName, avatar: joinerAvatar),
+              );
+            } else {
+              _simulateVipEnter(
+                overrideUserId: joinerId,
+                overrideName: joinerName,
+                overrideAvatar: joinerAvatar,
+                overrideLevel: joinerLevel,
+                overrideMonthLevel: joinerMonthLevel,
+                isHost: senderIsHost,
+              );
             }
-          });
+          }
+
+          // 判断是否需要延时
+          if (UserStore.to.userId == joinerId) {
+            Future.delayed(const Duration(milliseconds: 3000), executeLogic);
+          } else {
+            executeLogic();
+          }
           break;
         case "CHAT":
           _addSocketChatMessage(
@@ -1075,7 +1087,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           }
           break;
 
-      // 🚀 处理一键全员闭麦 (改为用 roomId 判断例外)
+        // 🚀 处理一键全员闭麦 (改为用 roomId 判断例外)
         case "MUTE_ALL_EXCEPT":
           String exceptionRoomId = data['targetRoomId']?.toString() ?? "";
 
@@ -1395,6 +1407,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     // 1. 如果是观众：直接退出
     if (!_isHost || _isRobotActive) {
+      _instantKillAllAudio();
       Navigator.of(context).pop();
       return;
     }
@@ -1484,6 +1497,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         if (_pkStatus != PKStatus.idle) {
           _disconnectCoHost();
         }
+        _instantKillAllAudio();
         Navigator.of(context).pop();
       }
     }
@@ -2031,6 +2045,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       return;
     }
     _isSwitchingRoom = true;
+    _instantKillAllAudio();
 
     final playersToDispose = _players.values.toList();
     _players.clear();
@@ -2358,7 +2373,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
                                                             onEnterRoom: () {
                                                               if (_isHost && !_isRobotActive) {
-                                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
+                                                                ScaffoldMessenger.of(
+                                                                  context,
+                                                                ).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
                                                                 return;
                                                               }
                                                               _switchToTargetRoom(targetPlayer);
@@ -2972,6 +2989,22 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
+  // 🚀 终极武器：瞬间物理掐断所有发声源！
+  void _instantKillAllAudio() {
+    // 1. 瞬间掐断 C++ 引擎 (ExoPlayer)
+    HardcoreMixer.dispose();
+    // 2. 瞬间掐断 media_kit 背景音
+    _bgPlayer?.setVolume(0.0);
+    _bgPlayer?.pause();
+    _rightPlayer?.setVolume(0.0);
+    _rightPlayer?.pause();
+    // 3. 瞬间掐断原生语音队列和 AI 音乐
+    try {
+      _nativePlayer.invokeMethod('stopPlayer', {'roomId': _roomId});
+    } catch (e) {}
+    AIMusicService().stopMusic(_roomId);
+  }
+
   // 🟢 4. 新增方法：绕过 MediaQuery，直接从系统底层极速获取键盘高度！
   @override
   void didChangeMetrics() {
@@ -2997,11 +3030,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     // 🚀🚀🚀 核心修复 2：彻底删掉 if (!_isSwitchingRoom) ！！！
     // 不管是按物理返回键退出，还是切去对手房间，旧引擎统统必须死！
     WakelockPlus.disable();
-    HardcoreMixer.dispose();
-    try {
-      _nativePlayer.invokeMethod('stopPlayer', {'roomId': _roomId});
-    } catch (e) {}
-    AIMusicService().stopMusic(_roomId);
+    if (!_isSwitchingRoom) {
+      HardcoreMixer.dispose();
+      try {
+        _nativePlayer.invokeMethod('stopPlayer', {'roomId': _roomId});
+      } catch (e) {}
+      AIMusicService().stopMusic(_roomId);
+    }
 
     _pkScoreUpdateTrigger.dispose(); // 🟢 2. 新增销毁
     _isDisposed = true;

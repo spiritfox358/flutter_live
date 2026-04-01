@@ -79,17 +79,23 @@ void HardcoreDecoder::decodeLoop() {
         avformat_network_init();
         _formatCtx = avformat_alloc_context();
 
-        AVDictionary* options = nullptr;
+        AVDictionary *options = nullptr;
         av_dict_set(&options, "fflags", "nobuffer", 0);
         av_dict_set(&options, "timeout", "5000000", 0); // 5秒超时
 
         if (avformat_open_input(&_formatCtx, _url.c_str(), nullptr, &options) != 0) {
-            if (_formatCtx) { avformat_free_context(_formatCtx); _formatCtx = nullptr; }
+            if (_formatCtx) {
+                avformat_free_context(_formatCtx);
+                _formatCtx = nullptr;
+            }
             std::this_thread::sleep_for(std::chrono::seconds(2)); // 连不上？休息2秒继续冲！
             continue;
         }
         if (avformat_find_stream_info(_formatCtx, nullptr) < 0) {
-            if (_formatCtx) { avformat_close_input(&_formatCtx); _formatCtx = nullptr; }
+            if (_formatCtx) {
+                avformat_close_input(&_formatCtx);
+                _formatCtx = nullptr;
+            }
             std::this_thread::sleep_for(std::chrono::seconds(2));
             continue;
         }
@@ -98,17 +104,19 @@ void HardcoreDecoder::decodeLoop() {
         _audioStreamIndex = -1;
 
         for (int i = 0; i < _formatCtx->nb_streams; i++) {
-            if (_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO && _videoStreamIndex == -1) {
+            if (_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_VIDEO &&
+                _videoStreamIndex == -1) {
                 _videoStreamIndex = i;
             }
-            if (_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO && _audioStreamIndex == -1) {
+            if (_formatCtx->streams[i]->codecpar->codec_type == AVMEDIA_TYPE_AUDIO &&
+                _audioStreamIndex == -1) {
                 _audioStreamIndex = i;
             }
         }
 
         if (_videoStreamIndex != -1) {
-            AVCodecParameters* vpar = _formatCtx->streams[_videoStreamIndex]->codecpar;
-            const AVCodec* vcodec = avcodec_find_decoder(vpar->codec_id);
+            AVCodecParameters *vpar = _formatCtx->streams[_videoStreamIndex]->codecpar;
+            const AVCodec *vcodec = avcodec_find_decoder(vpar->codec_id);
             _videoCodecCtx = avcodec_alloc_context3(vcodec);
             avcodec_parameters_to_context(_videoCodecCtx, vpar);
             _videoCodecCtx->skip_loop_filter = AVDISCARD_ALL;
@@ -117,24 +125,31 @@ void HardcoreDecoder::decodeLoop() {
         }
 
         if (_audioStreamIndex != -1) {
-            AVCodecParameters* apar = _formatCtx->streams[_audioStreamIndex]->codecpar;
-            const AVCodec* acodec = avcodec_find_decoder(apar->codec_id);
+            AVCodecParameters *apar = _formatCtx->streams[_audioStreamIndex]->codecpar;
+            const AVCodec *acodec = avcodec_find_decoder(apar->codec_id);
             _audioCodecCtx = avcodec_alloc_context3(acodec);
             avcodec_parameters_to_context(_audioCodecCtx, apar);
             avcodec_open2(_audioCodecCtx, acodec, nullptr);
 
-            int64_t in_ch_layout = apar->channel_layout;
-            if (in_ch_layout == 0) in_ch_layout = av_get_default_channel_layout(apar->channels);
+            // ✅ 替换为全新的 5.x/6.0 语法：
+            AVChannelLayout out_ch_layout;
+            // 1. 初始化输出声道布局为单声道 (1 channel = Mono)
+            av_channel_layout_default(&out_ch_layout, 1);
 
-            _swrCtx = swr_alloc_set_opts(nullptr,
-                                         AV_CH_LAYOUT_MONO, AV_SAMPLE_FMT_FLT, 44100,
-                                         in_ch_layout, (AVSampleFormat)apar->format, apar->sample_rate,
-                                         0, nullptr);
+            // 2. 使用带有 '2' 的新版重采样初始化函数
+            swr_alloc_set_opts2(&_swrCtx,
+                                &out_ch_layout,                    // 目标输出声道布局 (结构体指针)
+                                AV_SAMPLE_FMT_FLT,                 // 目标输出采样格式
+                                44100,                             // 目标输出采样率
+                                &apar->ch_layout,                  // 源输入声道布局 (6.0 新增的结构体字段)
+                                (enum AVSampleFormat) apar->format, // 源输入采样格式
+                                apar->sample_rate,                 // 源输入采样率
+                                0, nullptr);
             swr_init(_swrCtx);
         }
 
-        AVPacket* packet = av_packet_alloc();
-        AVFrame* frame = av_frame_alloc();
+        AVPacket *packet = av_packet_alloc();
+        AVFrame *frame = av_frame_alloc();
 
         auto start_time = std::chrono::steady_clock::now();
         double first_pts_sec = -1.0;
@@ -149,24 +164,29 @@ void HardcoreDecoder::decodeLoop() {
                 if (packet->stream_index == _videoStreamIndex && _videoCodecCtx) {
                     if (avcodec_send_packet(_videoCodecCtx, packet) == 0) {
                         while (avcodec_receive_frame(_videoCodecCtx, frame) == 0) {
-                            double pts = frame->best_effort_timestamp == AV_NOPTS_VALUE ? 0 : frame->best_effort_timestamp;
-                            double pts_sec = pts * av_q2d(_formatCtx->streams[_videoStreamIndex]->time_base);
+                            double pts = frame->best_effort_timestamp == AV_NOPTS_VALUE ? 0
+                                                                                        : frame->best_effort_timestamp;
+                            double pts_sec =
+                                    pts * av_q2d(_formatCtx->streams[_videoStreamIndex]->time_base);
 
                             if (first_pts_sec < 0) first_pts_sec = pts_sec;
                             pts_sec -= first_pts_sec;
 
                             auto now = std::chrono::steady_clock::now();
-                            double elapsed_sec = std::chrono::duration<double>(now - start_time).count();
+                            double elapsed_sec = std::chrono::duration<double>(
+                                    now - start_time).count();
 
                             if (elapsed_sec - pts_sec > 0.2) {
-                                start_time = now - std::chrono::milliseconds((long long)(pts_sec * 1000.0));
+                                start_time = now - std::chrono::milliseconds(
+                                        (long long) (pts_sec * 1000.0));
                                 elapsed_sec = pts_sec;
                             }
                             if (pts_sec > elapsed_sec) {
-                                std::this_thread::sleep_for(std::chrono::milliseconds((int)((pts_sec - elapsed_sec) * 1000)));
+                                std::this_thread::sleep_for(std::chrono::milliseconds(
+                                        (int) ((pts_sec - elapsed_sec) * 1000)));
                             }
                             {
-                                std::lock_guard<std::mutex> lock(_frameMutex);
+                                std::lock_guard <std::mutex> lock(_frameMutex);
                                 if (_currentFrame) av_frame_free(&_currentFrame);
                                 _currentFrame = av_frame_clone(frame);
                             }
@@ -179,18 +199,26 @@ void HardcoreDecoder::decodeLoop() {
                         while (avcodec_receive_frame(_audioCodecCtx, frame) == 0) {
 
                             // 🔪 幽灵猎手：丢弃早于视频画面的声音，防止声画不同步！
-                            double a_pts = frame->best_effort_timestamp == AV_NOPTS_VALUE ? 0 : frame->best_effort_timestamp;
-                            double a_pts_sec = a_pts * av_q2d(_formatCtx->streams[_audioStreamIndex]->time_base);
-                            if (_videoStreamIndex != -1 && (first_pts_sec < 0 || a_pts_sec < (first_pts_sec - 0.1))) {
+                            double a_pts = frame->best_effort_timestamp == AV_NOPTS_VALUE ? 0
+                                                                                          : frame->best_effort_timestamp;
+                            double a_pts_sec = a_pts *
+                                               av_q2d(_formatCtx->streams[_audioStreamIndex]->time_base);
+                            if (_videoStreamIndex != -1 &&
+                                (first_pts_sec < 0 || a_pts_sec < (first_pts_sec - 0.1))) {
                                 continue;
                             }
 
                             if (_audioCallback && _swrCtx) {
-                                int out_samples = av_rescale_rnd(swr_get_delay(_swrCtx, frame->sample_rate) + frame->nb_samples, 44100, frame->sample_rate, AV_ROUND_UP);
-                                float* out_buffer = (float*)av_malloc(out_samples * sizeof(float));
-                                uint8_t* out_ptrs[1] = { (uint8_t*)out_buffer };
+                                int out_samples = av_rescale_rnd(
+                                        swr_get_delay(_swrCtx, frame->sample_rate) +
+                                        frame->nb_samples, 44100, frame->sample_rate, AV_ROUND_UP);
+                                float *out_buffer = (float *) av_malloc(
+                                        out_samples * sizeof(float));
+                                uint8_t *out_ptrs[1] = {(uint8_t *) out_buffer};
 
-                                int real_out_samples = swr_convert(_swrCtx, out_ptrs, out_samples, (const uint8_t**)frame->data, frame->nb_samples);
+                                int real_out_samples = swr_convert(_swrCtx, out_ptrs, out_samples,
+                                                                   (const uint8_t **) frame->data,
+                                                                   frame->nb_samples);
 
                                 if (real_out_samples > 0) {
                                     for (int k = 0; k < real_out_samples; k++) {
@@ -205,7 +233,9 @@ void HardcoreDecoder::decodeLoop() {
                                                 sample = 0.0f;
                                             } else {
                                                 // 🎼 第二段：剩下的 1.0 秒 (44100 采样点)，执行丝滑的抛物线淡入
-                                                float progress = (float)(_totalAudioSamples - 8820) / 44100.0f;
+                                                float progress =
+                                                        (float) (_totalAudioSamples - 8820) /
+                                                        44100.0f;
                                                 // 抛物线 Ease-In 算法 (progress * progress)，比直线听起来舒服无数倍！
                                                 sample *= (progress * progress);
                                             }
@@ -238,10 +268,22 @@ void HardcoreDecoder::decodeLoop() {
         // ==========================================
         if (frame) av_frame_free(&frame);
         if (packet) av_packet_free(&packet);
-        if (_swrCtx) { swr_free(&_swrCtx); _swrCtx = nullptr; }
-        if (_videoCodecCtx) { avcodec_free_context(&_videoCodecCtx); _videoCodecCtx = nullptr; }
-        if (_audioCodecCtx) { avcodec_free_context(&_audioCodecCtx); _audioCodecCtx = nullptr; }
-        if (_formatCtx) { avformat_close_input(&_formatCtx); _formatCtx = nullptr; }
+        if (_swrCtx) {
+            swr_free(&_swrCtx);
+            _swrCtx = nullptr;
+        }
+        if (_videoCodecCtx) {
+            avcodec_free_context(&_videoCodecCtx);
+            _videoCodecCtx = nullptr;
+        }
+        if (_audioCodecCtx) {
+            avcodec_free_context(&_audioCodecCtx);
+            _audioCodecCtx = nullptr;
+        }
+        if (_formatCtx) {
+            avformat_close_input(&_formatCtx);
+            _formatCtx = nullptr;
+        }
 
         // 断网了？休息 2 秒后外层循环会自动发起冲锋重连！
         if (_isRunning) {
