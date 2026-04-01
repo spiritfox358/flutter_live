@@ -303,19 +303,19 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
         });
       }
 
-      // 🔴 仅在 [Enable=true] (旧逻辑) 且 尚未就绪时 执行等待
+      // 🔴 仅在 [Enable=true] (串行逻辑) 且 尚未就绪时 执行
       if (widget.enableEffectDelay && !_isReadyForComboEffect) {
-        // ⏳ 旧逻辑：等待 1000ms
-        // 这里不需要 check mounted，因为我们通过 _tryToFinish 强行续命了
-        Future.delayed(const Duration(milliseconds: 1000), () {
-          debugPrint("⏰ 1秒已到，开始处理特效队列");
 
-          // 此时 mounted 应该是 true，因为 bannerFinished 还没发出去
+        // 🚀🚀🚀 终极疏通：把坑爹的 1000ms 傻等改成 100ms（留一点点视觉过渡即可）
+        // 视频一播完，几乎瞬间就呼叫全屏特效，并且立刻释放托盘槽位！
+        Future.delayed(const Duration(milliseconds: 100), () {
+          debugPrint("⏰ 托盘视频播完，立刻接力处理特效...");
+
           if (mounted) {
-            // A. 触发特效
+            // A. 接力触发全屏特效！
             widget.onEffectTrigger?.call(_currentGiftEvent);
 
-            // B. 补发积压
+            // B. 补发积压的连击
             if (_bufferedComboCount > 0) {
               for (int i = 0; i < _bufferedComboCount; i++) {
                 widget.onEffectTrigger?.call(_currentGiftEvent);
@@ -323,15 +323,12 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
               _bufferedComboCount = 0;
             }
 
-            // C. 标记状态
+            // C. 标记状态已走完
             _isReadyForComboEffect = true;
-            _effectTriggerLogicDone = true; // ✅ 特效逻辑终于跑完了
+            _effectTriggerLogicDone = true;
 
-            // D. 尝试结束 (如果 Banner 早就播完了，这里就会触发销毁)
+            // D. 立刻尝试结束自己，给后面排队的礼物腾出坑位！
             _tryToFinish();
-          } else {
-            // 如果万一还是 unmounted 了 (异常情况)，至少尝试调一下回调
-            widget.onEffectTrigger?.call(_currentGiftEvent);
           }
         });
       }
