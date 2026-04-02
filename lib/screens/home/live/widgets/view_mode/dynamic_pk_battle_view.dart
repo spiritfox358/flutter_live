@@ -334,7 +334,12 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
                 width: layout[2] * w,
                 height: layout[3] * h,
                 child: Container(
-                  decoration: BoxDecoration(border: Border.all(color: Colors.black, width: 0.5)),
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      left: BorderSide(color: Colors.black, width: 0.2),
+                      right: BorderSide(color: Colors.black, width: 0.2),
+                    ),
+                  ),
                   child: _CellWrapper(
                     key: ValueKey(_getStableId(sortedPlayers[index])),
                     engineTextureId: _textureId,
