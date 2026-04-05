@@ -1,18 +1,16 @@
-import 'package:flutter/gestures.dart'; // 1. 需要引入手势库
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 import '../../models/live_models.dart';
 
 class BuildChatItem extends StatelessWidget {
   final ChatMessage msg;
-
-  // 2. 新增点击回调，把被点击的消息或者是用户信息传出去
   final Function(ChatMessage)? onNameTap;
 
   const BuildChatItem({
     super.key,
     required this.msg,
-    this.onNameTap, // 构造函数接收回调
+    this.onNameTap,
   });
 
   @override
@@ -35,7 +33,14 @@ class BuildChatItem extends StatelessWidget {
                     alignment: PlaceholderAlignment.middle,
                     child: Padding(
                       padding: const EdgeInsets.only(right: 2.0, top: 1.3),
-                      child: LevelBadge(level: msg.level, showConsumption: true, monthLevel: msg.monthLevel),
+                      child: LevelBadge(
+                        level: msg.level,
+                        showConsumption: true,
+                        monthLevel: msg.monthLevel,
+                        // 🚀🚀🚀 核心改造：绝对不能写死 1！
+                        // 动态读取这条消息发送者的 Buff ID，如果没有这个字段就默认传 0（显示普通等级）
+                        levelHonourBuffUrl: msg.levelHonourBuff,
+                      ),
                     ),
                   ),
 
@@ -66,10 +71,8 @@ class BuildChatItem extends StatelessWidget {
                   TextSpan(
                     text: "${msg.name}：",
                     style: TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.w600, height: 1.4),
-                    // 核心修改：添加 recognizer
                     recognizer: TapGestureRecognizer()
                       ..onTap = () {
-                        // 触发回调
                         if (onNameTap != null) {
                           onNameTap!(msg);
                         } else {

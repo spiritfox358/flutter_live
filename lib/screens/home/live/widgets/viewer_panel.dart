@@ -249,7 +249,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
                   ),
                   const SizedBox(width: 6),
                   if (isAdmin) ...[AdminBadgeWidget(), const SizedBox(width: 4)],
-                  LevelBadge(level: level, monthLevel: monthLevel, showConsumption: true),
+                  LevelBadge(level: level, monthLevel: monthLevel, showConsumption: true, levelHonourBuffUrl: decorations.levelHonourBuff),
                   const SizedBox(width: 4),
                   if (isVip) ...[_buildVipBadge(), const SizedBox(width: 4)],
                 ],
@@ -277,6 +277,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
     final myLevel = UserStore.to.userLevel;
     final monthLevel = UserStore.to.monthLevel;
     final myAvatar = UserStore.to.avatar;
+    final levelHonourBuffUrl = UserStore.to.levelHonourBuffUrl;
     UserDecorationsModel decorationsMap = UserDecorationsModel.fromMap(UserStore.to.decorations);
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, 10 + bottomPadding),
@@ -336,7 +337,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
               ),
               const SizedBox(height: 2),
-              LevelBadge(level: myLevel, monthLevel: monthLevel, showConsumption: true),
+              LevelBadge(level: myLevel, monthLevel: monthLevel, showConsumption: true, levelHonourBuffUrl: levelHonourBuffUrl),
             ],
           ),
           const Spacer(),

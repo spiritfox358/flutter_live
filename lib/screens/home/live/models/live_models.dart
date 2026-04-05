@@ -9,6 +9,7 @@ class ChatMessage {
   final Color levelColor;
   final bool isGift; // 🟢 添加一个字段来标识是否是礼物消息
   final bool isAnchor;
+  final String? levelHonourBuff; // 🚀 1. 改成 String?
 
   ChatMessage({
     required this.userId,
@@ -19,6 +20,7 @@ class ChatMessage {
     this.levelColor = Colors.blue,
     this.isGift = false, // 默认不是礼物消息
     this.isAnchor = false,
+    this.levelHonourBuff, // 🚀 2. 取消默认值 0
   });
 }
 

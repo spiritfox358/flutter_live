@@ -129,7 +129,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
               ValueListenableBuilder<UserModel>(
                 valueListenable: widget.userStatusNotifier,
                 builder: (context, value, child) {
-                  return LevelBadge(level: value.level, monthLevel: value.monthLevel);
+                  return LevelBadge(level: value.level, monthLevel: value.monthLevel, levelHonourBuffUrl: value.levelHonourBuffUrl);
                 },
               ),
             ],
@@ -156,14 +156,25 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
                   ),
                 ),
                 const SizedBox(height: 6),
+                // 在 _buildLevelHeader() 方法中，找到下面这段替换：
                 ValueListenableBuilder<UserModel>(
                   valueListenable: widget.userStatusNotifier,
                   builder: (context, value, child) {
                     int nextLevel = value.level + 1;
                     if (nextLevel >= 75) {
-                      return Text("你已满级，更多权益，敬请期待~", style: const TextStyle(color: Colors.white54, fontSize: 10));
+                      return const Text(
+                        "你已满级，更多权益，敬请期待~",
+                        style: TextStyle(color: Colors.white54, fontSize: 10),
+                        maxLines: 1, // 👈 限制 1 行
+                        overflow: TextOverflow.ellipsis,
+                      );
                     } else {
-                      return Text("距离$nextLevel级 还差${value.coinsToNextLevelText}钻", style: const TextStyle(color: Colors.white54, fontSize: 10));
+                      return Text(
+                        "距离$nextLevel级 还差${value.coinsToNextLevelText}钻",
+                        style: const TextStyle(color: Colors.white54, fontSize: 10),
+                        maxLines: 1, // 👈 限制 1 行
+                        overflow: TextOverflow.ellipsis,
+                      );
                     }
                   },
                 ),
@@ -224,30 +235,40 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), borderRadius: BorderRadius.circular(3)),
-            child: Row(
-              children: [
-                Image.network(
-                  "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/dou_coin_icon.png",
-                  width: 15,
-                  height: 15,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 6),
-                ValueListenableBuilder<UserModel>(
-                  valueListenable: widget.userStatusNotifier,
-                  builder: (context, value, child) {
-                    return Text(
-                      value.coin.toString(),
-                      style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
-                    );
-                  },
-                ),
-                const SizedBox(width: 2),
-                const Icon(Icons.chevron_right, color: Colors.white54, size: 16),
-              ],
+          Flexible(
+            // 👈 核心修复 1：防止金币容器太大挤爆右侧屏幕
+            flex: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.3), borderRadius: BorderRadius.circular(3)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min, // 👈 核心修复 2：收紧内部 Row
+                children: [
+                  Image.network(
+                    "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/dou_coin_icon.png",
+                    width: 15,
+                    height: 15,
+                    fit: BoxFit.contain,
+                  ),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    // 👈 核心修复 3：金币数字过大时自动变成省略号，绝不撑爆
+                    child: ValueListenableBuilder<UserModel>(
+                      valueListenable: widget.userStatusNotifier,
+                      builder: (context, value, child) {
+                        return Text(
+                          value.coin.toString(),
+                          style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.bold),
+                          maxLines: 1, // 👈 限制 1 行
+                          overflow: TextOverflow.ellipsis, // 👈 超出变省略号
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 2),
+                  const Icon(Icons.chevron_right, color: Colors.white54, size: 16),
+                ],
+              ),
             ),
           ),
         ],
@@ -435,12 +456,21 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
                                         padding: EdgeInsets.only(right: 2),
                                         child: Icon(Icons.lock, color: Colors.white70, size: 10),
                                       ),
-                                    Text(widget.gift.name, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                    // 🚀 核心修复 1：必须套上 Flexible，并限制 1 行省略号！
+                                    Flexible(
+                                      child: Text(
+                                        widget.gift.name,
+                                        style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                        maxLines: 1, // 👈 防爆盾
+                                        overflow: TextOverflow.ellipsis, // 👈 防爆盾
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
 
                             // --- 价格区域 ---
+                            // 🚀 核心修复 2：价格和备注同样需要加限制，防止 remark 是超长乱码！
                             Text(
                               widget.gift.price == 0 ? "${widget.gift.remark}" : "${widget.gift.price} 钻",
                               style: TextStyle(
@@ -448,6 +478,8 @@ class _GiftItemWidgetState extends State<_GiftItemWidget> with SingleTickerProvi
                                 fontSize: 10,
                                 fontWeight: widget.isSelected ? FontWeight.bold : FontWeight.normal,
                               ),
+                              maxLines: 1, // 👈 防爆盾
+                              overflow: TextOverflow.ellipsis, // 👈 防爆盾
                             ),
                           ],
                         ),

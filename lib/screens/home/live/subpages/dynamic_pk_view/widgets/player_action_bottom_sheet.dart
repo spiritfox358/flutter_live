@@ -2,7 +2,9 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 // 引入 LivePKPlayerModel 所在的路径
-import 'package:flutter_live/screens/home/live/widgets/view_mode/dynamic_pk_battle_view.dart';
+import 'package:flutter_live/screens/home/live/subpages/dynamic_pk_view/dynamic_pk_battle_view.dart';
+
+import '../../pk_rank/pk_contribution_ranking_bottom_sheet.dart';
 
 class PlayerActionBottomSheet extends StatelessWidget {
   final LivePKPlayerModel targetPlayer;
@@ -68,10 +70,7 @@ class PlayerActionBottomSheet extends StatelessWidget {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.pinkAccent.withOpacity(0.5), width: 1.5),
-                      image: DecorationImage(
-                        image: NetworkImage(targetPlayer.avatarUrl),
-                        fit: BoxFit.cover,
-                      ),
+                      image: DecorationImage(image: NetworkImage(targetPlayer.avatarUrl), fit: BoxFit.cover),
                     ),
                   ),
                 ),
@@ -124,8 +123,9 @@ class PlayerActionBottomSheet extends StatelessWidget {
                     iconColor: Colors.yellowAccent,
                     label: "榜单",
                     onTap: () {
-                      Navigator.pop(context);
-                      onViewRank?.call();
+                      Navigator.pop(context); // 先关掉当前的操作面板
+                      // 🚀 直接呼出我们新写的专属半屏榜单！把目标主播的 roomId 传过去
+                      PkContributionBottomSheet.show(context, targetPlayer.roomId, targetPlayer.pkId);
                     },
                   ),
 
@@ -177,19 +177,11 @@ class PlayerActionBottomSheet extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 23, vertical: 8),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF2E56), Color(0xFFFF5252)],
-          ),
-          borderRadius: BorderRadius.circular(25),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.pinkAccent.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            )
-          ],
+          gradient: const LinearGradient(colors: [Color(0xFFFF2E56), Color(0xFFFF5252)]),
+          borderRadius: BorderRadius.circular(5),
+          boxShadow: [BoxShadow(color: Colors.pinkAccent.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
         ),
         child: const Text(
           "进直播间",

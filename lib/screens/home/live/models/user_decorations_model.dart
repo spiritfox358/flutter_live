@@ -1,10 +1,10 @@
 class UserDecorationsModel {
   final String? avatarFrame; // 头像框
   final String? entryEffect; // 进场特效
-  final String? chatBubble; // 聊天气泡
+  final String? levelHonourBuff; // 🚀 改回 String? (接收后端的 resourceUrl 字符串)
   final String? homeBg; // 主页背景
 
-  UserDecorationsModel({this.avatarFrame, this.entryEffect, this.chatBubble, this.homeBg});
+  UserDecorationsModel({this.avatarFrame, this.entryEffect, this.levelHonourBuff, this.homeBg});
 
   // 从 user['decorations'] 动态构建
   factory UserDecorationsModel.fromMap(dynamic raw) {
@@ -22,7 +22,7 @@ class UserDecorationsModel {
     return UserDecorationsModel(
       avatarFrame: getString('avatarFrame'),
       entryEffect: getString('entryEffect'),
-      chatBubble: getString('chatBubble'),
+      levelHonourBuff: getString('levelHonourBuff'), // 🚀 用普通字符串解析
       homeBg: getString('homeBg'),
     );
   }
@@ -32,12 +32,13 @@ class UserDecorationsModel {
 
   bool get hasEntryEffect => entryEffect != null;
 
-  bool get hasChatBubble => chatBubble != null;
+  // 🚀 快速判断是否有值
+  bool get hasLevelHonourBuff => levelHonourBuff != null && levelHonourBuff!.isNotEmpty;
 
   bool get hasHomeBg => homeBg != null;
 
   @override
   String toString() {
-    return 'UserDecorations(avatarFrame: $avatarFrame, entryEffect: $entryEffect, chatBubble: $chatBubble, homeBg: $homeBg)';
+    return 'UserDecorations(avatarFrame: $avatarFrame, entryEffect: $entryEffect, levelHonourBuff: $levelHonourBuff, homeBg: $homeBg)';
   }
 }

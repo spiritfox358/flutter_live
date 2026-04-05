@@ -11,6 +11,7 @@ import '../../../../../bridge/hardcore_mixer.dart';
 class LivePKPlayerModel {
   final String userId;
   final String roomId;
+  final String pkId;
   final String name;
   final String avatarUrl;
   final String streamUrl;
@@ -28,6 +29,7 @@ class LivePKPlayerModel {
   LivePKPlayerModel({
     required this.userId,
     required this.roomId,
+    required this.pkId,
     required this.name,
     required this.avatarUrl,
     required this.streamUrl,

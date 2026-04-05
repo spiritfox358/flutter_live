@@ -15,7 +15,7 @@ import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/voice_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/viewer_list.dart';
-import 'package:flutter_live/screens/home/live/widgets/view_mode/dynamic_pk_battle_view.dart';
+import 'package:flutter_live/screens/home/live/subpages/dynamic_pk_view/dynamic_pk_battle_view.dart';
 import 'package:flutter_live/store/user_store.dart';
 import 'package:flutter_live/tools/DictTool.dart';
 import 'package:media_kit/media_kit.dart';
@@ -128,6 +128,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late String _myUserName;
   late String _myUserId;
   late int _myLevel;
+  String _myLevelHonourBuff = ""; // 定义在 State 最上面
   late int _monthLevel;
   late String _myAvatar;
   late String _roomId;
@@ -438,6 +439,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         setState(() {
           _myCoins = _parseInt(res['coin']);
           _myLevel = _parseInt(res['level']);
+          final decos = res['decorations'];
+          if (decos != null) {
+            _myLevelHonourBuff = decos['levelHonourBuff']?.toString() ?? "";
+          }
           Map<String, dynamic> userInfo = res;
           UserStore.to.saveProfile(userInfo);
           _monthLevel = _parseInt(res['monthLevel']);
@@ -453,6 +458,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             coinsNextLevelThreshold: coinsNextLevelThreshold,
             coinsToNextLevelText: coinsToNextLevelText,
             coinsCurrentLevelThreshold: coinsCurrentLevelThreshold,
+            levelHonourBuffUrl: _myLevelHonourBuff,
           );
         });
       }
@@ -489,6 +495,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         level: _myLevel,
         monthLevel: _monthLevel,
         isHost: false,
+        levelHonourBuff: _myLevelHonourBuff, // 🚀 传下去
       );
       _startHeartbeat();
     } catch (e) {
@@ -523,24 +530,32 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _startEnterRoomSequence() async {
+    // 🚀 核心修复 1：把 info 接口提到最前面！因为后面的长连接需要拿它的 Buff 数据
+    await _fetchUserBalance();
+
+    // 🚀 核心修复 2：把进房记录单独包起来，它就算是报错了，也绝对不影响后续的核心流程！
     try {
-      final res = await HttpUtil().post("/api/room/join", data: {"roomId": int.parse(_roomId), "userId": _myUserId});
+      final res = await HttpUtil().post(
+        "/api/room/join",
+        // 💡 顺手把致命的 int.parse 改成 tryParse 防崩！
+        data: {"roomId": int.tryParse(_roomId) ?? 0, "userId": _myUserId},
+      );
 
       if (mounted && res != null && res['onlineCount'] != null) {
         setState(() {
           _onlineCount = _parseInt(res['onlineCount']);
         });
       }
-
-      await _fetchUserBalance();
-
-      if (!mounted || _isDisposed) return;
-      _connectWebSocket();
-      if (!mounted || _isDisposed) return;
-      _fetchRoomDetailAndSyncState();
     } catch (e) {
-      debugPrint("进房初始化失败: $e");
+      debugPrint("进房记录接口报错(可忽略，不影响主流程): $e");
     }
+
+    if (!mounted || _isDisposed) return;
+    // 此时 info 已经拿到了，去连 WebSocket 就会顺带把你正确的 Buff 传给服务器
+    _connectWebSocket();
+
+    if (!mounted || _isDisposed) return;
+    _fetchRoomDetailAndSyncState();
   }
 
   void _fetchRoomDetailAndSyncState() async {
@@ -679,7 +694,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           DateTime startTime = DateTime.parse(startTimeStr);
           int totalElapsed = DateTime.now().difference(startTime).inSeconds;
           int coHostElapsed = totalElapsed - _pkDuration - _punishmentDuration;
-          _enterCoHostPhase(initialElapsedTime: coHostElapsed > 0 ? coHostElapsed : 0, serverStartTime: startTime);
+          _enterCoHostPhase(initialElapsedTime: totalElapsed > 0 ? totalElapsed : 0, serverStartTime: startTime);
         }
       } else {
         setState(() {
@@ -829,18 +844,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       final String joinerAvatar = data['avatar'] ?? "";
       final int joinerLevel = int.tryParse(data['level']?.toString() ?? '') ?? 0;
       final int joinerMonthLevel = int.tryParse(data['monthLevel']?.toString() ?? '') ?? 0;
+      final String senderBuff = data['levelHonourBuff']?.toString() ?? '';
       switch (type) {
         case "ENTER":
-        // 定义执行逻辑的闭包
+          // 定义执行逻辑的闭包
           void executeLogic() {
             if (!mounted) return;
             // 提取 ID 解析逻辑，避免重复调用 int.parse
             final int userId = int.parse(joinerId);
 
             if ([2, 6, 163].contains(userId)) {
-              _entranceEffectKey.currentState?.addEntrance(
-                EntranceModel(userName: joinerName, avatar: joinerAvatar),
-              );
+              _entranceEffectKey.currentState?.addEntrance(EntranceModel(userName: joinerName, avatar: joinerAvatar));
             } else {
               _simulateVipEnter(
                 overrideUserId: joinerId,
@@ -849,6 +863,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                 overrideLevel: joinerLevel,
                 overrideMonthLevel: joinerMonthLevel,
                 isHost: senderIsHost,
+                levelHonourBuff: senderBuff, // 🚀 传下去！
               );
             }
           }
@@ -869,6 +884,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             monthLevel: joinerMonthLevel,
             isHost: senderIsHost,
             userId: msgUserId,
+            levelHonourBuff: senderBuff, // 🚀 传下去！
           );
           break;
         case "ONLINE_COUNT":
@@ -896,6 +912,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             isHost: senderIsHost,
             senderId: msgUserId,
             count: int.tryParse(data['giftCount']?.toString() ?? '') ?? 1,
+            levelHonourBuff: senderBuff, // 🚀 传下去！
           );
           break;
         // 处理 PK 邀请
@@ -1132,8 +1149,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     String? avatar,
     int? level,
     int? monthLevel,
+    String? levelHonourBuff, // 🚀 1. 新增参数接收
     int? score,
-    String? targetRoomId, // 🚀 1. 新增 targetRoomId 参数
+    String? targetRoomId,
   }) {
     if (_channel == null) return;
     final Map<String, dynamic> msg = {
@@ -1144,12 +1162,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       "avatar": avatar,
       "level": level,
       "monthLevel": monthLevel,
+      "levelHonourBuff": levelHonourBuff, // 🚀 2. 塞进广播的 JSON 里
       "isHost": isHost,
       "score": score,
       "content": content,
       "giftId": giftId,
       "giftCount": giftCount,
-      "targetRoomId": targetRoomId, // 🚀 2. 塞进广播的 JSON 里
+      "targetRoomId": targetRoomId,
     };
     try {
       _channel!.sink.add(jsonEncode(msg));
@@ -1293,9 +1312,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   void _stopPK() async {
     _pkTimer?.cancel();
     _enterCoHostPhase(initialElapsedTime: 0);
-    try {
-      await HttpUtil().post("/api/pk/to_cohost", data: {"roomId": int.parse(_roomId)});
-    } catch (e) {}
+    if (_isHost) {
+      try {
+        await HttpUtil().post("/api/pk/to_cohost", data: {"roomId": int.parse(_roomId)});
+      } catch (e) {}
+    }
   }
 
   void _enterCoHostPhase({required int initialElapsedTime, DateTime? serverStartTime}) {
@@ -1311,7 +1332,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     DateTime anchorTime;
     if (serverStartTime != null) {
-      anchorTime = serverStartTime.add(Duration(seconds: _pkDuration + _punishmentDuration));
+      anchorTime = serverStartTime;
+      // anchorTime = serverStartTime.add(Duration(seconds: _pkDuration + _punishmentDuration));
     } else {
       anchorTime = DateTime.now().subtract(Duration(seconds: initialElapsedTime));
     }
@@ -1582,6 +1604,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     required String userId,
     required int monthLevel,
     required bool isHost,
+    required String levelHonourBuff, // 🚀 1. 接收 Buff ID
   }) {
     _chatController.addMessage(
       ChatMessage(
@@ -1593,6 +1616,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         isGift: false,
         isAnchor: isHost,
         userId: userId,
+        levelHonourBuff: levelHonourBuff, // 🚀 2. 塞进模型
       ),
     );
   }
@@ -1606,6 +1630,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     required int senderLevel,
     required int senderMonthLevel,
     required bool isHost,
+    String levelHonourBuff = "", // 🚀 1. 接收 Buff ID
   }) {
     _chatController.addMessage(
       ChatMessage(
@@ -1617,6 +1642,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         isGift: true,
         isAnchor: isHost,
         userId: senderId,
+        levelHonourBuff: levelHonourBuff, // 🚀 2. 塞进模型
       ),
     );
   }
@@ -1631,6 +1657,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     bool isHost = false,
     int senderLevel = 1,
     int senderMonthLevel = 0,
+    String levelHonourBuff = "",
   }) {
     final comboKey = "${senderName}_${giftData.name}";
     if (isMe) _lastGiftSent = giftData;
@@ -1664,6 +1691,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         senderLevel: senderLevel,
         senderMonthLevel: senderMonthLevel,
         isHost: isHost,
+        levelHonourBuff: levelHonourBuff,
       );
       if (_pkStatus == PKStatus.playing) {
         if (_isFirstGiftPromoActive && !_usersWhoUsedPromo.contains(senderId)) {
@@ -1762,6 +1790,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         level: _myLevel,
         monthLevel: _monthLevel,
         score: giftData.price,
+        levelHonourBuff: _myLevelHonourBuff, // 🚀 传下去
       );
     } catch (e) {
       debugPrint("❌ 送礼失败: $e");
@@ -1842,6 +1871,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     required int overrideLevel,
     required int overrideMonthLevel,
     required bool isHost,
+    String levelHonourBuff = "", // 🚀 1. 接收 Buff ID
   }) {
     final names = ["顾北", "王校长", "阿特", "小柠檬"];
     final randomIdx = Random().nextInt(names.length);
@@ -1864,6 +1894,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           monthLevel: overrideMonthLevel,
           levelColor: const Color(0xFFFFD700),
           isAnchor: isHost,
+          levelHonourBuff: levelHonourBuff, // 🚀 2. 塞进模型
         ),
       );
     }
@@ -2017,6 +2048,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         LivePKPlayerModel(
           userId: p['userId']?.toString() ?? "",
           roomId: pRoomId,
+          pkId: p['pkId'].toString(),
           name: p['name'] ?? (isMe ? _currentName : "连麦主播"),
           avatarUrl: p['avatar'] ?? (isMe ? _currentAvatar : "https://picsum.photos/200"),
           rank: realRank,
@@ -2829,6 +2861,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                   level: _myLevel,
                                   monthLevel: _monthLevel,
                                   isHost: _isHost,
+                                  levelHonourBuff: _myLevelHonourBuff, // 🚀 传下去
                                 );
                               },
                             ),

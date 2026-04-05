@@ -294,7 +294,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
             ),
           ),
           const SizedBox(height: 4),
-          LevelBadge(level: item.level, monthLevel: item.monthLevel, showConsumption: true),
+          LevelBadge(level: item.level, monthLevel: item.monthLevel, showConsumption: true, levelHonourBuffUrl: item.levelHonourBuff),
           const SizedBox(height: 4),
           Text("${_formatScore(item.score)} 贡献", style: const TextStyle(color: Colors.grey, fontSize: 11)),
         ],
@@ -356,7 +356,7 @@ class _UserRankingPageState extends State<UserRankingPage> with SingleTickerProv
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    LevelBadge(level: item.level, monthLevel: item.monthLevel, showConsumption: true),
+                    LevelBadge(level: item.level, monthLevel: item.monthLevel, showConsumption: true, levelHonourBuffUrl: item.levelHonourBuff),
                     const SizedBox(width: 6),
                     if (rank > 1) Text("距上一名 $diff", style: const TextStyle(color: Colors.grey, fontSize: 11)),
                   ],
@@ -454,6 +454,7 @@ class RankModel {
   final String name;
   final String avatar;
   final String avatarFrame;
+  final String levelHonourBuff;
   final int level;
   final int monthLevel;
   final int score;
@@ -466,6 +467,7 @@ class RankModel {
     required this.score,
     required this.rank,
     required this.avatarFrame,
+    required this.levelHonourBuff,
     required this.level,
     required this.monthLevel,
   });
@@ -479,6 +481,7 @@ class RankModel {
       score: json['totalScore'] ?? 0,
       rank: json['rank'] ?? 0,
       avatarFrame: json['avatarFrame'] ?? "",
+      levelHonourBuff: json['levelHonourBuff'] ?? "",
       level: json['level'] ?? 0,
       monthLevel: json['monthLevel'] ?? 0,
     );
