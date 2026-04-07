@@ -12,6 +12,7 @@ import 'package:flutter_live/screens/home/live/widgets/chat/build_chat_list.dart
 import 'package:flutter_live/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart';
 import 'package:flutter_live/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart';
 import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
+import 'package:flutter_live/screens/home/live/widgets/profile/live_user_profile_popup.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/voice_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/viewer_list.dart';
@@ -2046,7 +2047,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       bool isMuted = p['isMuted'] ?? !isMe;
       players.add(
         LivePKPlayerModel(
-          userId: p['userId']?.toString() ?? "",
+          userId: p['anchorId']?.toString() ?? "",
           roomId: pRoomId,
           pkId: p['pkId'].toString(),
           name: p['name'] ?? (isMe ? _currentName : "连麦主播"),
@@ -2472,7 +2473,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                             },
 
                                                             onViewProfile: () {
-                                                              // 查看主页逻辑
+                                                              Map<String, dynamic> user = {"userId": targetPlayer.userId};
+                                                              LiveUserProfilePopup.show(context, user);
                                                             },
                                                           );
                                                         },

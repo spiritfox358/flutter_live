@@ -61,25 +61,38 @@ class VideoDecoderPool(private val context: Context, private val renderer: Hardc
             if (isReleased) return@post
             renderer.activeStreamCount = urls.size
             if (currentUrls == urls) return@post
+
+            // 🚀 记住上一轮的 URL
+            val oldUrls = currentUrls
             currentUrls = urls
 
             for (i in 0 until 9) {
                 val player = players[i] ?: continue
+                val newUrl = if (i < urls.size) urls[i] else ""
+                val oldUrl = if (i < oldUrls.size) oldUrls[i] else ""
+
+                // 🚀🚀🚀 核心修复：如果这个坑位的 URL 根本没变，直接跳过！绝对不要打断正在播放的画面！
+                if (newUrl == oldUrl && newUrl.isNotEmpty()) {
+                    continue
+                }
+
+                // 如果 URL 变了（换人了，或者人走了），先停掉旧的清理干净
                 player.stop()
                 player.clearMediaItems()
 
-                if (i < urls.size && urls[i].startsWith("http")) {
+                // 如果是新加进来的 URL，则重新拉流播放
+                if (newUrl.startsWith("http") || newUrl.startsWith("rtmp")) {
                     if (renderer.inputSurfaces[i] != null) {
                         player.setVideoSurface(renderer.inputSurfaces[i])
                     }
-                    val mediaItem = MediaItem.fromUri(urls[i])
+                    val mediaItem = MediaItem.fromUri(newUrl)
                     player.setMediaItem(mediaItem)
                     player.prepare()
 
                     mainHandler.postDelayed({
                         if (isReleased) return@postDelayed
                         try { player.play() } catch (e: Exception) {}
-                    }, (i * 300).toLong())
+                    }, 50L) // 错峰 50ms 即可，不需要 300ms 那么长
                 }
             }
         }

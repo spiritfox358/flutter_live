@@ -80,6 +80,10 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
   List<String> _readyUrls = [];
   final Map<String, GlobalKey<_CellWrapperState>> _cellKeys = {};
 
+  // 🚀 性能修复 8：底层引擎 URL 缓存池。彻底隔绝 Token 变化与数组排序造成的底层重建！
+  final Map<String, String> _roomIdToEngineUrl = {};
+  final List<String> _stableEngineUrls = [];
+
   // 🚀🚀🚀 终极真理武器：记录容器真实的 UI 宽和高！绝对不再瞎猜！
   double? _actualContainerWidth;
   double? _actualContainerHeight;
@@ -161,24 +165,41 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
   }
 
   void _syncStreamsToEngine() {
-    // 🚀 如果真实高度还没抓到，绝不往下发错误的指令！
-    if (_textureId == null || !widget.useVideoMode || widget.players.isEmpty || _actualContainerWidth == null || _actualContainerHeight == null)
-      return;
+    if (_textureId == null || !widget.useVideoMode || widget.players.isEmpty || _actualContainerWidth == null || _actualContainerHeight == null) return;
 
     final sortedPlayers = _getSortedPlayers();
-    List<String> urls = sortedPlayers.map((p) => p.streamUrl).toList();
 
-    if (widget.focusedRoomId != null && sortedPlayers.any((p) => p.roomId == widget.focusedRoomId)) {
-      int focusIndex = sortedPlayers.indexWhere((p) => p.roomId == widget.focusedRoomId);
-      _currentLayouts = _generateFocusLayouts(sortedPlayers, focusIndex);
-    } else {
-      _currentLayouts = _generateGridLayouts(sortedPlayers.length);
+    // 1. 🚀 构建稳定的底层 URL 列表（老玩家下标绝对不移位）
+    final currentUrls = sortedPlayers.map((p) => p.streamUrl).where((u) => u.isNotEmpty).toSet();
+    _stableEngineUrls.removeWhere((url) => !currentUrls.contains(url)); // 踢掉离开的人
+    for (var url in currentUrls) {
+      if (!_stableEngineUrls.contains(url)) {
+        _stableEngineUrls.add(url); // 新人永远加在数组末尾！
+      }
     }
 
-    // 🚀🚀🚀 终极真理：用 LayoutBuilder 抓出来的真实宽高 * 像素密度！
-    // Android 画板和 Flutter UI 绝对 1:1，再也不可能发生拉伸了！
+    // 2. 算你原本的动态视觉布局 (完全保持你原来的逻辑)
+    List<List<double>> visualLayouts;
+    if (widget.focusedRoomId != null && sortedPlayers.any((p) => p.roomId == widget.focusedRoomId)) {
+      int focusIndex = sortedPlayers.indexWhere((p) => p.roomId == widget.focusedRoomId);
+      visualLayouts = _generateFocusLayouts(sortedPlayers, focusIndex);
+    } else {
+      visualLayouts = _generateGridLayouts(sortedPlayers.length);
+    }
+    _currentLayouts = visualLayouts;
+
+    // 3. 🚀 将动态视觉布局，映射到稳定的底层顺序上
+    List<List<double>> engineLayouts = List.filled(_stableEngineUrls.length, [0.0, 0.0, 0.0, 0.0]);
+    for (int i = 0; i < sortedPlayers.length; i++) {
+      int engineIndex = _stableEngineUrls.indexOf(sortedPlayers[i].streamUrl);
+      if (engineIndex != -1) {
+        engineLayouts[engineIndex] = visualLayouts[i];
+      }
+    }
+
+    // 4. 传给 Android！
     double ratio = MediaQuery.of(context).devicePixelRatio;
-    HardcoreMixer.playStreams(urls, _currentLayouts, _actualContainerWidth! * ratio, _actualContainerHeight! * ratio);
+    HardcoreMixer.playStreams(_stableEngineUrls, engineLayouts, _actualContainerWidth! * ratio, _actualContainerHeight! * ratio);
 
     setState(() {});
 
@@ -345,6 +366,7 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
                   child: _CellWrapper(
                     key: ValueKey(_getStableId(sortedPlayers[index])),
                     engineTextureId: _textureId,
+                    engineStreamUrl: _roomIdToEngineUrl[sortedPlayers[index].roomId] ?? sortedPlayers[index].streamUrl, // 🚀 传给子组件，解决 Radar 失效问题
                     player: sortedPlayers[index],
                     pkStatus: widget.pkStatus,
                     currentRoomId: widget.currentRoomId,
@@ -365,6 +387,7 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
 
 class _CellWrapper extends StatefulWidget {
   final int? engineTextureId;
+  final String engineStreamUrl; // 🚀 新增这行
   final LivePKPlayerModel player;
   final PKStatus pkStatus;
   final String currentRoomId;
@@ -376,6 +399,7 @@ class _CellWrapper extends StatefulWidget {
   const _CellWrapper({
     super.key,
     this.engineTextureId,
+    required this.engineStreamUrl, // 🚀 新增这行
     required this.player,
     required this.pkStatus,
     required this.currentRoomId,
@@ -392,6 +416,8 @@ class _CellWrapper extends StatefulWidget {
 class _CellWrapperState extends State<_CellWrapper> {
   int _tick = 0;
   Timer? _timer;
+  // 🚀 核心防闪烁变量：只要准备好过一次，就死死记住！
+  bool _hasEverBeenReady = false;
   bool _isVideoReady = false;
   Timer? _radarTimer;
 
@@ -399,7 +425,6 @@ class _CellWrapperState extends State<_CellWrapper> {
   void initState() {
     super.initState();
     _startCarousel();
-    _startVideoRadar();
   }
 
   @override
@@ -415,9 +440,11 @@ class _CellWrapperState extends State<_CellWrapper> {
     String oldBase = oldWidget.player.streamUrl.split('?').first;
     String newBase = widget.player.streamUrl.split('?').first;
     if (oldBase != newBase) {
-      _startVideoRadar();
+      // 🚀 只有当流地址真正换人时，才清空记忆，重新显示头像等待
+      _hasEverBeenReady = false;
     }
   }
+  // 🗑️ 彻底删掉整个 _startVideoRadar() 方法，不需要它了！
 
   void _startVideoRadar() {
     _isVideoReady = false;
@@ -451,7 +478,6 @@ class _CellWrapperState extends State<_CellWrapper> {
   @override
   void dispose() {
     _timer?.cancel();
-    _radarTimer?.cancel();
     super.dispose();
   }
 
@@ -732,7 +758,12 @@ class _CellWrapperState extends State<_CellWrapper> {
   Widget _buildMediaContent(LivePKPlayerModel player) {
     String safeUrl = player.streamUrl.trim();
     bool hasValidStream = safeUrl.isNotEmpty && (safeUrl.startsWith('http') || safeUrl.startsWith('rtmp'));
-
+    // 🚀 核心防闪烁逻辑：拿真正喂给引擎的、稳定的 URL 去匹配！
+    if (widget.readyUrls.contains(widget.engineStreamUrl)) {
+      _hasEverBeenReady = true;
+    }
+    // 🚀 只要记住是 Ready 的，就绝对不再变回 Avatar！
+    bool showAvatar = !_hasEverBeenReady || !widget.useVideoMode || !hasValidStream;
     double avatarPadding = widget.allPlayers.length == 9 ? 18.0 : (widget.allPlayers.length >= 7 ? 5.0 : 12.0);
     Widget fallbackContent = Stack(
       fit: StackFit.expand,
@@ -765,11 +796,6 @@ class _CellWrapperState extends State<_CellWrapper> {
 
     Widget videoWidget = Container(color: Colors.transparent);
     if (player.isPunished) videoWidget = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: videoWidget);
-
-    // 🚀 性能修复 7：直接根据父组件传来的全局状态判断视频是否准备好
-    bool isVideoReady = widget.readyUrls.contains(safeUrl);
-    bool showAvatar = !isVideoReady || !widget.useVideoMode || !hasValidStream;
-
     return RepaintBoundary(
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 400),

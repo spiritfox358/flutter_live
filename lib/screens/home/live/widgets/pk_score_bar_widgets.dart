@@ -797,7 +797,7 @@ class PKTimer extends StatelessWidget {
 
     // 🟢 核心修复：去掉了 Column，去掉了重复的“我方胜利”文本，只保留绝对干净的梯形倒计时！
     return CustomPaint(
-      painter: _TrapezoidPainter(color: isRedBg ? const Color(0xFFFF1744).withOpacity(0.3) : Colors.grey.withOpacity(0.85)),
+      painter: _TrapezoidPainter(color: isRedBg ? const Color(0xFFFF1744).withAlpha(100) : Colors.grey.withAlpha(80)),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), // 微调了内边距，让文字居中更完美
         child: Row(
