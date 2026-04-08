@@ -121,6 +121,9 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
   }
 
   Widget _buildPremiumGiftBanner(GiftEvent gift) {
+    // 🟢 1. 先拿到原本根据连击数算出来的两种颜色
+    final List<Color> dynamicColors = _getGradientColors(gift.count);
+
     return Container(
       // 底部间距
       margin: const EdgeInsets.only(bottom: 5),
@@ -129,20 +132,27 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // ==============================
-          // 1. 紧凑型胶囊 (带炫彩渐变背景)
+          // 1. 紧凑型胶囊 (带炫彩渐变背景 -> 右侧透明)
           // ==============================
           Container(
             height: 36,
             padding: const EdgeInsets.only(left: 2, right: 8),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                // 🟢 核心修改：直接传入当前的连击数，动态获取颜色
-                colors: _getGradientColors(gift.count),
+                // 🟢 核心修改 1：加入透明颜色，实现拖尾渐变
+                colors: [
+                  dynamicColors[0], // 左侧原色
+                  dynamicColors[1], // 中间原色
+                  dynamicColors[1].withOpacity(0.0), // 右侧渐变到完全透明 (0.0)
+                ],
+                // 🟢 核心修改 2：控制渐变的位置。0.0 ~ 0.5 是实体色，0.5 ~ 1.0 逐渐变透明
+                stops: const [0.0, 0.5, 1.0],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
               borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
+              // 🟢 核心修改 3：必须把这里的边框注释掉！否则右边透明了，白色的边框线还在，会很丑
+              // border: Border.all(color: Colors.white.withOpacity(0.3), width: 0.5),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -150,10 +160,10 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
                 // A. 头像
                 CircleAvatar(radius: 15, backgroundColor: Colors.white24, backgroundImage: NetworkImage(gift.senderAvatar)),
 
-                const SizedBox(width: 6), // 间距稍微拉大一点点
-                // B. 文字信息 (🟢 核心修改：增加宽度限制)
+                const SizedBox(width: 6),
+                // B. 文字信息
                 Container(
-                  constraints: const BoxConstraints(maxWidth: 60), // 🟢 限制最大宽度，防止名字太长
+                  constraints: const BoxConstraints(maxWidth: 60),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -162,15 +172,15 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
                       Text(
                         gift.senderName,
                         style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                        maxLines: 1, // 🟢 单行
-                        overflow: TextOverflow.ellipsis, // 🟢 超出显示省略号
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       // 送出礼物名
                       Text(
                         "送出 ${gift.giftName}",
                         style: TextStyle(color: Colors.white.withOpacity(0.95), fontSize: 9),
-                        maxLines: 1, // 🟢 单行
-                        overflow: TextOverflow.ellipsis, // 🟢 超出显示省略号
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -197,7 +207,7 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
                 Align(
                   alignment: Alignment.bottomCenter,
                   child: Transform.translate(
-                    offset: const Offset(0, 1), // 向下移动1像素（按需调整）
+                    offset: const Offset(0, 1),
                     child: const Text(
                       "x",
                       style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, fontStyle: FontStyle.italic),
@@ -208,7 +218,7 @@ class AnimatedGiftBannerWidget extends State<AnimatedGiftItem> with TickerProvid
                 Align(
                   alignment: Alignment.bottomCenter,
                   child: Transform.translate(
-                    offset: const Offset(0, 5), // 向下移动1像素（按需调整）
+                    offset: const Offset(0, 5),
                     child: Text(
                       "${gift.count}",
                       style: const TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w900, fontStyle: FontStyle.italic),

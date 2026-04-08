@@ -7,6 +7,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/subpages/dynamic_pk_view/widgets/player_action_bottom_sheet.dart';
+import 'package:flutter_live/screens/home/live/subpages/pk_result/pk_result.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
 import 'package:flutter_live/screens/home/live/widgets/chat/build_chat_list.dart';
 import 'package:flutter_live/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart';
@@ -139,6 +140,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final GlobalKey<ChatInputOverlayState> _inputOverlayKey = GlobalKey();
   final GlobalKey<VoiceRoomContentViewState> _voiceRoomKey = GlobalKey();
   final GlobalKey<UserEntranceEffectLayerState> _entranceEffectKey = GlobalKey();
+  final GlobalKey<PkResultPageState> _pkResultKey = GlobalKey<PkResultPageState>();
 
   // 🟢 1. 定义一个 GlobalKey 用来控制榜单组件
   final GlobalKey<ViewerListState> _viewerListKey = GlobalKey<ViewerListState>();
@@ -1255,8 +1257,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   void _startPKRound({int? initialTimeLeft}) {
     _pkTimer?.cancel();
     _pkTimer = null;
-    if (_pkStatus == PKStatus.playing && initialTimeLeft == null) return;
     if (initialTimeLeft == null) _playPKStartAnimation();
+    if (_pkStatus == PKStatus.playing && initialTimeLeft == null) return;
 
     setState(() {
       _pkStatus = PKStatus.playing;
@@ -1291,6 +1293,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   void _enterPunishmentPhase({int? timeLeft}) async {
     _pkTimer?.cancel();
     _pkTimer = null;
+    _pkResultKey.currentState?.showResult(true);
     setState(() {
       _pkStatus = PKStatus.punishment;
       _pkTimeLeft = (timeLeft != null && timeLeft > 0) ? timeLeft : _punishmentDuration;
@@ -2441,7 +2444,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                                     }
                                                                     newList.add(newMap);
                                                                   }
-
                                                                   _participants = newList;
                                                                 });
 
@@ -2744,35 +2746,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                   left: 0,
                                   child: LiveUserEntrance(key: _entranceKey),
                                 ),
-                                // if (bottomInset == 0)
-                                //   Positioned(
-                                //     left: 0,
-                                //     width: size.width,
-                                //     top: pkVideoBottomY - 160,
-                                //     height: 160,
-                                //     bottom: null,
-                                //     child: IgnorePointer(
-                                //       child: Align(
-                                //         alignment: Alignment.bottomLeft,
-                                //         child: Padding(
-                                //           padding: const EdgeInsets.only(left: 10),
-                                //           child: Column(
-                                //             crossAxisAlignment: CrossAxisAlignment.start,
-                                //             mainAxisSize: MainAxisSize.min,
-                                //             children: _activeGifts
-                                //                 .map(
-                                //                   (giftEvent) => AnimatedGiftItem(
-                                //                     key: ValueKey(giftEvent.id),
-                                //                     giftEvent: giftEvent,
-                                //                     onFinished: () => _onGiftFinished(giftEvent.id),
-                                //                   ),
-                                //                 )
-                                //                 .toList(),
-                                //           ),
-                                //         ),
-                                //       ),
-                                //     ),
-                                //   ),
                                 if (_showPKStartAnimation)
                                   Positioned.fill(
                                     child: Container(
@@ -2957,6 +2930,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                   ),
                 ),
               ),
+            PkResultPage(key: _pkResultKey),
           ],
         ),
         // _buildAiVoiceBtn(),
@@ -3050,6 +3024,27 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     // 如果高度变了，只通知局部组件刷新，绝对不重绘整个页面！
     if (_keyboardNotifier.value != bottomInset) {
       _keyboardNotifier.value = bottomInset;
+    }
+  }
+
+  // 🟢 5. 新增方法：监听 App 后台/前台切换生命周期
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.resumed) {
+      // 🚀 核心修复：App 从后台被重新唤醒到了前台
+      print("🚀 [Lifecycle] App 回到前台，开始强制同步房间数据...");
+      // 强制重新拉取最新的房间和 PK 详情（替换为你实际拉取数据的那个方法名）
+      // 比如你是在 _initData() 或者 _fetchRoomDetail() 里调用的后端接口
+      _fetchRoomDetailAndSyncState();
+      // 如果你有断线重连逻辑，也可以在这里触发
+      _reconnect();
+      // liveSocketHandler.reconnect();
+    } else if (state == AppLifecycleState.paused) {
+      // App 退到后台
+      print("⏸️ [Lifecycle] App 退到后台");
+      // 可选：如果需要在后台暂停某些消耗性能的动画，可以写在这里
     }
   }
 

@@ -39,7 +39,7 @@ class GiftTrayEffectLayerState extends State<GiftTrayEffectLayer> {
   final double _bottomOrigin = 320.0;
   final double _leftOrigin = 16.0;
 
-  final double _slotHeight = 50.0;
+  final double _slotHeight = 40.0;
   final double _slotSpacing = 0.0;
   // -------------------------------------------------------
 
