@@ -146,7 +146,7 @@ class LiveMyLevelBenefitPopup extends StatelessWidget {
                               const SizedBox(height: 10),
                               Expanded(
                                 child: _buildFeatureItem(
-                                  title: "玫瑰公爵",
+                                  title: "玫瑰公爵2",
                                   subtitle: "永恒之约,星河重逢",
                                   iconColor: const Color(0xFF9B59B6),
                                   iconData: Icons.local_florist,

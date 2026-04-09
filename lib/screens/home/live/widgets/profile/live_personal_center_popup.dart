@@ -9,6 +9,7 @@ import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart';
 // 🟢 3. 引入礼物预览弹窗
 import 'package:flutter_live/screens/home/live/widgets/gift_preview/gift_preview_popup.dart';
 import 'package:flutter_live/store/user_store.dart';
+import '../../subpages/decoration_mall/decoration_bottom_sheet.dart';
 
 /// 弹出个人中心 (底部弹窗入口)
 void showLivePersonalCenterPopup(BuildContext context, UserModel userModel) {
@@ -43,10 +44,9 @@ class LivePersonalCenterPopup extends StatelessWidget {
         physics: const ClampingScrollPhysics(),
         child: Column(
           children: [
-            // 🟢 修改点 1：蓝色背景区域更加紧凑
+            // 头部蓝色背景区域
             Container(
               width: double.infinity,
-              // 减少了上下的 padding，使头部变矮
               padding: const EdgeInsets.only(top: 24, bottom: 16, left: 20, right: 20),
               decoration: const BoxDecoration(
                 gradient: LinearGradient(colors: [headerBlueStart, headerBlueEnd], begin: Alignment.topLeft, end: Alignment.bottomRight),
@@ -54,7 +54,7 @@ class LivePersonalCenterPopup extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // 头像 (稍微调小一点点以适配紧凑高度)
+                  // 头像
                   Container(
                     width: 68,
                     height: 68,
@@ -75,7 +75,7 @@ class LivePersonalCenterPopup extends StatelessWidget {
                           UserStore.to.nickname ?? "未知用户",
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 20, // 字体微调适配紧凑布局
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                             shadows: [Shadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 1))],
                           ),
@@ -119,20 +119,19 @@ class LivePersonalCenterPopup extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // --- 🟢 修改点 2：类别区域 50% 平分对齐 ---
+                  // --- 类别区域 50% 平分对齐 ---
                   SizedBox(
                     height: 160,
                     child: Row(
                       children: [
-                        // 左侧：甄爱系列 (皮肤) - 占 50%
+                        // 左侧：甄爱系列 (皮肤)
                         Expanded(
-                          // 移除 flex，默认就是 1:1
-                          child: _buildSkinCard(),
+                          // 🟢 绑定装扮商城弹窗事件
+                          child: _buildSkinCard(onTap: () => DecorationBottomSheet.show(context)),
                         ),
                         const SizedBox(width: 10),
-                        // 右侧：御见万象 & 玫瑰公爵 - 占 50%
+                        // 右侧：御见万象 & 玫瑰公爵
                         Expanded(
-                          // 移除 flex，默认就是 1:1
                           child: Column(
                             children: [
                               Expanded(
@@ -141,6 +140,8 @@ class LivePersonalCenterPopup extends StatelessWidget {
                                   subtitle: "天工万象 匠心造物",
                                   iconColor: const Color(0xFF4A90E2),
                                   iconData: Icons.all_inclusive,
+                                  // 🟢 绑定装扮商城弹窗事件
+                                  onTap: () => DecorationBottomSheet.show(context),
                                 ),
                               ),
                               const SizedBox(height: 10),
@@ -150,6 +151,8 @@ class LivePersonalCenterPopup extends StatelessWidget {
                                   subtitle: "永恒之约,星河重逢",
                                   iconColor: const Color(0xFF9B59B6),
                                   iconData: Icons.local_florist,
+                                  // 🟢 绑定装扮商城弹窗事件
+                                  onTap: () => DecorationBottomSheet.show(context),
                                 ),
                               ),
                             ],
@@ -161,7 +164,7 @@ class LivePersonalCenterPopup extends StatelessWidget {
 
                   const SizedBox(height: 10),
 
-                  // 第二行：加速升级 & 进场隐身 (Grid) - 已经是 50% 平分
+                  // 第二行：加速升级 & 进场隐身 (Grid)
                   Row(
                     children: [
                       Expanded(
@@ -170,6 +173,8 @@ class LivePersonalCenterPopup extends StatelessWidget {
                           subtitle: "开通后加速等级升级",
                           iconColor: const Color(0xFFFFB74D),
                           iconData: Icons.notifications_active,
+                          // 🟢 绑定装扮商城弹窗事件
+                          onTap: () => DecorationBottomSheet.show(context),
                         ),
                       ),
                       const SizedBox(width: 10),
@@ -179,6 +184,8 @@ class LivePersonalCenterPopup extends StatelessWidget {
                           subtitle: "享进场隐身特权",
                           iconColor: const Color(0xFF64B5F6),
                           iconData: Icons.visibility_off,
+                          // 🟢 绑定装扮商城弹窗事件
+                          onTap: () => DecorationBottomSheet.show(context),
                         ),
                       ),
                     ],
@@ -187,7 +194,15 @@ class LivePersonalCenterPopup extends StatelessWidget {
                   const SizedBox(height: 10),
 
                   // 第三行：神秘人 (单行)
-                  _buildFeatureItem(title: "神秘人", subtitle: "享尊贵匿名套装", iconColor: const Color(0xFF9575CD), iconData: Icons.person_pin, height: 80),
+                  _buildFeatureItem(
+                    title: "神秘人",
+                    subtitle: "享尊贵匿名套装",
+                    iconColor: const Color(0xFF9575CD),
+                    iconData: Icons.person_pin,
+                    height: 80,
+                    // 🟢 绑定装扮商城弹窗事件
+                    onTap: () => DecorationBottomSheet.show(context),
+                  ),
 
                   const SizedBox(height: 40),
                 ],
@@ -286,83 +301,98 @@ class LivePersonalCenterPopup extends StatelessWidget {
     );
   }
 
-  Widget _buildSkinCard() {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(colors: [Color(0xFFE57373), Color(0xFFF06292)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 4))],
-      ),
-      child: Stack(
-        children: [
-          Positioned(right: 0, bottom: 0, child: Icon(Icons.favorite, size: 80, color: Colors.white.withOpacity(0.2))),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: const Color(0xFFFFCC80), borderRadius: BorderRadius.circular(4)),
-                  child: const Text(
-                    "皮肤",
-                    style: TextStyle(color: Color(0xFF5D4037), fontSize: 10, fontWeight: FontWeight.bold),
+  // 🟢 增加 onTap 参数并包裹 GestureDetector
+  Widget _buildSkinCard({VoidCallback? onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: const LinearGradient(colors: [Color(0xFFE57373), Color(0xFFF06292)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          boxShadow: [BoxShadow(color: Colors.pink.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 4))],
+        ),
+        child: Stack(
+          children: [
+            Positioned(right: 0, bottom: 0, child: Icon(Icons.favorite, size: 80, color: Colors.white.withOpacity(0.2))),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: const Color(0xFFFFCC80), borderRadius: BorderRadius.circular(4)),
+                    child: const Text(
+                      "皮肤",
+                      style: TextStyle(color: Color(0xFF5D4037), fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
                   ),
-                ),
-                const Spacer(),
-                const Text(
-                  "甄爱系列浪漫上线",
-                  style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 2),
-                const Text("皮肤商城", style: TextStyle(color: Colors.white70, fontSize: 11)),
-              ],
+                  const Spacer(),
+                  const Text(
+                    "甄爱系列浪漫上线",
+                    style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text("皮肤商城", style: TextStyle(color: Colors.white70, fontSize: 11)),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFeatureItem({required String title, required String subtitle, required Color iconColor, required IconData iconData, double? height}) {
-    return Container(
-      height: height,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: iconColor.withOpacity(0.1)),
-            child: Icon(iconData, color: iconColor, size: 22),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(color: Color(0xFF333333), fontSize: 15, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(color: Color(0xFF999999), fontSize: 11),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+  // 🟢 增加 onTap 参数并包裹 GestureDetector
+  Widget _buildFeatureItem({
+    required String title,
+    required String subtitle,
+    required Color iconColor,
+    required IconData iconData,
+    double? height,
+    VoidCallback? onTap, // 新增点击事件参数
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: height,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2))],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: iconColor.withOpacity(0.1)),
+              child: Icon(iconData, color: iconColor, size: 22),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(color: Color(0xFF333333), fontSize: 15, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Color(0xFF999999), fontSize: 11),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

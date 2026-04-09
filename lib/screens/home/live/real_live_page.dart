@@ -952,17 +952,23 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           final List<dynamic> scoreList = data['data'] as List<dynamic>;
 
           bool hasChanged = false;
-          // 🟢 核心改造：遍历后端发来的最新分数列表
+
+          // 🚀 核心修复 1：深拷贝一份全新的数组，彻底改变内存地址，逼迫子组件必须重绘！
+          List<Map<String, dynamic>> newParticipants = [];
+          for (var p in _participants) {
+            newParticipants.add(Map<String, dynamic>.from(p));
+          }
+
+          // 纯内存静默修改
           for (var item in scoreList) {
             String updatedRoomId = item['roomId'].toString();
             int newScore = int.tryParse(item['score'].toString()) ?? 0;
 
-            // 去 _participants 数组里找对应的主播并更新分数
-            for (int i = 0; i < _participants.length; i++) {
-              if (_participants[i]['roomId'].toString() == updatedRoomId) {
-                int oldScore = _parseInt(_participants[i]['score']);
+            for (int i = 0; i < newParticipants.length; i++) {
+              if (newParticipants[i]['roomId'].toString() == updatedRoomId) {
+                int oldScore = _parseInt(newParticipants[i]['score']);
                 if (oldScore != newScore) {
-                  _participants[i]['score'] = newScore;
+                  newParticipants[i]['score'] = newScore;
                   hasChanged = true;
                 }
                 break;
@@ -970,8 +976,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             }
           }
 
+          // 如果分数有变，重新计算红蓝总分
           if (hasChanged) {
-            // 🟢 收到新分数后，重新计算全场的红蓝血条
+            // 🚀 将全新地址的数组赋值回去
+            _participants = newParticipants;
+
             int myCamp = 0;
             for (var p in _participants) {
               if (p['roomId'].toString() == _roomId) {
@@ -1004,7 +1013,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _myPKScore = mySum;
             _opponentPKScore = enemySum;
 
-            _pkScoreUpdateTrigger.value++; // 触发 UI 刷新
+            // 🚀 核心修复 2：放弃简单的 value++，直接塞入当前毫秒时间戳！
+            // 保证每一次接收到数据，ValueNotifier 的值都是绝对唯一的，绝对能百分百触发局部刷新！
+            _pkScoreUpdateTrigger.value = DateTime.now().millisecondsSinceEpoch;
           }
           break;
         case "PK_END":
@@ -2383,100 +2394,106 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                   left: 0,
                                                   right: 0,
                                                   bottom: 0,
-                                                  child: DynamicPKBattleView(
-                                                    key: const ValueKey('steady_pk_battle_view'),
-                                                    pkStatus: _pkStatus,
-                                                    currentRoomId: _roomId,
-                                                    players: _buildCurrentPkPlayers(),
-                                                    useVideoMode: true,
-                                                    focusedRoomId: _focusedRoomId,
-                                                    onTapPlayer: (LivePKPlayerModel targetPlayer) {
-                                                      // 🚀 新增防空保护：如果点到空座位，直接忽略！
-                                                      if (targetPlayer.roomId.isEmpty || targetPlayer.roomId == "0") return;
+                                                  child: ValueListenableBuilder<int>(
+                                                    valueListenable: _pkScoreUpdateTrigger, // 👈 监听这里的变化
+                                                    builder: (context, triggerValue, child) {
+                                                      // 只有 triggerValue 变化时，这里的 builder 才会重新执行，重新调用 _buildCurrentPkPlayers()
+                                                      return DynamicPKBattleView(
+                                                        key: const ValueKey('steady_pk_battle_view'),
+                                                        pkStatus: _pkStatus,
+                                                        currentRoomId: _roomId,
+                                                        players: _buildCurrentPkPlayers(),
+                                                        useVideoMode: true,
+                                                        focusedRoomId: _focusedRoomId,
+                                                        onTapPlayer: (LivePKPlayerModel targetPlayer) {
+                                                          // 🚀 新增防空保护：如果点到空座位，直接忽略！
+                                                          if (targetPlayer.roomId.isEmpty || targetPlayer.roomId == "0") return;
 
-                                                      _dismissKeyboard();
+                                                          _dismissKeyboard();
 
-                                                      showModalBottomSheet(
-                                                        context: context,
-                                                        backgroundColor: Colors.transparent,
-                                                        isScrollControlled: true,
-                                                        builder: (ctx) {
-                                                          return PlayerActionBottomSheet(
-                                                            targetPlayer: targetPlayer,
-                                                            // 🚀 核心：用 roomId 来判断是不是本房间
-                                                            isMe: targetPlayer.roomId == _roomId,
-                                                            isHost: _isHost,
+                                                          showModalBottomSheet(
+                                                            context: context,
+                                                            backgroundColor: Colors.transparent,
+                                                            isScrollControlled: true,
+                                                            builder: (ctx) {
+                                                              return PlayerActionBottomSheet(
+                                                                targetPlayer: targetPlayer,
+                                                                // 🚀 核心：用 roomId 来判断是不是本房间
+                                                                isMe: targetPlayer.roomId == _roomId,
+                                                                isHost: _isHost,
 
-                                                            onEnterRoom: () {
-                                                              if (_isHost && !_isRobotActive) {
-                                                                ScaffoldMessenger.of(
-                                                                  context,
-                                                                ).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
-                                                                return;
-                                                              }
-                                                              _switchToTargetRoom(targetPlayer);
-                                                            },
-
-                                                            onToggleMute: () {
-                                                              print("🟢 1. 成功点击了按钮！开始执行闭麦逻辑...");
-                                                              try {
-                                                                bool targetMuteState = !targetPlayer.isMuted;
-
-                                                                // 🚀 如果点的是本房间，操作本地物理麦克风
-                                                                if (targetPlayer.roomId == _roomId) {
-                                                                  AiRealTimeVoiceService().setMicMute(targetMuteState);
-                                                                }
-
-                                                                setState(() {
-                                                                  List<Map<String, dynamic>> newList = [];
-
-                                                                  for (var p in _participants) {
-                                                                    var newMap = Map<String, dynamic>.from(p);
-
-                                                                    // 🚀 核心：用 roomId 来匹配列表中的玩家！
-                                                                    if (newMap['roomId'].toString() == targetPlayer.roomId) {
-                                                                      newMap['isMuted'] = targetMuteState;
-
-                                                                      String streamUrl = newMap['streamUrl'] ?? "";
-                                                                      if (streamUrl.isNotEmpty) {
-                                                                        HardcoreMixer.setMuted(streamUrl, targetMuteState);
-                                                                      }
-                                                                    }
-                                                                    newList.add(newMap);
+                                                                onEnterRoom: () {
+                                                                  if (_isHost && !_isRobotActive) {
+                                                                    ScaffoldMessenger.of(
+                                                                      context,
+                                                                    ).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
+                                                                    return;
                                                                   }
-                                                                  _participants = newList;
-                                                                });
+                                                                  _switchToTargetRoom(targetPlayer);
+                                                                },
 
-                                                                // 🚀 核心：通过 Socket 广播这个 roomId 的闭麦指令
-                                                                _sendSocketMessage(
-                                                                  "MUTE_STATE_CHANGE",
-                                                                  content: targetMuteState ? "1" : "0",
-                                                                  targetRoomId: targetPlayer.roomId, // 传 roomId！
-                                                                );
-                                                              } catch (e, stackTrace) {
-                                                                print("🚨 致命崩溃！代码在这里死掉了: $e");
-                                                                print(stackTrace);
-                                                              }
-                                                            },
+                                                                onToggleMute: () {
+                                                                  print("🟢 1. 成功点击了按钮！开始执行闭麦逻辑...");
+                                                                  try {
+                                                                    bool targetMuteState = !targetPlayer.isMuted;
 
-                                                            onSetFocus: () {
-                                                              setState(() {
-                                                                if (_focusedRoomId == targetPlayer.roomId) {
-                                                                  _focusedRoomId = null;
-                                                                } else {
-                                                                  _focusedRoomId = targetPlayer.roomId;
-                                                                }
-                                                              });
-                                                            },
+                                                                    // 🚀 如果点的是本房间，操作本地物理麦克风
+                                                                    if (targetPlayer.roomId == _roomId) {
+                                                                      AiRealTimeVoiceService().setMicMute(targetMuteState);
+                                                                    }
 
-                                                            onMuteAllExceptMe: () {
-                                                              // 🚀 发送全员闭麦指令时，将自己的 roomId 传进去作为例外
-                                                              _sendSocketMessage("MUTE_ALL_EXCEPT", targetRoomId: _roomId);
-                                                            },
+                                                                    setState(() {
+                                                                      List<Map<String, dynamic>> newList = [];
 
-                                                            onViewProfile: () {
-                                                              Map<String, dynamic> user = {"userId": targetPlayer.userId};
-                                                              LiveUserProfilePopup.show(context, user);
+                                                                      for (var p in _participants) {
+                                                                        var newMap = Map<String, dynamic>.from(p);
+
+                                                                        // 🚀 核心：用 roomId 来匹配列表中的玩家！
+                                                                        if (newMap['roomId'].toString() == targetPlayer.roomId) {
+                                                                          newMap['isMuted'] = targetMuteState;
+
+                                                                          String streamUrl = newMap['streamUrl'] ?? "";
+                                                                          if (streamUrl.isNotEmpty) {
+                                                                            HardcoreMixer.setMuted(streamUrl, targetMuteState);
+                                                                          }
+                                                                        }
+                                                                        newList.add(newMap);
+                                                                      }
+                                                                      _participants = newList;
+                                                                    });
+
+                                                                    // 🚀 核心：通过 Socket 广播这个 roomId 的闭麦指令
+                                                                    _sendSocketMessage(
+                                                                      "MUTE_STATE_CHANGE",
+                                                                      content: targetMuteState ? "1" : "0",
+                                                                      targetRoomId: targetPlayer.roomId, // 传 roomId！
+                                                                    );
+                                                                  } catch (e, stackTrace) {
+                                                                    print("🚨 致命崩溃！代码在这里死掉了: $e");
+                                                                    print(stackTrace);
+                                                                  }
+                                                                },
+
+                                                                onSetFocus: () {
+                                                                  setState(() {
+                                                                    if (_focusedRoomId == targetPlayer.roomId) {
+                                                                      _focusedRoomId = null;
+                                                                    } else {
+                                                                      _focusedRoomId = targetPlayer.roomId;
+                                                                    }
+                                                                  });
+                                                                },
+
+                                                                onMuteAllExceptMe: () {
+                                                                  // 🚀 发送全员闭麦指令时，将自己的 roomId 传进去作为例外
+                                                                  _sendSocketMessage("MUTE_ALL_EXCEPT", targetRoomId: _roomId);
+                                                                },
+
+                                                                onViewProfile: () {
+                                                                  Map<String, dynamic> user = {"userId": targetPlayer.userId};
+                                                                  LiveUserProfilePopup.show(context, user);
+                                                                },
+                                                              );
                                                             },
                                                           );
                                                         },
@@ -2484,7 +2501,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                     },
                                                   ),
                                                 ),
-
                                                 // 3. 最顶层：计时器梯形 (盖在血条的上方，绝不被遮挡)
                                                 Positioned(
                                                   top: 0,
@@ -2499,21 +2515,26 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                     ),
                                                   ),
                                                 ),
-
                                                 // 2. 中间层：血条图层 (盖在视频上方，确保暴击卡等特效悬浮在视频之上)
                                                 if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
                                                   Positioned(
                                                     top: 18,
                                                     left: 0,
                                                     right: 0,
-                                                    child: PKScoreBar(
-                                                      key: _pkScoreBarKey,
-                                                      myScore: _myPKScore,
-                                                      opponentScore: _opponentPKScore,
-                                                      status: _pkStatus,
-                                                      secondsLeft: _pkTimeLeft,
-                                                      myRoomId: _roomId,
-                                                      critEndTimes: _critEndTimes,
+                                                    child: ValueListenableBuilder<int>(
+                                                      valueListenable: _pkScoreUpdateTrigger, // 👈 同样监听变化
+                                                      builder: (context, triggerValue, child) {
+                                                        // 只有这里会重绘，将内存中最新的 _myPKScore 传进去
+                                                        return PKScoreBar(
+                                                          key: _pkScoreBarKey,
+                                                          myScore: _myPKScore,
+                                                          opponentScore: _opponentPKScore,
+                                                          status: _pkStatus,
+                                                          secondsLeft: _pkTimeLeft,
+                                                          myRoomId: _roomId,
+                                                          critEndTimes: _critEndTimes,
+                                                        );
+                                                      },
                                                     ),
                                                   ),
                                                 if (1 == 2)
@@ -2714,8 +2735,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                         padding: const EdgeInsets.symmetric(horizontal: 10),
                                         decoration: BoxDecoration(
                                           gradient: iHaveUsedPromo
-                                              ? LinearGradient(colors: [Colors.green.withAlpha(200), Colors.teal.withAlpha(200)])
-                                              : LinearGradient(colors: [Colors.redAccent.withAlpha(200), Colors.redAccent.withAlpha(200)]),
+                                              ? LinearGradient(colors: [Colors.green.withAlpha(100), Colors.teal.withAlpha(100)])
+                                              : LinearGradient(colors: [Colors.redAccent.withAlpha(100), Colors.redAccent.withAlpha(100)]),
                                           borderRadius: BorderRadius.circular(11),
                                         ),
                                         child: Row(

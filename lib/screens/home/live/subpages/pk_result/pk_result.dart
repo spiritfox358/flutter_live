@@ -20,13 +20,13 @@ class PkResultPage extends StatefulWidget {
   const PkResultPage({
     Key? key,
     this.isVictory = true,
-    this.addedPoints = 150,
-    this.addedPkValue = 1200,
-    this.rankName = '钻1星',
+    this.addedPoints = 130,
+    this.addedPkValue = 1300,
+    this.rankName = '钻石3星',
     this.currentPoints = 447.19,
     this.maxPoints = 18000,
     this.rankImageUrl = 'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/pk_rank/%E9%92%BB%E7%9F%B3%E4%BA%94%E6%98%9F.png',
-    this.displayDuration = 10,
+    this.displayDuration = 3,
   }) : super(key: key);
 
   @override

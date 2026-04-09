@@ -8,6 +8,11 @@ import 'package:flutter/material.dart';
 import 'package:my_alpha_player/my_alpha_player.dart';
 import 'package:path_provider/path_provider.dart';
 
+// 🚀🚀🚀 终极修复：定义一个静态单例信号站，彻底粉碎 Import 路径导致的双胞胎 Bug！
+class EntranceSignal {
+  static final ValueNotifier<bool> active = ValueNotifier(false);
+}
+
 /// 用户进场数据模型
 class EntranceModel {
   final String userName;
@@ -24,34 +29,20 @@ class UserEntranceEffectLayer extends StatefulWidget {
 }
 
 class UserEntranceEffectLayerState extends State<UserEntranceEffectLayer> {
-  // =======================================================
-  // 🔧🔧🔧 参数调节区域 🔧🔧🔧
-  // =======================================================
-
-  // 1. 尺寸调整 (建议根据 MP4 原始比例调整)
   final double _effectWidth = 400.0;
   final double _effectHeight = 640.0;
-
-  // 2. 位置调整
   final double _topPosition = 250.0;
 
-  // 3. 视频地址
   final String _baseVideoUrl =
       "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/entrance/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E5%BA%95%E5%BA%A72.mp4";
   final String _floatVideoUrl =
       "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/entrance/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E6%BC%82%E6%B5%AE2.mp4";
 
-  // =======================================================
-
   final Queue<EntranceModel> _waitingQueue = Queue();
   EntranceModel? _currentData;
   bool _isPlaying = false;
-
-  // 🔴 核心修复：把 Key 存在 State 里，而不是在 build 里动态生成
-  // 只有当开始播放新特效时，才更新这个 Key
   Key? _currentUniqueKey;
 
-  /// 外部调用此方法添加进场特效
   void addEntrance(EntranceModel data) {
     if (_isPlaying) {
       _waitingQueue.add(data);
@@ -62,10 +53,14 @@ class UserEntranceEffectLayerState extends State<UserEntranceEffectLayer> {
 
   void _play(EntranceModel data) {
     if (!mounted) return;
+
+    // 🚀🚀🚀 进场开始，点亮唯一信号灯！
+    EntranceSignal.active.value = true;
+    debugPrint("💡 [进场信号] 信号灯已开启: true");
+
     setState(() {
       _currentData = data;
       _isPlaying = true;
-      // 🟢 只有在这里才更新 Key！
       _currentUniqueKey = UniqueKey();
     });
   }
@@ -76,21 +71,23 @@ class UserEntranceEffectLayerState extends State<UserEntranceEffectLayer> {
     setState(() {
       _currentData = null;
       _isPlaying = false;
-      _currentUniqueKey = null; // 清理 Key
+      _currentUniqueKey = null;
     });
 
-    // 检查队列
     if (_waitingQueue.isNotEmpty) {
       final next = _waitingQueue.removeFirst();
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) _play(next);
       });
+    } else {
+      // 🚀🚀🚀 进场全部结束，熄灭唯一信号灯！
+      EntranceSignal.active.value = false;
+      debugPrint("💡 [进场信号] 信号灯已熄灭: false");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 如果没有正在播放的内容，返回空
     if (!_isPlaying || _currentData == null) {
       return const SizedBox();
     }
@@ -120,7 +117,6 @@ class UserEntranceEffectLayerState extends State<UserEntranceEffectLayer> {
   }
 }
 
-/// 内部组件：负责同时播放两个视频
 class _DualVideoItem extends StatefulWidget {
   final String baseVideoUrl;
   final String floatVideoUrl;
@@ -142,40 +138,27 @@ class _DualVideoItem extends StatefulWidget {
 class _DualVideoItemState extends State<_DualVideoItem> {
   MyAlphaPlayerController? _baseController;
   MyAlphaPlayerController? _floatController;
-
   bool _filesReady = false;
-
-  // 控制整体可见性，默认为 false (透明)
   bool _isVisible = false;
-
   String? _basePath;
   String? _floatPath;
-
-  // 防止多次调用结束回调
   bool _hasTriggeredFinish = false;
 
-  // =======================================================
-  // 🎨🎨🎨 进场动效参数调节 🎨🎨🎨
-  // =======================================================
-  final double _avatarRadius = 15.0; // 头像大小 (半径15)
-  final double _barHeight = 40.0; // 昵称渐变长条的高度
-  final double _barWidth = 240.0; // 整体信息条的总宽度 (含头像)
-  final int _slideDurationMs = 1200; // 整体组件从右侧匀速滑入的时间 (毫秒)
+  final double _avatarRadius = 15.0;
+  final double _barHeight = 40.0;
+  final double _barWidth = 240.0;
+  final int _slideDurationMs = 1200;
+  final int _textMoveDelayMs = 3000;
+  final int _textMoveDurationMs = 500;
+  final double _initialTextPadding = 0.0;
+  final double _targetTextPadding = 63.0;
 
-  // 📝 动态文字位移参数
-  final int _textMoveDelayMs = 3000; // 视频播放后多久开始位移 (毫秒，例如3000=3秒)
-  final int _textMoveDurationMs = 500; // 文字滑动的动画时长 (毫秒，越短越快)
-  final double _initialTextPadding = 0.0; // 文字初始的左侧边距
-  final double _targetTextPadding = 63.0; // 文字最终的左侧边距
-
-  // 内部状态，用于触发位移动画
   late double _currentTextPadding;
-  // =======================================================
 
   @override
   void initState() {
     super.initState();
-    _currentTextPadding = _initialTextPadding; // 初始化 padding
+    _currentTextPadding = _initialTextPadding;
     _prepareAndPlay();
   }
 
@@ -206,9 +189,7 @@ class _DualVideoItemState extends State<_DualVideoItem> {
 
   void _onFloatPlayerCreated(MyAlphaPlayerController controller) {
     _floatController = controller;
-
     _floatController?.onFinish = () {
-      debugPrint("🎬 进场特效播放结束");
       if (mounted) {
         setState(() => _isVisible = false);
         Future.delayed(const Duration(milliseconds: 300), () {
@@ -218,7 +199,6 @@ class _DualVideoItemState extends State<_DualVideoItem> {
         _triggerFinish();
       }
     };
-
     _checkAndPlay();
   }
 
@@ -228,26 +208,14 @@ class _DualVideoItemState extends State<_DualVideoItem> {
         _baseController?.play(_basePath!);
         _floatController?.play(_floatPath!);
 
-        // 1. 整体 UI 延迟显示，消除闪烁
         Future.delayed(const Duration(milliseconds: 100), () {
-          if (mounted) {
-            setState(() {
-              _isVisible = true;
-            });
-          }
+          if (mounted) setState(() => _isVisible = true);
         });
 
-        // 2. 触发文字位移动画 (比如第3秒)
         Future.delayed(Duration(milliseconds: _textMoveDelayMs), () {
-          if (mounted) {
-            setState(() {
-              _currentTextPadding = _targetTextPadding;
-            });
-          }
+          if (mounted) setState(() => _currentTextPadding = _targetTextPadding);
         });
-
       } catch (e) {
-        debugPrint("❌ 播放异常: $e");
         _triggerFinish();
       }
     }
@@ -293,14 +261,11 @@ class _DualVideoItemState extends State<_DualVideoItem> {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // 1. 底座
           Positioned.fill(
             child: MyAlphaPlayerView(
                 key: const ValueKey("BasePlayer"),
                 onCreated: _onBasePlayerCreated),
           ),
-
-          // 2. 用户信息
           Positioned(
             top: 6,
             bottom: 40,
@@ -318,7 +283,6 @@ class _DualVideoItemState extends State<_DualVideoItem> {
                   child: Stack(
                     alignment: Alignment.centerLeft,
                     children: [
-                      // 底层：昵称渐变长条
                       Positioned(
                         left: _avatarRadius,
                         right: 0,
@@ -338,11 +302,10 @@ class _DualVideoItemState extends State<_DualVideoItem> {
                             borderRadius: BorderRadius.horizontal(
                                 left: Radius.circular(_barHeight / 2)),
                           ),
-                          // 🟢 动态变化的 Padding 包裹 Text
                           child: AnimatedPadding(
-                            padding: EdgeInsets.only(left: _currentTextPadding,top: 1),
+                            padding: EdgeInsets.only(left: _currentTextPadding, top: 1),
                             duration: Duration(milliseconds: _textMoveDurationMs),
-                            curve: Curves.easeOutCubic, // 平滑减速动画曲线
+                            curve: Curves.easeOutCubic,
                             child: Text(
                               widget.userData.userName,
                               maxLines: 1,
@@ -356,8 +319,6 @@ class _DualVideoItemState extends State<_DualVideoItem> {
                           ),
                         ),
                       ),
-
-                      // 顶层：头像
                       Positioned(
                         left: 0,
                         child: Container(
@@ -378,8 +339,6 @@ class _DualVideoItemState extends State<_DualVideoItem> {
               ),
             ),
           ),
-
-          // 3. 漂浮
           Positioned.fill(
             child: MyAlphaPlayerView(
                 key: const ValueKey("FloatPlayer"),

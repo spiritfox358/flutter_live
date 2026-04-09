@@ -3,6 +3,9 @@ import 'dart:collection';
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/home/live/widgets/level_badge_widget.dart'; // 请确保路径正确
 
+// 🚀 1. 引入刚才我们建好的全局单例信号站！
+import 'effect_player/user_entrance_effect_layer.dart';
+
 /// 进场数据模型
 class EntranceEvent {
   final String userName;
@@ -40,6 +43,8 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
 
   @override
   void dispose() {
+    // 🚀 2. 安全兜底：如果组件销毁，强制熄灭信号灯，防止横幅永远卡在下面
+    EntranceSignal.active.value = false;
     _controller.dispose();
     super.dispose();
   }
@@ -53,7 +58,14 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
   }
 
   Future<void> _playNext() async {
-    if (_entranceQueue.isEmpty) return;
+    // 🚀🚀🚀 核心逻辑 1：队列空了，说明刚才最后一个人已经滑出屏幕了。熄灭信号灯！
+    if (_entranceQueue.isEmpty) {
+      EntranceSignal.active.value = false;
+      return;
+    }
+
+    // 🚀🚀🚀 核心逻辑 2：只要准备播下一个人，强制点亮/保持信号灯！礼物横幅立刻下沉避让！
+    EntranceSignal.active.value = true;
 
     _isBannerShowing = true;
     final event = _entranceQueue.removeFirst();
@@ -78,7 +90,6 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
     if (mounted) {
       setState(() {
         // 🟢 离场动画：从当前位置 (0) 向左滑动出屏幕 (-1.5)
-        // 这样形成一个完整的 “右 -> 中 -> 左” 的动线
         _animation = Tween<Offset>(
           begin: const Offset(0, 0),
           end: const Offset(-1.5, 0),
@@ -91,10 +102,11 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
 
     _isBannerShowing = false;
 
-    // 稍微延迟一点处理下一个
+    // 稍微延迟一点处理下一个 (这 200ms 的间隙里，信号灯依然是亮的，这很好！避免了连着进场时横幅上下鬼畜抖动)
     await Future.delayed(const Duration(milliseconds: 200));
 
     if (mounted) {
+      // 递归调用：如果没人了，下一次进去就会触发上面的 isEmpty 逻辑，熄灭信号灯。
       _playNext();
     }
   }

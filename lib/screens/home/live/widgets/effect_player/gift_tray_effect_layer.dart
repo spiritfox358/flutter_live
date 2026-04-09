@@ -8,18 +8,14 @@ import 'package:flutter/material.dart';
 import 'package:my_alpha_player/my_alpha_player.dart';
 import 'package:path_provider/path_provider.dart';
 
-// 引入您的 Model 和 Banner 组件
-// ⚠️ 请确保路径正确
 import '../../models/live_models.dart';
 import '../gift_banner/animate_gift_item.dart';
 
-class GiftTrayEffectLayer extends StatefulWidget {
-  // 回调函数：通知外部播放全屏特效
-  final Function(GiftEvent event)? onEffectTrigger;
+// 🚀 导入唯一单例信号站
+import 'user_entrance_effect_layer.dart';
 
-  // 🟢 控制开关
-  // true  = 旧逻辑：等待 Tray 视频播完 + 等待 1秒，再播放特效
-  // false = 新逻辑：不等 Tray 视频播完，直接播放特效 (立即触发)
+class GiftTrayEffectLayer extends StatefulWidget {
+  final Function(GiftEvent event)? onEffectTrigger;
   final bool enableEffectDelay;
 
   const GiftTrayEffectLayer({
@@ -33,44 +29,26 @@ class GiftTrayEffectLayer extends StatefulWidget {
 }
 
 class GiftTrayEffectLayerState extends State<GiftTrayEffectLayer> {
-  // -------------------------------------------------------
-  // 🔧 槽位基础配置
-  // -------------------------------------------------------
-  final double _bottomOrigin = 320.0;
   final double _leftOrigin = 16.0;
-
   final double _slotHeight = 40.0;
-  final double _slotSpacing = 0.0;
-  // -------------------------------------------------------
+  final double _slotSpacing = -1.0; // 连击时的间距稍微留一点
 
   final Queue<GiftEvent> _waitingQueue = Queue();
   final List<GiftEvent?> _activeSlots = [null, null];
   final List<GlobalKey<_GiftTraySlotItemState>?> _slotKeys = [null, null];
 
   void addTrayGift(GiftEvent newGift) {
-    // ---------------------------------------------------------
-    // 1. 检查连击 (Combo Check)
-    // ---------------------------------------------------------
     for (int i = 0; i < _activeSlots.length; i++) {
       final currentGift = _activeSlots[i];
       if (currentGift != null &&
           currentGift.senderName == newGift.senderName &&
           currentGift.giftName == newGift.giftName) {
-
-        debugPrint("🚀 [Tray] 触发连击: Slot $i");
-
-        // 更新数据
         _activeSlots[i] = newGift;
-
-        // 调用子组件更新连击数
         _slotKeys[i]?.currentState?.triggerCombo(newGift);
         return;
       }
     }
 
-    // ---------------------------------------------------------
-    // 2. 寻找空位 (Find Free Slot)
-    // ---------------------------------------------------------
     int freeSlotIndex = _activeSlots.indexOf(null);
     if (freeSlotIndex != -1) {
       _playInSlot(freeSlotIndex, newGift);
@@ -113,10 +91,24 @@ class GiftTrayEffectLayerState extends State<GiftTrayEffectLayer> {
   }
 
   Widget _buildPositionedSlot(int index, GiftEvent gift) {
-    double bottomPos = _bottomOrigin + (index * (_slotHeight + _slotSpacing));
+    // =========================================================
+    // 🚀🚀🚀 终极适配修复：完美复刻 real_live_page 进场条的坐标体系！
+    // =========================================================
+    double paddingTop = MediaQuery.of(context).padding.top;
+    double screenWidth = MediaQuery.of(context).size.width;
+    double pkVideoHeight = screenWidth * 0.87;
+
+    // 💡 这里的 162.0 来自于你主页的代码：TopBar(50) + gap(68) + MaxTopOffset(40) + margin(4)
+    double entranceTop = paddingTop + pkVideoHeight + 162.0;
+
+    // 让礼物图层的整体基准高度，死死咬住进场条的 Top！
+    // 无论换多长多短的手机，它们的间距绝对是一模一样的！
+    double baseTopOrigin = entranceTop - 15.0; // -15 只是为了微调 MP4 特效的中心点
+    double topPos = baseTopOrigin + (index * (_slotHeight + _slotSpacing));
 
     return Positioned(
-      bottom: bottomPos,
+      // 🚀 核心：废弃 bottom 定位，彻底改为 top 定位！
+      top: topPos,
       left: _leftOrigin,
       child: SizedBox(
         width: 350,
@@ -126,7 +118,7 @@ class GiftTrayEffectLayerState extends State<GiftTrayEffectLayer> {
           initialGiftEvent: gift,
           onEffectTrigger: widget.onEffectTrigger,
           onAllFinished: () => _onSlotFinished(index),
-          enableEffectDelay: widget.enableEffectDelay, // 透传开关
+          enableEffectDelay: widget.enableEffectDelay,
         ),
       ),
     );
@@ -152,9 +144,6 @@ class _GiftTraySlotItem extends StatefulWidget {
 }
 
 class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
-  // =======================================================
-  // 🔧🔧🔧 智能调节区域 🔧🔧🔧
-  // =======================================================
   final int _videoDurationMs = 3000;
   final int _earlyShowMs = 100;
 
@@ -165,26 +154,24 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
   static const double _baseLeft = -25.0;
 
   final double _bannerLeft = -5.0;
-  final double _bannerTop = 60.0;
+
+  // 🚀 Banner 避让核心配置 (保持简单的固定值，因为现在父组件已经完美对齐了)
+  final double _baseBannerTop = 12.0;
+  final double _bannerShiftAmount = 25.0; // 进场条出现时 +20 丝滑下移
 
   double get _videoWidth => _baseWidth * _scale;
   double get _videoHeight => _baseHeight * _scale;
   double get _videoTop => _baseTop * _scale + (60 * (1 - _scale)) / 2;
   double get _videoLeft => _baseLeft * _scale;
-  // =======================================================
 
   bool _showVideo = false;
   bool _showBanner = false;
+  bool _isEntranceActive = false;
 
-  // 状态标志位：是否允许触发全屏特效
   bool _isReadyForComboEffect = false;
-
-  // 缓冲计数器
   int _bufferedComboCount = 0;
-
-  // 🛑 生命周期控制标志
-  bool _bannerAnimationFinished = false; // Banner 动画是否播完
-  bool _effectTriggerLogicDone = false;  // 特效触发逻辑是否已执行（包括等待时间）
+  bool _bannerAnimationFinished = false;
+  bool _effectTriggerLogicDone = false;
 
   MyAlphaPlayerController? _alphaController;
   String? _effectPath;
@@ -198,56 +185,59 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
     super.initState();
     _currentGiftEvent = widget.initialGiftEvent;
     _stableBannerKeyId = widget.initialGiftEvent.id;
+
+    EntranceSignal.active.addListener(_onEntranceChanged);
+    _isEntranceActive = EntranceSignal.active.value;
+
     _startSequence();
   }
 
-  // 🟢 尝试结束整个 Slot 的生命周期
-  // 只有当【Banner播完】且【特效逻辑走完】时，才真正通知父组件销毁
+  void _onEntranceChanged() {
+    if (mounted) {
+      setState(() {
+        _isEntranceActive = EntranceSignal.active.value;
+      });
+    }
+  }
+
   void _tryToFinish() {
     if (_bannerAnimationFinished && _effectTriggerLogicDone) {
-      debugPrint("✅ [Tray] 所有任务完成，销毁 Slot");
       widget.onAllFinished();
     }
   }
 
-  // 🟢 触发连击
   void triggerCombo(GiftEvent newGift) {
     if (!mounted) return;
-
     setState(() {
       int newTotalCount = _currentGiftEvent.count + newGift.count;
       _currentGiftEvent = _currentGiftEvent.copyWith(count: newTotalCount);
     });
 
     if (_isReadyForComboEffect) {
-      debugPrint("⚡️ [Tray] 连击触发，立即播放特效");
       widget.onEffectTrigger?.call(newGift);
     } else {
       _bufferedComboCount++;
-      debugPrint("⏳ [Tray] 视频未结束，连击特效已缓存 (积压: $_bufferedComboCount)");
     }
   }
 
   void _startSequence() async {
     int giftPrice = widget.initialGiftEvent.giftPrice ?? 0;
 
-    // 🟢 情况 1: 低价礼物 (< 1000)
     if (giftPrice < 1000) {
       if (mounted) {
         setState(() {
           _showVideo = false;
           _showBanner = true;
           _isReadyForComboEffect = true;
-          _effectTriggerLogicDone = true; // 低价礼物无需等待特效逻辑
+          _effectTriggerLogicDone = true;
         });
       }
       widget.onEffectTrigger?.call(_currentGiftEvent);
       return;
     }
 
-    // 🟢 情况 2: 高级礼物 (>= 1000)
-    // String? effectUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4";
-    String? effectUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%982.mp4";
+    String? effectUrl =
+        "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%982.mp4";
 
     String? path;
     if (kIsWeb) {
@@ -262,23 +252,18 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
         _showVideo = true;
         _showBanner = false;
 
-        // 🔴 逻辑分歧点
         if (widget.enableEffectDelay) {
-          // [Enable=true] -> 旧逻辑：等待
           _isReadyForComboEffect = false;
-          _effectTriggerLogicDone = false; // 还没做完，需要等视频结束+1s
+          _effectTriggerLogicDone = false;
           _bufferedComboCount = 0;
         } else {
-          // [Enable=false] -> 新逻辑：不等，立即就绪
           _isReadyForComboEffect = true;
-          _effectTriggerLogicDone = true; // 立即触发算作做完
+          _effectTriggerLogicDone = true;
           _bufferedComboCount = 0;
-          debugPrint("🚀 [Tray] 新逻辑：立即触发全屏特效");
           widget.onEffectTrigger?.call(_currentGiftEvent);
         }
       });
     } else {
-      // 下载失败，直接兜底
       if (mounted) {
         setState(() {
           _showBanner = true;
@@ -293,9 +278,7 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
   void _onPlayerCreated(MyAlphaPlayerController controller) {
     _alphaController = controller;
 
-    // 1. 视频结束回调
     _alphaController?.onFinish = () {
-      debugPrint("🎬 [Tray] 视频结束");
       if (mounted) {
         setState(() {
           _showVideo = false;
@@ -303,31 +286,18 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
         });
       }
 
-      // 🔴 仅在 [Enable=true] (串行逻辑) 且 尚未就绪时 执行
       if (widget.enableEffectDelay && !_isReadyForComboEffect) {
-
-        // 🚀🚀🚀 终极疏通：把坑爹的 1000ms 傻等改成 100ms（留一点点视觉过渡即可）
-        // 视频一播完，几乎瞬间就呼叫全屏特效，并且立刻释放托盘槽位！
         Future.delayed(const Duration(milliseconds: 100), () {
-          debugPrint("⏰ 托盘视频播完，立刻接力处理特效...");
-
           if (mounted) {
-            // A. 接力触发全屏特效！
             widget.onEffectTrigger?.call(_currentGiftEvent);
-
-            // B. 补发积压的连击
             if (_bufferedComboCount > 0) {
               for (int i = 0; i < _bufferedComboCount; i++) {
                 widget.onEffectTrigger?.call(_currentGiftEvent);
               }
               _bufferedComboCount = 0;
             }
-
-            // C. 标记状态已走完
             _isReadyForComboEffect = true;
             _effectTriggerLogicDone = true;
-
-            // D. 立刻尝试结束自己，给后面排队的礼物腾出坑位！
             _tryToFinish();
           }
         });
@@ -345,17 +315,13 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
     if (delayMs < 0) delayMs = 0;
 
     _earlyShowTimer = Timer(Duration(milliseconds: delayMs), () {
-      if (mounted) {
-        setState(() => _showBanner = true);
-      }
+      if (mounted) setState(() => _showBanner = true);
     });
   }
 
-  // 🟢 Banner 动画播放完毕的回调
   void _onBannerAnimationFinished() {
-    debugPrint("🚩 [Tray] Banner 动画播放完毕");
-    _bannerAnimationFinished = true; // 标记 Banner 已完成
-    _tryToFinish(); // 尝试结束 (如果特效还在等 1s，这里不会销毁，会等特效做完)
+    _bannerAnimationFinished = true;
+    _tryToFinish();
   }
 
   Future<String?> _downloadFile(String url) async {
@@ -375,6 +341,7 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
 
   @override
   void dispose() {
+    EntranceSignal.active.removeListener(_onEntranceChanged);
     _earlyShowTimer?.cancel();
     _alphaController?.dispose();
     super.dispose();
@@ -385,6 +352,7 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
+        // 1. 底层：MP4 特效 (钉死在原地绝对不动！)
         Positioned(
           top: _videoTop,
           left: _videoLeft,
@@ -393,23 +361,23 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
             height: _videoHeight,
             child: _showVideo
                 ? IgnorePointer(
-              child: MyAlphaPlayerView(
-                key: const ValueKey("TrayEffectPlayer"),
-                onCreated: _onPlayerCreated,
-              ),
+              child: MyAlphaPlayerView(key: const ValueKey("TrayEffectPlayer"), onCreated: _onPlayerCreated),
             )
                 : const SizedBox(),
           ),
         ),
 
+        // 2. 顶层：文字 Banner
         if (_showBanner)
-          Positioned(
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
             left: _bannerLeft,
-            top: _bannerTop,
+            // 🚀 因为现在外层的盒子也是用 top 定位了，内部的 Banner 直接 +30 就能完美避让了！
+            top: _isEntranceActive ? (_baseBannerTop + _bannerShiftAmount) : _baseBannerTop,
             child: AnimatedGiftItem(
               key: ValueKey("Banner_$_stableBannerKeyId"),
               giftEvent: _currentGiftEvent,
-              // 🔴 关键修改：不要直接调 widget.onAllFinished，而是调我们的中间层
               onFinished: _onBannerAnimationFinished,
             ),
           ),
