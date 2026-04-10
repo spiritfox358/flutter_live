@@ -2,20 +2,24 @@ import Flutter
 import UIKit
 import AVFoundation
 
-// 移除 import BDAlphaPlayer，因为我们已经不需要它了
+class WeakTargetProxy {
+    weak var target: NativeAlphaPlayerView?
+    init(target: NativeAlphaPlayerView) { self.target = target }
+    @objc func onTick(_ sender: CADisplayLink) { target?.displayLinkCallback(sender: sender) }
+}
 
 class NativeAlphaPlayerView: NSObject, FlutterPlatformView {
     private var _view: UIView
-
-    // 🟢 我们的新 Metal 视图 (OC 类)
     private var metalView: LHVideoGiftAlphaVideoMetalView?
 
-    // 🟢 播放核心 (系统原生)
     private var player: AVPlayer?
     private var videoOutput: AVPlayerItemVideoOutput?
     private var displayLink: CADisplayLink?
-
     private let channel: FlutterMethodChannel
+
+    private var isFinishedSent = false
+    private var drawCount: Int = 0
+    private var isPlayingActive = false
 
     init(
         frame: CGRect,
@@ -28,40 +32,42 @@ class NativeAlphaPlayerView: NSObject, FlutterPlatformView {
 
         let channelName = "com.example.live/alpha_player_\(viewId)"
         self.channel = FlutterMethodChannel(name: channelName, binaryMessenger: messenger)
-
         super.init()
 
-        // 初始化 Metal 视图
         let mv = LHVideoGiftAlphaVideoMetalView(frame: frame)
-        mv.contentMode = .scaleAspectFit // 保持比例
+        mv.contentMode = .scaleAspectFit
         mv.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        mv.isHidden = true
         self._view.addSubview(mv)
         self.metalView = mv
 
-        self.channel.setMethodCallHandler(handle)
+        self.channel.setMethodCallHandler { [weak self] call, result in
+            self?.handle(call, result: result)
+        }
 
-        // 激活音频会话 (让声音从扬声器出来)
         try? AVAudioSession.sharedInstance().setCategory(.playback, options: [.mixWithOthers, .defaultToSpeaker])
         try? AVAudioSession.sharedInstance().setActive(true)
 
-        if let params = args as? [String: Any],
-           let url = params["url"] as? String {
-             playVideo(url: url)
+        if let params = args as? [String: Any], let url = params["url"] as? String {
+            playVideo(url: url)
         }
     }
 
-    func view() -> UIView {
-        return _view
+    deinit {
+        stopPlayback_Custom()
+        self.channel.setMethodCallHandler(nil)
     }
+
+    func view() -> UIView { return _view }
 
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         if call.method == "play" {
             if let args = call.arguments as? [String: Any], let path = args["url"] as? String {
                 playVideo(url: path)
-                result(nil)
             }
+            result(nil)
         } else if call.method == "stop" {
-            stop()
+            stopPlayback_Custom()
             result(nil)
         } else {
             result(FlutterMethodNotImplemented)
@@ -69,104 +75,123 @@ class NativeAlphaPlayerView: NSObject, FlutterPlatformView {
     }
 
     private func playVideo(url: String) {
-        stop() // 先清理旧的
-        self.metalView?.alpha = 0
-        print("🎬 [NativeAlphaPlayer] 收到播放请求: \(url)")
+        stopPlayback_Custom()
+        self.isFinishedSent = false
+        self.drawCount = 0
+        self.isPlayingActive = true
 
-        var videoURL: URL?
-        // 简单判断：如果是 http 开头，当做网络流；否则当做本地文件
-        if url.hasPrefix("http") || url.hasPrefix("https") {
-            videoURL = URL(string: url)
-        } else {
-            // ⚠️ 关键修正：本地文件必须用 fileURLWithPath
-            videoURL = URL(fileURLWithPath: url)
-        }
-
-        guard let targetURL = videoURL else {
-            print("❌ [NativeAlphaPlayer] URL转换失败，无法播放")
+        guard let targetURL = url.hasPrefix("http") ? URL(string: url) : URL(fileURLWithPath: url) else {
+            notifyPlayFinished()
             return
         }
 
-        print("✅ [NativeAlphaPlayer] 正在加载: \(targetURL.absoluteString)")
-
-        // 1. 创建 PlayerItem
         let playerItem = AVPlayerItem(url: targetURL)
 
-        // 🔍 添加监听：监控是否加载失败
-        NotificationCenter.default.addObserver(self, selector: #selector(playerItemFailedToPlayToEndTime(_:)), name: .AVPlayerItemFailedToPlayToEndTime, object: playerItem)
+        // 🟢 优化 1：缓冲区预加载优化
+        // 允许系统多缓冲一点数据，防止两个视频同时读取磁盘导致的 I/O 瞬间掉速
+        playerItem.preferredForwardBufferDuration = 1.0
 
         self.player = AVPlayer(playerItem: playerItem)
 
-        // 2. 配置 Output (偷画面)
+        // 🔴 注意：保持 automaticallyWaitsToMinimizeStalling 为默认值 true
+        // 这样在双路解码压力过大时，系统会自动进行微小的缓冲等待，而不是直接彻底抛弃播放导致死锁卡住。
+
         let attributes: [String: Any] = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-            kCVPixelBufferOpenGLESCompatibilityKey as String: true
+            kCVPixelBufferPixelFormatTypeKey as String: Int(kCVPixelFormatType_32BGRA),
+            kCVPixelBufferMetalCompatibilityKey as String: true
         ]
-        self.videoOutput = AVPlayerItemVideoOutput(pixelBufferAttributes: attributes)
-        self.videoOutput?.suppressesPlayerRendering = true
+        let output = AVPlayerItemVideoOutput(pixelBufferAttributes: attributes)
+        output.suppressesPlayerRendering = true
+        playerItem.add(output)
+        self.videoOutput = output
 
-        if let output = self.videoOutput {
-            playerItem.add(output)
-        }
-
-        // 3. 监听播放结束
+        NotificationCenter.default.addObserver(self, selector: #selector(playerItemFailed), name: .AVPlayerItemFailedToPlayToEndTime, object: playerItem)
         NotificationCenter.default.addObserver(self, selector: #selector(playerDidFinish), name: .AVPlayerItemDidPlayToEndTime, object: playerItem)
 
-        // 4. 启动 CADisplayLink (帧循环)
-        self.displayLink = CADisplayLink(target: self, selector: #selector(displayLinkCallback))
+        self.displayLink = CADisplayLink(target: WeakTargetProxy(target: self), selector: #selector(WeakTargetProxy.onTick(_:)))
+
+        // 🟢 优化 2：下达 GPU 限速令（强制最高 60 帧）
+        // 如果不限制，在 120Hz 屏幕上两个视频会疯狂抽取 240 次/秒，直接撑爆内存带宽和解码器，导致瞬间冻结。
+        if #available(iOS 15.0, *) {
+            self.displayLink?.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+        } else {
+            self.displayLink?.preferredFramesPerSecond = 60
+        }
+
         self.displayLink?.add(to: .main, forMode: .common)
 
-        // 5. 开播
         self.player?.play()
-        print("▶️ [NativeAlphaPlayer] 播放器已启动 (Rate: \(self.player?.rate ?? 0))")
     }
 
-    // 新增：捕获播放报错
-    @objc private func playerItemFailedToPlayToEndTime(_ notification: Notification) {
-        if let error = notification.userInfo?[AVPlayerItemFailedToPlayToEndTimeErrorKey] as? Error {
-            print("❌ [NativeAlphaPlayer] 播放失败: \(error.localizedDescription)")
-        }
-    }
+    @objc func displayLinkCallback(sender: CADisplayLink) {
+        guard self.isPlayingActive, let output = self.videoOutput else { return }
 
-    @objc private func displayLinkCallback(sender: CADisplayLink) {
-        guard let output = self.videoOutput, let playerItem = self.player?.currentItem else { return }
-
-        // 计算当前播放器的时间
         let nextVSync = sender.timestamp + sender.duration
-        let outputItemTime = output.itemTime(forHostTime: nextVSync)
+        let itemTime = output.itemTime(forHostTime: nextVSync)
 
-        // 如果这一秒有画面
-        if output.hasNewPixelBuffer(forItemTime: outputItemTime) {
-            // 拿到每一帧的原始数据
-            if let pixelBuffer = output.copyPixelBuffer(forItemTime: outputItemTime, itemTimeForDisplay: nil) {
-                // 喂给 OC 写的 Metal 视图去画
-                self.metalView?.display(pixelBuffer)
-                // Swift 会自动管理 PixelBuffer 的释放，通常不需要手动 Release，
-                // 但如果是 CoreVideo 的 API 返回的 Unmanaged 对象则需要。
-                // copyPixelBuffer 返回的是 CVPixelBuffer? (Optional)，ARC 会处理。
-                if let alpha = self.metalView?.alpha, alpha < 1.0 {
-                    UIView.animate(withDuration: 0.1) {
-                        self.metalView?.alpha = 1.0
-                    }
+        if output.hasNewPixelBuffer(forItemTime: itemTime) {
+            if let pixelBuffer = output.copyPixelBuffer(forItemTime: itemTime, itemTimeForDisplay: nil) {
+                self.drawCount += 1
+                if self.drawCount <= 2 { return }
+
+                self.metalView?.renderPixelBuffer(pixelBuffer)
+
+                if self.metalView?.isHidden == true {
+                    self.metalView?.isHidden = false
+                }
+            }
+        }
+
+        // 🟢 优化 3：起搏器机制 与 结尾兜底
+        if let p = self.player, let item = p.currentItem, item.status == .readyToPlay {
+            let duration = item.duration
+            let current = item.currentTime()
+
+            if duration.isNumeric && current.isNumeric {
+                let durationSec = CMTimeGetSeconds(duration)
+                let currentSec = CMTimeGetSeconds(current)
+
+                // 【起搏器核心】
+                // 哪怕底层因为极度争抢资源把 Player 暂停了 (rate == 0 / .paused)
+                // 只要还没播完，强行拉起让它继续给我播！绝不允许停在半路！
+                if p.timeControlStatus == .paused && currentSec < (durationSec - 0.2) {
+                    p.play()
+                }
+
+                // 【结尾兜底释放机制】
+                // 防止视频因为尾帧时长异常，导致系统永远不发通知卡在最后一张图。
+                if durationSec > 0 && currentSec >= (durationSec - 0.05) {
+                    self.playerDidFinish()
                 }
             }
         }
     }
 
     @objc private func playerDidFinish() {
-        self.channel.invokeMethod("onPlayFinished", arguments: nil)
-        // 可以在这里写循环逻辑：
-        // self.player?.seek(to: .zero)
-        // self.player?.play()
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, self.isPlayingActive else { return }
+            self.stopPlayback_Custom()
+            self.notifyPlayFinished()
+        }
     }
 
-    private func stop() {
-        self.player?.pause()
-        self.player = nil
-
-        if let output = self.videoOutput {
-            self.player?.currentItem?.remove(output)
+    @objc private func playerItemFailed() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, self.isPlayingActive else { return }
+            self.stopPlayback_Custom()
+            self.notifyPlayFinished()
         }
+    }
+
+    private func stopPlayback_Custom() {
+        self.isPlayingActive = false
+        self.player?.pause()
+
+        if let output = self.videoOutput, let item = self.player?.currentItem {
+            item.remove(output)
+        }
+
+        self.player = nil
         self.videoOutput = nil
 
         self.displayLink?.invalidate()
@@ -174,7 +199,21 @@ class NativeAlphaPlayerView: NSObject, FlutterPlatformView {
 
         NotificationCenter.default.removeObserver(self)
 
-        // 停止时也可以隐藏，双重保险
-        self.metalView?.alpha = 0
+        let targetMetalView = self.metalView
+        let clearAction = {
+            targetMetalView?.clear()
+            targetMetalView?.isHidden = true
+        }
+        if Thread.isMainThread { clearAction() }
+        else { DispatchQueue.main.async { clearAction() } }
+    }
+
+    private func notifyPlayFinished() {
+        if !isFinishedSent {
+            isFinishedSent = true
+            DispatchQueue.main.async {
+                self.channel.invokeMethod("onPlayFinished", arguments: nil)
+            }
+        }
     }
 }

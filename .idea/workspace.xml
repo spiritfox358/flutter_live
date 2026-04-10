@@ -5,16 +5,17 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/subpages/decoration_mall/decoration_bottom_sheet.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/subpages/pk_result/pk_result.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/subpages/pk_result/pk_result.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/subpages/decoration_mall/decoration_bottom_sheet.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/subpages/decoration_mall/decoration_bottom_sheet.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_tray_effect_layer.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_my_level_benefit_popup.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_my_level_benefit_popup.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_personal_center_popup.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/profile/live_personal_center_popup.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_banner/animate_gift_banner_widget.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_banner/animate_gift_banner_widget.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/ios/Classes/LHVideoGiftAlphaVideoMetalView.h" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/LHVideoGiftAlphaVideoMetalView.h" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/ios/Classes/LHVideoGiftAlphaVideoMetalView.m" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/LHVideoGiftAlphaVideoMetalView.m" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/my_alpha_player/ios/Classes/NativeAlphaPlayerView.swift" beforeDir="false" afterPath="$PROJECT_DIR$/my_alpha_player/ios/Classes/NativeAlphaPlayerView.swift" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -113,14 +114,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1768925595133</updated>
-    </task>
-    <task id="LOCAL-00021" summary="1. initial">
-      <option name="closed" value="true" />
-      <created>1770294280445</created>
-      <option name="number" value="00021" />
-      <option name="presentableId" value="LOCAL-00021" />
-      <option name="project" value="LOCAL" />
-      <updated>1770294280445</updated>
     </task>
     <task id="LOCAL-00022" summary="1. initial">
       <option name="closed" value="true" />
@@ -506,7 +499,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775629817224</updated>
     </task>
-    <option name="localTasksCounter" value="70" />
+    <task id="LOCAL-00070" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1775726981780</created>
+      <option name="number" value="00070" />
+      <option name="presentableId" value="LOCAL-00070" />
+      <option name="project" value="LOCAL" />
+      <updated>1775726981780</updated>
+    </task>
+    <option name="localTasksCounter" value="71" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

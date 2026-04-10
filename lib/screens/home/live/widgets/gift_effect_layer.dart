@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:async';
 import 'dart:collection';
@@ -185,7 +186,6 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
       } else {
         _onEffectComplete();
       }
-
     } catch (e, stack) {
       // 捕获所有未知的逻辑错误，防止队列卡死
       debugPrint("❌ [Effect] _playNextEffect 发生致命错误: $e\n$stack");
@@ -269,19 +269,52 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
     if (kIsWeb) return null;
     try {
       final dir = await getApplicationDocumentsDirectory();
-      String fileName = "gift_${url.hashCode}.mp4";
+
+      // 🟢 修复 1：绝对不能用 url.hashCode！改用 base64Url 编码保证路径持久唯一
+      String safeName = base64Url.encode(utf8.encode(url));
+      // 防文件名过长导致文件系统报错，截取后50位
+      if (safeName.length > 50) safeName = safeName.substring(safeName.length - 50);
+
+      String fileName = "gift_$safeName.mp4";
       final savePath = "${dir.path}/$fileName";
       final file = File(savePath);
 
-      if (await file.exists() && await file.length() > 0) return savePath;
-      if (await file.exists()) await file.delete();
+      // 如果文件完整存在，且大于 1KB (防止空壳文件)，直接极速返回
+      if (await file.exists() && await file.length() > 1000) {
+        return savePath;
+      }
 
-      final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 5), receiveTimeout: const Duration(seconds: 10)));
-      await dio.download(url, savePath);
+      // 🟢 修复 2：原子下载法。先下载到 .tmp 临时文件
+      final tempPath = "$savePath.tmp";
+      final tempFile = File(tempPath);
 
-      if (await file.exists() && await file.length() > 0) return savePath;
+      // 清理残留的损坏临时文件
+      if (await tempFile.exists()) await tempFile.delete();
+
+      final dio = Dio(
+        BaseOptions(
+          connectTimeout: const Duration(seconds:30),
+          receiveTimeout: const Duration(seconds: 180), // 放宽一点接收时间
+        ),
+      );
+
+      await dio.download(url, tempPath);
+
+      // 🟢 修复 3：下载彻底成功后，再重命名为正式的 .mp4 文件
+      // 这样 AVPlayer 只要读到 .mp4，就保证它 100% 是完整健康的，绝不会死锁！
+      if (await tempFile.exists() && await tempFile.length() > 1000) {
+        await tempFile.rename(savePath);
+        return savePath;
+      }
+
       return null;
     } catch (e) {
+      debugPrint("❌ [Effect] 礼物下载异常: $e");
+      // 清理可能下载失败的半截临时文件
+      try {
+        final tempFile = File("${(await getApplicationDocumentsDirectory()).path}/gift_${base64Url.encode(utf8.encode(url))}.mp4.tmp");
+        if (await tempFile.exists()) await tempFile.delete();
+      } catch (_) {}
       return null;
     }
   }
@@ -298,7 +331,7 @@ class GiftEffectLayerState extends State<GiftEffectLayer> {
           child: SizedBox(
             width: size.width,
             height: size.width / _videoAspectRatio,
-            child: MyAlphaPlayerView(key: const ValueKey('AlphaPlayer'), onCreated: _onPlayerCreated),
+            child: MyAlphaPlayerView(key: const ValueKey('GiftAlphaPlayer_Key'), onCreated: _onPlayerCreated),
           ),
         ),
       ),

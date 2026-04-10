@@ -6,9 +6,9 @@ NS_ASSUME_NONNULL_BEGIN
 @interface LHVideoGiftAlphaVideoMetalView : UIView
 
 // 暴露给 Swift 调用的接口
-- (void)displayPixelBuffer:(CVPixelBufferRef)pixelBuffer;
+- (void)renderPixelBuffer:(CVPixelBufferRef)pixelBuffer;
 - (void)clear;
 
 @end
 
-        NS_ASSUME_NONNULL_END
+NS_ASSUME_NONNULL_END

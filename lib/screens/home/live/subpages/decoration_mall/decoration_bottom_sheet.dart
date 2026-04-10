@@ -116,13 +116,13 @@ class _DecorationBottomSheetState extends State<DecorationBottomSheet> with Sing
       if (storeRes is List) {
         for (var s in storeRes) {
           newItems.add(DecorationItem(
-            storeId: s['id'].toString(),
-            name: s['name'] ?? '未命名装扮',
-            type: DecorationType.fromValue(s['type'] ?? 1),
-            imageUrl: s['iconUrl'] ?? '',
-            resourceUrl: s['resourceUrl'] ?? '',
-            price: s['price'] ?? 0,
-            days: s['days'] ?? 7
+              storeId: s['id'].toString(),
+              name: s['name'] ?? '未命名装扮',
+              type: DecorationType.fromValue(s['type'] ?? 1),
+              imageUrl: s['iconUrl'] ?? '',
+              resourceUrl: s['resourceUrl'] ?? '',
+              price: s['price'] ?? 0,
+              days: s['days'] ?? 7
           ));
         }
       }
@@ -355,9 +355,10 @@ class _DecorationBottomSheetState extends State<DecorationBottomSheet> with Sing
     );
   }
 
+  /// 🟢 核心修改：弃用坑人的 ChoiceChip，全部改为原生 Container 手绘
   Widget _buildTypeFilter() {
     return SizedBox(
-      height: 36,
+      height: 32, // 给定一个固定的安全高度
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -366,26 +367,45 @@ class _DecorationBottomSheetState extends State<DecorationBottomSheet> with Sing
           final type = DecorationType.values[index];
           final isSelected = _currentType == type;
 
-          return Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: ChoiceChip(
-              label: Text(type.label),
-              selected: isSelected,
-              showCheckmark: false,
-              selectedColor: const Color(0xFFFF4D81).withOpacity(0.15),
-              backgroundColor: Colors.white.withOpacity(0.04),
-              labelStyle: TextStyle(
-                color: isSelected ? const Color(0xFFFF4D81) : Colors.white60,
-                fontSize: 13,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                _currentType = type;
+                _selectedItem = null; // 切换分类时清除选中状态
+              });
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Container(
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              // 🟢 关键：直接用 alignment 绝对居中
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                // 选中态背景色 vs 未选中态背景色
+                color: isSelected
+                    ? const Color(0xFFFF4D81).withOpacity(0.15)
+                    : Colors.white.withOpacity(0.04),
+                borderRadius: BorderRadius.circular(16), // 圆角药丸形状
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFFFF4D81).withOpacity(0.5)
+                      : Colors.transparent,
+                  width: 1,
+                ),
               ),
-              side: BorderSide(color: isSelected ? const Color(0xFFFF4D81).withOpacity(0.5) : Colors.transparent),
-              onSelected: (bool selected) {
-                setState(() {
-                  _currentType = type;
-                  _selectedItem = null;
-                });
-              },
+              child: Text(
+                type.label,
+                // 🟢 关键：加上 strutStyle 强制撑开安卓的中文字体安全高度
+                strutStyle: const StrutStyle(
+                  forceStrutHeight: true,
+                  leading: 0,
+                ),
+                style: TextStyle(
+                  color: isSelected ? const Color(0xFFFF4D81) : Colors.white60,
+                  fontSize: 13,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
             ),
           );
         },
@@ -469,19 +489,22 @@ class _DecorationBottomSheetState extends State<DecorationBottomSheet> with Sing
                               : const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
                           child: isGloryBuff
                               ? Container(
-                            padding: const EdgeInsets.only(top: 30, left: 10, right: 10, bottom: 10),
+                            padding: const EdgeInsets.only(top: 35, left: 10, right: 10, bottom: 10),
                             child: Image.network(
                               item.imageUrl,
                               fit: BoxFit.contain,
                               errorBuilder: (c, e, s) => const Icon(Icons.image, color: Colors.white24, size: 30),
                             ),
                           )
-                              : Image.network(
-                            item.imageUrl,
-                            fit: BoxFit.contain,
-                            width: double.infinity,
-                            height: double.infinity,
-                            errorBuilder: (c, e, s) => const Icon(Icons.image, color: Colors.white24, size: 40),
+                              : Container(
+                            padding: const EdgeInsets.only(top: 5, left: 0, right: 0, bottom: 0),
+                            child: Image.network(
+                              item.imageUrl,
+                              fit: BoxFit.contain,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorBuilder: (c, e, s) => const Icon(Icons.image, color: Colors.white24, size: 40),
+                            ),
                           ),
                         ),
                       ),
@@ -538,58 +561,75 @@ class _DecorationBottomSheetState extends State<DecorationBottomSheet> with Sing
     );
   }
 
-  /// 构建卡片底部按钮状态机
+  /// 🟢 核心修改：使用最基础的 GestureDetector + Container 替代 ElevatedButton
+  /// 🟢 核心修改：移除导致文字消失的 height 属性，使用 alignment 居中
   Widget _buildActionButton(DecorationItem item, bool isExpired) {
     String btnText;
-    Color btnColor;
+    Color bgColor;
     Color textColor = Colors.white;
+    Color borderColor = Colors.transparent;
     VoidCallback? onTap;
 
     if (_currentMainTab == 0) {
-      // 商城 Tab (因为过滤过了，这里要么是未购买的，要么是已过期的)
+      // 商城 Tab
       if (item.isOwned) {
         btnText = '续费';
-        btnColor = Colors.transparent;
+        bgColor = Colors.transparent;
+        borderColor = const Color(0xFFFFB74D);
         textColor = const Color(0xFFFFB74D);
         onTap = () => _handleBuyOrRenew(item);
       } else {
         btnText = '购买';
-        btnColor = const Color(0xFFFF4D81);
+        bgColor = const Color(0xFFFF4D81);
         onTap = () => _handleBuyOrRenew(item);
       }
     } else {
       // 我的 Tab
       if (isExpired) {
         btnText = '续费';
-        btnColor = const Color(0xFFFFB74D);
+        bgColor = const Color(0xFFFFB74D);
         onTap = () => _handleBuyOrRenew(item);
       } else if (item.isEquipped) {
         btnText = '卸下';
-        btnColor = Colors.white.withOpacity(0.1);
+        bgColor = Colors.white.withOpacity(0.1);
         textColor = Colors.white70;
         onTap = () => _handleEquipToggle(item);
       } else {
         btnText = '佩戴';
-        btnColor = const Color(0xFF4A90E2);
+        bgColor = const Color(0xFF4A90E2);
         onTap = () => _handleEquipToggle(item);
       }
     }
 
-    return SizedBox(
-      width: double.infinity,
-      height: 28,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: btnColor,
-          elevation: 0,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: btnColor == Colors.transparent ? const BorderSide(color: Color(0xFFFFB74D)) : BorderSide.none,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        width: double.infinity,
+        height: 28,
+        // 🟢 关键点1：直接使用 alignment 控制居中，比嵌套 Center 组件更稳
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+          border: borderColor != Colors.transparent
+              ? Border.all(color: borderColor, width: 1.0)
+              : null,
+        ),
+        child: Text(
+          btnText,
+          // 🟢 关键点2：在某些安卓机上如果字体不生效，需要加上 strutStyle 强制撑开高度
+          strutStyle: const StrutStyle(
+            forceStrutHeight: true,
+            leading: 0,
+          ),
+          style: TextStyle(
+            fontSize: 12,
+            color: textColor,
+            fontWeight: FontWeight.bold,
+            // ❌ 绝对不要在这里加 height: 1.0，会导致部分安卓机中文消失
           ),
         ),
-        onPressed: onTap,
-        child: Text(btnText, style: TextStyle(fontSize: 12, color: textColor, fontWeight: FontWeight.bold)),
       ),
     );
   }

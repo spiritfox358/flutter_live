@@ -156,7 +156,7 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
   final double _bannerLeft = -5.0;
 
   // 🚀 Banner 避让核心配置 (保持简单的固定值，因为现在父组件已经完美对齐了)
-  final double _baseBannerTop = 12.0;
+  final double _baseBannerTop = 15.0;
   final double _bannerShiftAmount = 25.0; // 进场条出现时 +20 丝滑下移
 
   double get _videoWidth => _baseWidth * _scale;
@@ -223,7 +223,7 @@ class _GiftTraySlotItemState extends State<_GiftTraySlotItem> {
   void _startSequence() async {
     int giftPrice = widget.initialGiftEvent.giftPrice ?? 0;
 
-    if (giftPrice < 1000) {
+    if (giftPrice < 50000) {
       if (mounted) {
         setState(() {
           _showVideo = false;

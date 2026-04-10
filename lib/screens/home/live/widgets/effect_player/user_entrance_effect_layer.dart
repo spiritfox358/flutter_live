@@ -341,7 +341,7 @@ class _DualVideoItemState extends State<_DualVideoItem> {
           ),
           Positioned.fill(
             child: MyAlphaPlayerView(
-                key: const ValueKey("FloatPlayer"),
+                key: const ValueKey("EntranceAlphaPlayer_Key"),
                 onCreated: _onFloatPlayerCreated),
           ),
         ],
