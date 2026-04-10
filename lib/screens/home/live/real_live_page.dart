@@ -43,7 +43,7 @@ import 'package:flutter_live/screens/home/live/widgets/pk_score_bar_widgets.dart
 import 'widgets/gift_panel/gift_panel.dart';
 
 // 引入新拆分的特效层
-import 'widgets/gift_effect_layer.dart';
+import 'widgets/effect_player/gift_effect_layer.dart';
 
 // 引入 PK 匹配管理器
 import 'widgets/pk_match_manager.dart';
