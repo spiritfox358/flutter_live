@@ -5,9 +5,13 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/entrance_banner_widget.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/flutter_live.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/flutter_live.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gift_convert2.md" beforeDir="false" afterPath="$PROJECT_DIR$/gift_convert2.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/gift_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/gift_effect_layer.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -66,7 +70,7 @@
     "io.flutter.project.isFirstOpen": "true",
     "io.flutter.reload.alreadyRun": "true",
     "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/luna/Documents/work/android/flutter_live/lib/screens/home/live/widgets/view_mode",
+    "last_opened_file_path": "/Users/luna/Documents/work/android/flutter_live/lib/screens/home/live/widgets/effect_player",
     "project.structure.last.edited": "Project",
     "project.structure.proportion": "0.0",
     "project.structure.side.proportion": "0.29564193",
@@ -76,10 +80,10 @@
 }]]></component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player" />
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode" />
       <recent name="$PROJECT_DIR$/lib/tools" />
       <recent name="$PROJECT_DIR$/assets/lottie" />
-      <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player" />
       <recent name="$PROJECT_DIR$/lib/screens/me/profile" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
@@ -106,14 +110,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1768925595133</updated>
-    </task>
-    <task id="LOCAL-00023" summary="1. initial">
-      <option name="closed" value="true" />
-      <created>1770366648060</created>
-      <option name="number" value="00023" />
-      <option name="presentableId" value="LOCAL-00023" />
-      <option name="project" value="LOCAL" />
-      <updated>1770366648060</updated>
     </task>
     <task id="LOCAL-00024" summary="1. initial">
       <option name="closed" value="true" />
@@ -499,7 +495,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775786829878</updated>
     </task>
-    <option name="localTasksCounter" value="72" />
+    <task id="LOCAL-00072" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1775792089231</created>
+      <option name="number" value="00072" />
+      <option name="presentableId" value="LOCAL-00072" />
+      <option name="project" value="LOCAL" />
+      <updated>1775792089231</updated>
+    </task>
+    <option name="localTasksCounter" value="73" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -539,12 +543,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1235</line>
+          <line>1263</line>
           <option name="timeStamp" value="95" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1573</line>
+          <line>1601</line>
           <option name="timeStamp" value="106" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -574,7 +578,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1255</line>
+          <line>1283</line>
           <option name="timeStamp" value="139" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -589,7 +593,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1193</line>
+          <line>1221</line>
           <option name="timeStamp" value="170" />
         </line-breakpoint>
       </breakpoints>

@@ -850,15 +850,43 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       final String senderBuff = data['levelHonourBuff']?.toString() ?? '';
       switch (type) {
         case "ENTER":
-          // 定义执行逻辑的闭包
+        // 定义执行逻辑的闭包
           void executeLogic() {
             if (!mounted) return;
             // 提取 ID 解析逻辑，避免重复调用 int.parse
             final int userId = int.parse(joinerId);
 
-            if ([2, 6, 163].contains(userId)) {
-              _entranceEffectKey.currentState?.addEntrance(EntranceModel(userName: joinerName, avatar: joinerAvatar));
+            // 🚀🚀🚀 核心改动 1：智能解析后端传来的 extraConfig
+            Map<String, dynamic>? extraConfig;
+            if (data['extraConfig'] != null) {
+              if (data['extraConfig'] is String) {
+                try {
+                  extraConfig = jsonDecode(data['extraConfig']);
+                } catch (e) {
+                  debugPrint("解析 extraConfig 失败: $e");
+                }
+              } else {
+                extraConfig = data['extraConfig'] as Map<String, dynamic>?;
+              }
+            }
+
+            // 🚀🚀🚀 核心改动 2：判断该用户是否拥有后台动态配置的特效！
+            // 只要包含了视频链接 (floatVideoUrl/resourceUrl) 或者额外配置 (extraConfig)，就说明有特权！
+            bool hasCustomEntrance = data['floatVideoUrl'] != null ||
+                data['resourceUrl'] != null ||
+                extraConfig != null;
+
+            // 🚀🚀🚀 核心改动 3：打破写死的 ID 限制！
+            // 如果后端下发了配置，或者依然属于你们原来的 2,6,163 测试白名单，一律走尊贵特效进场！
+            if (hasCustomEntrance || [2, 6, 163].contains(userId)) {
+
+              // 完美调用我们之前在 EntranceModel 里写好的 fromJson，它会自动帮你把 Hex 颜色字符串变成 Color 对象
+              final entranceModel = EntranceModel.fromJson(data, extraConfig);
+
+              _entranceEffectKey.currentState?.addEntrance(entranceModel);
+
             } else {
+              // 没有任何特权配置的普通用户，走普通的文字播报进场
               _simulateVipEnter(
                 overrideUserId: joinerId,
                 overrideName: joinerName,

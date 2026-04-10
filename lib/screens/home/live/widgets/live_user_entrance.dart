@@ -32,88 +32,148 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
   bool _isBannerShowing = false;
   EntranceEvent? _currentEvent;
 
+  bool _isInterrupted = false; // 🚀 标记是否被打断
+
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-
-    // 初始化状态：在屏幕右侧之外 (1.5倍宽度处)
     _animation = Tween<Offset>(begin: const Offset(1.5, 0), end: const Offset(1.5, 0)).animate(_controller);
+
+    // 🚀 监听特权进场的全局打断信号
+    EntranceSignal.isSpecialPlaying.addListener(_onSpecialPlayingChanged);
   }
 
   @override
   void dispose() {
-    // 🚀 2. 安全兜底：如果组件销毁，强制熄灭信号灯，防止横幅永远卡在下面
+    // 销毁时移除监听
+    EntranceSignal.isSpecialPlaying.removeListener(_onSpecialPlayingChanged);
     EntranceSignal.active.value = false;
     _controller.dispose();
     super.dispose();
   }
 
+  // 🚨 接收到特权信号变化时的回调
+  void _onSpecialPlayingChanged() {
+    if (EntranceSignal.isSpecialPlaying.value) {
+      // 🚨 特权进场来了！如果屏幕上正挂着普通横幅，立刻打断它
+      if (_isBannerShowing && _currentEvent != null) {
+        _interruptCurrent();
+      }
+    } else {
+      // 🟢 特权进场结束了，如果队伍里还有人，继续开始播
+      if (_entranceQueue.isNotEmpty && !_isBannerShowing) {
+        _playNext();
+      }
+    }
+  }
+
+  // 🚀 核心退让逻辑
+  void _interruptCurrent() {
+    _isInterrupted = true; // 触发中断标志，防止后续流程继续跑
+    _controller.stop(); // 停止当前横幅的一切运动
+
+    if (_currentEvent != null) {
+      // 🚀 完美兜底：将刚露个脸就被打断的普通用户，重新塞回队列的【最前面】！
+      // 保证他不丢出场机会，等大佬播完，他紧跟着继续出场。
+      _entranceQueue.addFirst(_currentEvent!);
+    }
+
+    if (mounted) {
+      setState(() {
+        // 立刻从停住的那个位置，以极快的速度向左滑出屏幕 (-1.5)
+        _animation = Tween<Offset>(
+          begin: _animation.value,
+          end: const Offset(-1.5, 0),
+        ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInCubic));
+      });
+
+      // 切换为极速退场模式 (300毫秒)
+      _controller.duration = const Duration(milliseconds: 300);
+      _controller.reset();
+      _controller.forward().then((_) {
+        _isBannerShowing = false;
+        _currentEvent = null;
+        // 退场完毕，恢复原本的进出场速度
+        _controller.duration = const Duration(milliseconds: 800);
+      });
+    }
+  }
+
   /// 外部调用此方法添加进场消息
   void addEvent(EntranceEvent event) {
     _entranceQueue.add(event);
-    if (!_isBannerShowing) {
+    // 🚀 只有在“当前没在播横幅” 且 “大佬特权横幅没在播” 时，才能启动播放
+    if (!_isBannerShowing && !EntranceSignal.isSpecialPlaying.value) {
       _playNext();
     }
   }
 
   Future<void> _playNext() async {
-    // 🚀🚀🚀 核心逻辑 1：队列空了，说明刚才最后一个人已经滑出屏幕了。熄灭信号灯！
-    if (_entranceQueue.isEmpty) {
-      EntranceSignal.active.value = false;
+    // 🚨 队伍空了，或者正在被大佬特权霸屏，直接跳出
+    if (_entranceQueue.isEmpty || EntranceSignal.isSpecialPlaying.value) {
+      if (_entranceQueue.isEmpty) {
+        EntranceSignal.active.value = false;
+      }
       return;
     }
 
-    // 🚀🚀🚀 核心逻辑 2：只要准备播下一个人，强制点亮/保持信号灯！礼物横幅立刻下沉避让！
     EntranceSignal.active.value = true;
-
     _isBannerShowing = true;
+    _isInterrupted = false; // 发车前，重置中断标志
+
     final event = _entranceQueue.removeFirst();
 
     if (mounted) {
       setState(() {
         _currentEvent = event;
-        // 🟢 进场动画：从右侧 (1.5) 滑动到显示位置 (0)
-        _animation = Tween<Offset>(
-          begin: const Offset(1.5, 0),
-          end: const Offset(0, 0),
-        ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutQuart));
+        _animation = Tween<Offset>(begin: const Offset(1.5, 0), end: const Offset(0, 0))
+            .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutQuart));
       });
     }
 
     _controller.reset();
     await _controller.forward();
 
-    // 停留展示时间
-    await Future.delayed(const Duration(milliseconds: 2000));
+    if (_isInterrupted) return; // 🚨 滑入中途被打断，直接太监，后面的代码不执行了！
+
+    // 🚀 核心：化整为零。用循环分段延迟代替一刀切的 Future.delayed(2000)
+    // 这样只要收到信号，能在一瞬间立刻终止停留
+    int waitTimeMs = 2000;
+    int waitedMs = 0;
+    while (waitedMs < waitTimeMs) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (_isInterrupted) return; // 🚨 停留期间随时被打断，立刻跳出！
+      waitedMs += 100;
+    }
 
     if (mounted) {
       setState(() {
-        // 🟢 离场动画：从当前位置 (0) 向左滑动出屏幕 (-1.5)
-        _animation = Tween<Offset>(
-          begin: const Offset(0, 0),
-          end: const Offset(-1.5, 0),
-        ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInQuart));
+        _animation = Tween<Offset>(begin: const Offset(0, 0), end: const Offset(-1.5, 0))
+            .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInQuart));
       });
     }
 
     _controller.reset();
     await _controller.forward();
 
-    _isBannerShowing = false;
+    if (_isInterrupted) return;
 
-    // 稍微延迟一点处理下一个 (这 200ms 的间隙里，信号灯依然是亮的，这很好！避免了连着进场时横幅上下鬼畜抖动)
+    _isBannerShowing = false;
+    _currentEvent = null;
+
     await Future.delayed(const Duration(milliseconds: 200));
 
+    if (_isInterrupted) return;
+
     if (mounted) {
-      // 递归调用：如果没人了，下一次进去就会触发上面的 isEmpty 逻辑，熄灭信号灯。
       _playNext();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // 如果没有当前事件，渲染空容器
+    // 保持你原有的 build 代码不变
     if (_currentEvent == null) return const SizedBox();
 
     return SlideTransition(
