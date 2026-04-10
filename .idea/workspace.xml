@@ -5,13 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/entrance_banner_widget.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/flutter_live.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/flutter_live.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/gift_convert2.md" beforeDir="false" afterPath="$PROJECT_DIR$/gift_convert2.md" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player/user_entrance_effect_layer.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -110,14 +106,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1768925595133</updated>
-    </task>
-    <task id="LOCAL-00024" summary="1. initial">
-      <option name="closed" value="true" />
-      <created>1770395573581</created>
-      <option name="number" value="00024" />
-      <option name="presentableId" value="LOCAL-00024" />
-      <option name="project" value="LOCAL" />
-      <updated>1770395573581</updated>
     </task>
     <task id="LOCAL-00025" summary="1. initial">
       <option name="closed" value="true" />
@@ -503,7 +491,15 @@
       <option name="project" value="LOCAL" />
       <updated>1775792089231</updated>
     </task>
-    <option name="localTasksCounter" value="73" />
+    <task id="LOCAL-00073" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1775811194029</created>
+      <option name="number" value="00073" />
+      <option name="presentableId" value="LOCAL-00073" />
+      <option name="project" value="LOCAL" />
+      <updated>1775811194029</updated>
+    </task>
+    <option name="localTasksCounter" value="74" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -543,12 +539,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1263</line>
+          <line>1260</line>
           <option name="timeStamp" value="95" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1601</line>
+          <line>1598</line>
           <option name="timeStamp" value="106" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -578,7 +574,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1283</line>
+          <line>1280</line>
           <option name="timeStamp" value="139" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -593,7 +589,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1221</line>
+          <line>1218</line>
           <option name="timeStamp" value="170" />
         </line-breakpoint>
       </breakpoints>
