@@ -34,6 +34,7 @@ import '../../../tools/HttpUtil.dart';
 
 import '../../../tools/StringTool.dart';
 import 'models/live_models.dart';
+import 'widgets/view_mode/pk_real_battle_view.dart';
 import 'widgets/view_mode/single_mode_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/build_bottom_input_bar.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/build_top_bar.dart';
@@ -178,7 +179,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final Map<String, Player> _players = {};
   final Map<String, VideoController> _videoControllers = {};
   bool _isBgInitialized = false;
-  final bool _isVideoBackground = true;
+  final bool _isVideoBackground = false;
   String _currentBgImage = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_15.jpg";
   String _leftCurrentStreamUrl = "";
 
@@ -585,13 +586,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         _punishmentDuration = _parseInt(pkInfo['punishmentDuration'], defaultValue: 30);
         setState(() {
           _participants = pkInfo['participants'] as List;
-          // 🚀🚀🚀 核心切换 1：进入/刷新多人模式
-          // 如果参与者大于 1 人，说明处于多人连麦状态，立刻封杀单人模式的 media_kit！
-          if (_participants.length > 1) {
-            _bgPlayer?.pause();
-            // 极度安全措施：喂一个空列表，逼迫底层彻底释放硬件解码器，防止抢占 hardcore_mixer 资源
-            _bgPlayer?.open(Playlist([]));
-          }
           for (var p in _participants) {
             if (p['isMuted'] == null) {
               p['isMuted'] = (p['roomId'].toString() != _roomId);
@@ -706,11 +700,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           _enterCoHostPhase(initialElapsedTime: totalElapsed > 0 ? totalElapsed : 0, serverStartTime: startTime);
         }
       } else {
-        HardcoreMixer.dispose();
         setState(() {
-          _pkStatus = PKStatus.idle; // 确保状态机回到闲置
-          _participants.clear(); // 清空多人列表，销毁 9 宫格 UI
-
           _currentName = data['title'] ?? _currentName;
           _currentAvatar = data['coverImg'] ?? _currentAvatar;
           _leftVideoUrl = data['streamUrl'] ?? _leftVideoUrl;
@@ -1412,8 +1402,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _promoTimer?.cancel();
     _rightPlayer?.pause(); // 暂停对手视频
 
-    HardcoreMixer.dispose();
-
     if (mounted) {
       setState(() {
         _pkStatus = PKStatus.idle;
@@ -1424,14 +1412,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       });
     }
 
-    // 🚀 重新拉起 media_kit，填补画面空白
-    if (widget.roomType == LiveRoomType.normal && _leftCurrentStreamUrl.isNotEmpty) {
-      _bgPlayer?.open(Media(_leftCurrentStreamUrl), play: true);
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _ensureVideosPlaying();
-      });
-    }
+    // 修复：界面切换回普通模式后，强制恢复左侧视频
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureVideosPlaying();
+    });
   }
 
   void _dismissKeyboard() {
@@ -2274,23 +2258,35 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         // 普通模式下，SingleModeView 通常自带了顶部栏或背景处理
         return Stack(
           children: [
-            SingleModeView(
-              key: const ValueKey("SingleModeView"),
-              // 可选
-              viewerListKey: _viewerListKey,
-              roomId: _roomId,
-              onlineCount: _onlineCount,
-              isVideoBackground: _leftCurrentStreamUrl.isNotEmpty,
-              isBgInitialized: _isBgInitialized,
-              bgController: _bgController,
-              currentBgImage: _currentBgImage,
-              title: "直播间",
-              name: _currentName,
-              avatar: _currentAvatar,
-              onClose: _handleCloseButton,
-              anchorId: _currentUserId,
-            ),
-            if (_leftCurrentStreamUrl.isEmpty) ...[
+            // 如果有视频流，并且已经初始化了视频控制器，就优先渲染视频
+            if (hasStream && _bgController != null) ...[
+              Positioned.fill(
+                child: Video(
+                  controller: _bgController!,
+                  fit: BoxFit.cover, // 铺满全屏
+                  controls: NoVideoControls, // 隐藏控制条
+                ),
+              ),
+              Positioned(top: 0, left: 0, right: 0, child: topBar),
+            ]
+            // 如果没有视频流，或者视频还没准备好，则回退到普通的 SingleModeView（展示背景图等）
+            else ...[
+              SingleModeView(
+                key: const ValueKey("SingleModeView"),
+                // 可选
+                viewerListKey: _viewerListKey,
+                roomId: _roomId,
+                onlineCount: _onlineCount,
+                isVideoBackground: _isVideoBackground,
+                isBgInitialized: _isBgInitialized,
+                bgController: _bgController,
+                currentBgImage: _currentBgImage,
+                title: "直播间",
+                name: _currentName,
+                avatar: _currentAvatar,
+                onClose: _handleCloseButton,
+                anchorId: _currentUserId,
+              ),
               Positioned(
                 top: MediaQuery.of(context).size.height * 0.2,
                 left: 0,
@@ -2345,9 +2341,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           baseChatListHeight = 200.0;
           break;
         case LiveRoomType.normal:
-          baseChatListHeight = size.height * 0.345;
         default:
-          baseChatListHeight = 460;
+          baseChatListHeight = 460.0;
           break;
       }
     }

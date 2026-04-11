@@ -185,7 +185,7 @@ class GiftPanelState extends State<GiftPanel> with TickerProviderStateMixin {
           GestureDetector(
             onTap: () {
               final currentUser = widget.userStatusNotifier.value;
-              // Navigator.pop(context);
+              Navigator.pop(context);
               showLivePersonalCenterPopup(context, currentUser);
             },
             child: Container(

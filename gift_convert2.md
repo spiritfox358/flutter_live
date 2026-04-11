@@ -1,4 +1,4 @@
-ffmpeg -i 御龙游侠漂浮.mov \
+ffmpeg -i 都市游侠漂浮2.mov \
 -filter_complex "
 [0:v]format=rgba,split=2[rgb][a];
 [a]alphaextract,format=yuv420p,scale=trunc(iw/2)*2:trunc(ih/2)*2[a_gray];
@@ -12,7 +12,7 @@ ffmpeg -i 御龙游侠漂浮.mov \
 -crf 23 \
 -preset slow \
 -movflags +faststart \
-御龙游侠漂浮.mp4
+都市游侠漂浮2.mp4
 
 
 

@@ -791,8 +791,9 @@ class _CellWrapperState extends State<_CellWrapper> {
         ),
       ],
     );
-    if (player.isPunished)
+    if (player.isPunished) {
       fallbackContent = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: fallbackContent);
+    }
 
     Widget videoWidget = Container(color: Colors.transparent);
     if (player.isPunished) videoWidget = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: videoWidget);
