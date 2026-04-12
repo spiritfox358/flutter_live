@@ -18,6 +18,7 @@ import printing
 import record_macos
 import shared_preferences_foundation
 import sqflite_darwin
+import tencent_rtc_sdk
 import wakelock_plus
 import webview_flutter_wkwebview
 
@@ -35,6 +36,7 @@ func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   RecordMacOsPlugin.register(with: registry.registrar(forPlugin: "RecordMacOsPlugin"))
   SharedPreferencesPlugin.register(with: registry.registrar(forPlugin: "SharedPreferencesPlugin"))
   SqflitePlugin.register(with: registry.registrar(forPlugin: "SqflitePlugin"))
+  TencentRTCCloud.register(with: registry.registrar(forPlugin: "TencentRTCCloud"))
   WakelockPlusMacosPlugin.register(with: registry.registrar(forPlugin: "WakelockPlusMacosPlugin"))
   WebViewFlutterPlugin.register(with: registry.registrar(forPlugin: "WebViewFlutterPlugin"))
 }

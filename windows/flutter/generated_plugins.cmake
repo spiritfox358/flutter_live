@@ -10,6 +10,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   permission_handler_windows
   printing
   record_windows
+  tencent_rtc_sdk
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
