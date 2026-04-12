@@ -10,16 +10,22 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
-    packagingOptions {
-        pickFirst 'lib/**/libliteavsdk.so'
+    // 🟢 修复 1：将 packagingOptions 替换为 packaging，并使用新版的 add() 语法和双引号
+    packaging {
+        jniLibs {
+            pickFirsts.add("lib/**/libliteavsdk.so")
+        }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // 🟢 修复 2：暂时保留旧写法，但直接赋值字符串 "17" 可以消除大部分常规报错。
+    // 如果 IDE 仍然对 kotlinOptions 报黄/红警告（因为被弃用），可以忽略，它不会阻止编译。
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = "17"
     }
 
     defaultConfig {
@@ -38,8 +44,10 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+
+            // 🟢 之前的修复：开启混淆和指定混淆规则文件
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro")
         }
     }
 }
