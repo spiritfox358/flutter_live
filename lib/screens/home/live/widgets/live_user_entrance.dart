@@ -124,51 +124,62 @@ class LiveUserEntranceState extends State<LiveUserEntrance> with SingleTickerPro
 
     final event = _entranceQueue.removeFirst();
 
-    if (mounted) {
-      setState(() {
-        _currentEvent = event;
-        _animation = Tween<Offset>(begin: const Offset(1.5, 0), end: const Offset(0, 0))
-            .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutQuart));
-      });
-    }
+    // 🟢 第 1 道防线：初始检查
+    if (!mounted) return;
+
+    setState(() {
+      _currentEvent = event;
+      _animation = Tween<Offset>(begin: const Offset(1.5, 0), end: const Offset(0, 0))
+          .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutQuart));
+    });
 
     _controller.reset();
-    await _controller.forward();
+    try {
+      await _controller.forward();
+    } catch (e) {
+      // 防止动画在中途被 dispose 抛出异常
+      return;
+    }
 
-    if (_isInterrupted) return; // 🚨 滑入中途被打断，直接太监，后面的代码不执行了！
+    // 🟢 第 2 道防线：动画1播放完后检查
+    if (!mounted || _isInterrupted) return;
 
-    // 🚀 核心：化整为零。用循环分段延迟代替一刀切的 Future.delayed(2000)
-    // 这样只要收到信号，能在一瞬间立刻终止停留
     int waitTimeMs = 2000;
     int waitedMs = 0;
     while (waitedMs < waitTimeMs) {
       await Future.delayed(const Duration(milliseconds: 100));
-      if (_isInterrupted) return; // 🚨 停留期间随时被打断，立刻跳出！
+      // 🟢 第 3 道防线：在漫长的等待循环中，随时检查是否被销毁！
+      if (!mounted || _isInterrupted) return;
       waitedMs += 100;
     }
 
-    if (mounted) {
-      setState(() {
-        _animation = Tween<Offset>(begin: const Offset(0, 0), end: const Offset(-1.5, 0))
-            .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInQuart));
-      });
+    // 🚀🚀🚀 最致命的第 4 道防线：等待彻底结束后，操作控制器前必须检查！
+    if (!mounted) return;
+
+    setState(() {
+      _animation = Tween<Offset>(begin: const Offset(0, 0), end: const Offset(-1.5, 0))
+          .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInQuart));
+    });
+
+    _controller.reset(); // 有了上面的 mounted 保护，这里绝对安全了
+    try {
+      await _controller.forward();
+    } catch (e) {
+      return;
     }
 
-    _controller.reset();
-    await _controller.forward();
-
-    if (_isInterrupted) return;
+    // 🟢 第 5 道防线：动画2播放完后检查
+    if (!mounted || _isInterrupted) return;
 
     _isBannerShowing = false;
     _currentEvent = null;
 
     await Future.delayed(const Duration(milliseconds: 200));
 
-    if (_isInterrupted) return;
+    // 🟢 第 6 道防线：准备递归调用自己前检查
+    if (!mounted || _isInterrupted) return;
 
-    if (mounted) {
-      _playNext();
-    }
+    _playNext();
   }
 
   @override

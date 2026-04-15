@@ -50,6 +50,14 @@ PODS:
   - sqflite_darwin (0.0.4):
     - Flutter
     - FlutterMacOS
+  - tencent_rtc_sdk (0.0.1):
+    - Flutter
+    - TXCustomBeautyProcesserPlugin (= 1.0.2)
+    - TXLiteAVSDK_Professional (~> 13.2.20652)
+  - TXCustomBeautyProcesserPlugin (1.0.2)
+  - TXLiteAVSDK_Professional (13.2.20652):
+    - TXLiteAVSDK_Professional/Professional (= 13.2.20652)
+  - TXLiteAVSDK_Professional/Professional (13.2.20652)
   - vibration (3.0.0):
     - Flutter
   - video_thumbnail (0.0.1):
@@ -80,6 +88,7 @@ DEPENDENCIES:
   - record_ios (from `.symlinks/plugins/record_ios/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - sqflite_darwin (from `.symlinks/plugins/sqflite_darwin/darwin`)
+  - tencent_rtc_sdk (from `.symlinks/plugins/tencent_rtc_sdk/ios`)
   - vibration (from `.symlinks/plugins/vibration/ios`)
   - video_thumbnail (from `.symlinks/plugins/video_thumbnail/ios`)
   - wakelock_plus (from `.symlinks/plugins/wakelock_plus/ios`)
@@ -88,6 +97,8 @@ DEPENDENCIES:
 SPEC REPOS:
   trunk:
     - libwebp
+    - TXCustomBeautyProcesserPlugin
+    - TXLiteAVSDK_Professional
 
 EXTERNAL SOURCES:
   audio_session:
@@ -126,6 +137,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   sqflite_darwin:
     :path: ".symlinks/plugins/sqflite_darwin/darwin"
+  tencent_rtc_sdk:
+    :path: ".symlinks/plugins/tencent_rtc_sdk/ios"
   vibration:
     :path: ".symlinks/plugins/vibration/ios"
   video_thumbnail:
@@ -138,7 +151,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   audio_session: 9bb7f6c970f21241b19f5a3658097ae459681ba0
   audioplayers_darwin: 835ced6edd4c9fc8ebb0a7cc9e294a91d99917d5
-  device_info_plus: 21fcca2080fbcd348be798aa36c3e5ed849eefbe
+  device_info_plus: 71ffc6ab7634ade6267c7a93088ed7e4f74e5896
   ffmpeg-kit-ios-full: 2da77324b0e9fb007195ab6661f64be4cf31dc12
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   hardcore_mixer: 799a82036130ddf8f1bf10cdb3b4592700693559
@@ -155,6 +168,9 @@ SPEC CHECKSUMS:
   record_ios: 412daca2350b228e698fffcd08f1f94ceb1e3844
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   sqflite_darwin: 20b2a3a3b70e43edae938624ce550a3cbf66a3d0
+  tencent_rtc_sdk: b076a8a70f3f5f7c9c5b1badf8c5254d03740bda
+  TXCustomBeautyProcesserPlugin: 099393b941cb40eda12b3a80bf6c0319957b1cfd
+  TXLiteAVSDK_Professional: e792e6084a208ecef6196c5f28237ad8078b4d7c
   vibration: ca8104a8875b9c493e15b21b04e456befd0ff6eb
   video_thumbnail: b637e0ad5f588ca9945f6e2c927f73a69a661140
   wakelock_plus: e29112ab3ef0b318e58cfa5c32326458be66b556

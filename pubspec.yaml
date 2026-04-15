@@ -48,6 +48,8 @@ dependencies:
   record: ^6.2.0
   video_thumbnail: ^0.5.6
   tencent_rtc_sdk: ^13.2.1
+  crypto: ^3.0.3           # 之前加的
+  archive: ^3.3.2
 
 dev_dependencies:
   flutter_test:
@@ -64,3 +66,6 @@ flutter:
   # you will uncomment and use the assets section below:
 #  assets:
 #    - assets/lottie/FireFuego.json
+# 在文件最下方加上这个强行覆盖规则
+dependency_overrides:
+  device_info_plus: ^10.1.0
