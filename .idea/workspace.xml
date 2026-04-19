@@ -5,23 +5,14 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73763828-2b84-4665-912b-27a3a620f5e1" name="Changes" comment="1. initial">
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/generate_test_user_sig.dart" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/trtc_manager.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.flutter-plugins-dependencies" beforeDir="false" afterPath="$PROJECT_DIR$/.flutter-plugins-dependencies" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Dart_Packages.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/Flutter_Plugins.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/subpages/dynamic_pk_view/dynamic_pk_battle_view.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/co_host_video_list.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ios/Podfile.lock" beforeDir="false" afterPath="$PROJECT_DIR$/ios/Podfile.lock" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ios/Runner.xcodeproj/project.pbxproj" beforeDir="false" afterPath="$PROJECT_DIR$/ios/Runner.xcodeproj/project.pbxproj" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/ios/Runner/Info.plist" beforeDir="false" afterPath="$PROJECT_DIR$/ios/Runner/Info.plist" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/live_user_entrance.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/single_mode_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode/single_mode_view.dart" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/linux/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/linux/flutter/generated_plugins.cmake" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.lock" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/pubspec.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/pubspec.yaml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/windows/flutter/generated_plugins.cmake" beforeDir="false" afterPath="$PROJECT_DIR$/windows/flutter/generated_plugins.cmake" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/subpages/dynamic_pk_view/dynamic_pk_battle_view.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/subpages/dynamic_pk_view/dynamic_pk_battle_view.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/trtc_manager.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/trtc_manager.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_bottom_input_bar.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/screens/home/live/widgets/build_bottom_input_bar.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/tools/HttpUtil.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -80,7 +71,7 @@
     &quot;io.flutter.project.isFirstOpen&quot;: &quot;true&quot;,
     &quot;io.flutter.reload.alreadyRun&quot;: &quot;true&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;/Users/luna/Documents/work/android/flutter_live/lib/screens/home/live&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/luna/Documents/work/android/flutter_live/lib/screens/home/live/subpages/dynamic_pk_view&quot;,
     &quot;project.structure.last.edited&quot;: &quot;Project&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.0&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.29564193&quot;,
@@ -90,11 +81,11 @@
 }</component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/lib/screens/home/live/subpages/dynamic_pk_view" />
       <recent name="$PROJECT_DIR$/lib/screens/home/live" />
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player" />
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/view_mode" />
       <recent name="$PROJECT_DIR$/lib/tools" />
-      <recent name="$PROJECT_DIR$/assets/lottie" />
     </key>
     <key name="MoveFile.RECENT_KEYS">
       <recent name="$PROJECT_DIR$/lib/screens/home/live/widgets/effect_player" />
@@ -120,14 +111,6 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1768925595133</updated>
-    </task>
-    <task id="LOCAL-00030" summary="1. initial">
-      <option name="closed" value="true" />
-      <created>1770995283025</created>
-      <option name="number" value="00030" />
-      <option name="presentableId" value="LOCAL-00030" />
-      <option name="project" value="LOCAL" />
-      <updated>1770995283025</updated>
     </task>
     <task id="LOCAL-00031" summary="1. initial">
       <option name="closed" value="true" />
@@ -513,7 +496,15 @@
       <option name="project" value="LOCAL" />
       <updated>1776004230662</updated>
     </task>
-    <option name="localTasksCounter" value="79" />
+    <task id="LOCAL-00079" summary="1. initial">
+      <option name="closed" value="true" />
+      <created>1776260579790</created>
+      <option name="number" value="00079" />
+      <option name="presentableId" value="LOCAL-00079" />
+      <option name="project" value="LOCAL" />
+      <updated>1776260579790</updated>
+    </task>
+    <option name="localTasksCounter" value="80" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -553,12 +544,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1262</line>
+          <line>1410</line>
           <option name="timeStamp" value="95" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1593</line>
+          <line>1744</line>
           <option name="timeStamp" value="106" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -588,7 +579,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1266</line>
+          <line>1414</line>
           <option name="timeStamp" value="139" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -603,7 +594,7 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>1190</line>
+          <line>1269</line>
           <option name="timeStamp" value="170" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
@@ -618,12 +609,12 @@
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/real_live_page.dart</url>
-          <line>861</line>
+          <line>899</line>
           <option name="timeStamp" value="173" />
         </line-breakpoint>
         <line-breakpoint enabled="true" type="Dart">
           <url>file://$PROJECT_DIR$/lib/screens/home/live/trtc_manager.dart</url>
-          <line>149</line>
+          <line>184</line>
           <option name="timeStamp" value="175" />
         </line-breakpoint>
       </breakpoints>

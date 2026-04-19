@@ -1,12 +1,10 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/live/widgets/pk_score_bar_widgets.dart';
 import 'package:flutter_live/screens/home/live/widgets/avatar_animation.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 
-import '../../../../../bridge/hardcore_mixer.dart';
+import '../../trtc_manager.dart';
 
 class LivePKPlayerModel {
   final String userId;
@@ -14,7 +12,6 @@ class LivePKPlayerModel {
   final String pkId;
   final String name;
   final String avatarUrl;
-  final String streamUrl;
   final int rank;
   final int score;
   final bool isMuted;
@@ -23,7 +20,6 @@ class LivePKPlayerModel {
   final bool isSpeaking;
   final bool isMyTeam;
   final bool isInitiator;
-  final VideoController? videoController;
   final List<String> activeBuffs;
 
   LivePKPlayerModel({
@@ -32,7 +28,6 @@ class LivePKPlayerModel {
     required this.pkId,
     required this.name,
     required this.avatarUrl,
-    required this.streamUrl,
     required this.rank,
     required this.score,
     this.isMuted = false,
@@ -42,7 +37,6 @@ class LivePKPlayerModel {
     this.isMyTeam = false,
     this.isInitiator = false,
     this.activeBuffs = const [],
-    this.videoController,
   });
 }
 
@@ -51,8 +45,12 @@ class DynamicPKBattleView extends StatefulWidget {
   final PKStatus pkStatus;
   final Function(LivePKPlayerModel)? onTapPlayer;
   final String currentRoomId;
+  final String currentUserId;
   final String? focusedRoomId;
   final bool useVideoMode;
+
+  // 🚀🚀🚀 修复：在这里补上外层的参数定义！
+  final Set<String> activeVideoUsers;
 
   const DynamicPKBattleView({
     super.key,
@@ -60,8 +58,10 @@ class DynamicPKBattleView extends StatefulWidget {
     this.onTapPlayer,
     this.pkStatus = PKStatus.idle,
     required this.currentRoomId,
+    required this.currentUserId,
     this.focusedRoomId,
     this.useVideoMode = false,
+    this.activeVideoUsers = const {}, // 🚀 默认空集合
   });
 
   @override
@@ -69,84 +69,24 @@ class DynamicPKBattleView extends StatefulWidget {
 }
 
 class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
-  final double dividerThickness = 1.0;
-  final Color dividerColor = Colors.black;
-  static const _screenChannel = MethodChannel('app.channel.screen');
   List<List<double>> _currentLayouts = [];
-  int? _textureId;
-
-  // 🚀 性能修复 6：全局唯一的 Radar 定时器和结果缓存
-  Timer? _globalRadarTimer;
-  List<String> _readyUrls = [];
-  final Map<String, GlobalKey<_CellWrapperState>> _cellKeys = {};
-
-  // 🚀 性能修复 8：底层引擎 URL 缓存池。彻底隔绝 Token 变化与数组排序造成的底层重建！
-  final Map<String, String> _roomIdToEngineUrl = {};
-  final List<String> _stableEngineUrls = [];
-
-  // 🚀🚀🚀 终极真理武器：记录容器真实的 UI 宽和高！绝对不再瞎猜！
-  double? _actualContainerWidth;
-  double? _actualContainerHeight;
 
   String _getStableId(LivePKPlayerModel p) {
     return "cell_${p.roomId}_${p.userId}";
   }
 
-  String _getBaseUrl(String url) => url.split('?').first;
-
-  String _getUniqueId(LivePKPlayerModel p) {
-    return "${p.roomId}_${p.userId}_${p.name}_${p.streamUrl}";
-  }
-
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _initHardcoreEngine();
-      _screenChannel.invokeMethod('keepScreenOn', {'on': true}); // 🚀 开灯
-    });
-
-    // 🚀 每半秒查一次底层就足够了，不要用 200ms
-    _globalRadarTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
-      if (!mounted || _textureId == null) return;
-      try {
-        final urls = await HardcoreMixer.getReadyUrls();
-        // 简单对比，如果有变化才通知 UI 刷新，减少重绘
-        if (urls.join(',') != _readyUrls.join(',')) {
-          setState(() {
-            _readyUrls = urls;
-          });
-        }
-      } catch (e) {}
-    });
-  }
-
-  @override
-  void dispose() {
-    _globalRadarTimer?.cancel();
-    _screenChannel.invokeMethod('keepScreenOn', {'on': false}); // 🚀 关灯
-    super.dispose();
-  }
-
-  Future<void> _initHardcoreEngine() async {
-    int? id = await HardcoreMixer.initEngine();
-    if (mounted) {
-      setState(() => _textureId = id);
-      _syncStreamsToEngine();
-    }
+    _recalculateLayouts();
   }
 
   @override
   void didUpdateWidget(DynamicPKBattleView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final currentIds = widget.players.map((p) => _getUniqueId(p)).toSet();
-    _cellKeys.removeWhere((id, key) => !currentIds.contains(id));
-
-    String oldUrls = oldWidget.players.map((p) => _getBaseUrl(p.streamUrl)).join(',');
-    String newUrls = widget.players.map((p) => _getBaseUrl(p.streamUrl)).join(',');
-
-    if (oldUrls != newUrls || oldWidget.useVideoMode != widget.useVideoMode || oldWidget.focusedRoomId != widget.focusedRoomId) {
-      _syncStreamsToEngine();
+    if (oldWidget.players.length != widget.players.length ||
+        oldWidget.focusedRoomId != widget.focusedRoomId) {
+      _recalculateLayouts();
     }
   }
 
@@ -164,58 +104,22 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
     return sortedPlayers;
   }
 
-  void _syncStreamsToEngine() {
-    if (_textureId == null || !widget.useVideoMode || widget.players.isEmpty || _actualContainerWidth == null || _actualContainerHeight == null) return;
-
+  void _recalculateLayouts() {
+    if (widget.players.isEmpty) return;
     final sortedPlayers = _getSortedPlayers();
 
-    // 1. 🚀 构建稳定的底层 URL 列表（老玩家下标绝对不移位）
-    final currentUrls = sortedPlayers.map((p) => p.streamUrl).where((u) => u.isNotEmpty).toSet();
-    _stableEngineUrls.removeWhere((url) => !currentUrls.contains(url)); // 踢掉离开的人
-    for (var url in currentUrls) {
-      if (!_stableEngineUrls.contains(url)) {
-        _stableEngineUrls.add(url); // 新人永远加在数组末尾！
-      }
-    }
-
-    // 2. 算你原本的动态视觉布局 (完全保持你原来的逻辑)
-    List<List<double>> visualLayouts;
     if (widget.focusedRoomId != null && sortedPlayers.any((p) => p.roomId == widget.focusedRoomId)) {
       int focusIndex = sortedPlayers.indexWhere((p) => p.roomId == widget.focusedRoomId);
-      visualLayouts = _generateFocusLayouts(sortedPlayers, focusIndex);
+      _currentLayouts = _generateFocusLayouts(sortedPlayers, focusIndex);
     } else {
-      visualLayouts = _generateGridLayouts(sortedPlayers.length);
+      _currentLayouts = _generateGridLayouts(sortedPlayers.length);
     }
-    _currentLayouts = visualLayouts;
-
-    // 3. 🚀 将动态视觉布局，映射到稳定的底层顺序上
-    List<List<double>> engineLayouts = List.filled(_stableEngineUrls.length, [0.0, 0.0, 0.0, 0.0]);
-    for (int i = 0; i < sortedPlayers.length; i++) {
-      int engineIndex = _stableEngineUrls.indexOf(sortedPlayers[i].streamUrl);
-      if (engineIndex != -1) {
-        engineLayouts[engineIndex] = visualLayouts[i];
-      }
-    }
-
-    // 4. 传给 Android！
-    double ratio = MediaQuery.of(context).devicePixelRatio;
-    HardcoreMixer.playStreams(_stableEngineUrls, engineLayouts, _actualContainerWidth! * ratio, _actualContainerHeight! * ratio);
-
     setState(() {});
-
-    for (var p in sortedPlayers) {
-      if (p.streamUrl.isNotEmpty) {
-        HardcoreMixer.setMuted(p.streamUrl, p.isMuted);
-      }
-    }
   }
 
   List<List<double>> _generateFocusLayouts(List<LivePKPlayerModel> players, int focusIndex) {
     List<List<double>> layouts = List.filled(players.length, []);
-    if (players.length <= 1)
-      return [
-        [0.0, 0.0, 1.0, 1.0],
-      ];
+    if (players.length <= 1) return [[0.0, 0.0, 1.0, 1.0]];
 
     double subW = 1.0 / 3.0;
     double normalSubH = 1.0 / 6.0;
@@ -242,10 +146,8 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
     }
 
     List<List<double>> bottomSlots = [
-      [1.0 / 3.0, 5.0 / 6.0],
-      [0.0, 5.0 / 6.0],
-      [1.0 / 3.0, 4.0 / 6.0],
-      [0.0, 4.0 / 6.0],
+      [1.0 / 3.0, 5.0 / 6.0], [0.0, 5.0 / 6.0],
+      [1.0 / 3.0, 4.0 / 6.0], [0.0, 4.0 / 6.0],
     ];
 
     for (int i in normalSubIndices) {
@@ -264,7 +166,6 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
 
     bool isRightFull = currentBottomY <= 0.001;
     bool isBottomFull = bottomIdx >= 2;
-
     double mainW = isRightFull ? (2.0 / 3.0) : 1.0;
     double mainH = isBottomFull ? (5.0 / 6.0) : 1.0;
 
@@ -274,44 +175,22 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
 
   List<List<double>> _generateGridLayouts(int count) {
     if (count == 3) {
-      return [
-        [0.0, 0.0, 0.5, 1.0],
-        [0.5, 0.0, 0.5, 0.5],
-        [0.5, 0.5, 0.5, 0.5],
-      ];
+      return [ [0.0, 0.0, 0.5, 1.0], [0.5, 0.0, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5] ];
     }
-
     List<int> rowConfigs = [];
     switch (count) {
-      case 2:
-        rowConfigs = [2];
-        break;
-      case 4:
-        rowConfigs = [2, 2];
-        break;
-      case 5:
-        rowConfigs = [2, 3];
-        break;
-      case 6:
-        rowConfigs = [3, 3];
-        break;
-      case 7:
-        rowConfigs = [3, 4];
-        break;
-      case 8:
-        rowConfigs = [4, 4];
-        break;
-      case 9:
-        rowConfigs = [3, 3, 3];
-        break;
-      default:
-        rowConfigs = [1];
+      case 2: rowConfigs = [2]; break;
+      case 4: rowConfigs = [2, 2]; break;
+      case 5: rowConfigs = [2, 3]; break;
+      case 6: rowConfigs = [3, 3]; break;
+      case 7: rowConfigs = [3, 4]; break;
+      case 8: rowConfigs = [4, 4]; break;
+      case 9: rowConfigs = [3, 3, 3]; break;
+      default: rowConfigs = [1];
     }
-
     List<List<double>> layouts = [];
     int numRows = rowConfigs.length;
     double h = 1.0 / numRows;
-
     for (int i = 0; i < numRows; i++) {
       int cols = rowConfigs[i];
       double w = 1.0 / cols;
@@ -325,33 +204,26 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.players.isEmpty || _textureId == null) return const SizedBox.shrink();
+    if (widget.players.isEmpty) return const SizedBox.shrink();
     final sortedPlayers = _getSortedPlayers();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // 🚀 新增保护：如果父组件没有限制大小（如 ScrollView），降级使用屏幕物理尺寸
         final double w = constraints.maxWidth.isInfinite ? MediaQuery.of(context).size.width : constraints.maxWidth;
         final double h = constraints.maxHeight.isInfinite ? MediaQuery.of(context).size.height : constraints.maxHeight;
-
-        if (_actualContainerWidth != w || _actualContainerHeight != h) {
-          _actualContainerWidth = w;
-          _actualContainerHeight = h;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _syncStreamsToEngine();
-          });
-        }
 
         return Stack(
           clipBehavior: Clip.none,
           children: [
-            Positioned.fill(child: Texture(textureId: _textureId!)),
-
             ...List.generate(sortedPlayers.length, (index) {
               if (index >= _currentLayouts.length) return const SizedBox.shrink();
               final layout = _currentLayouts[index];
 
-              return Positioned(
+              if (layout[0] < 0) return const SizedBox.shrink();
+
+              return AnimatedPositioned(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
                 left: layout[0] * w,
                 top: layout[1] * h,
                 width: layout[2] * w,
@@ -359,21 +231,23 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
                 child: Container(
                   decoration: const BoxDecoration(
                     border: Border(
-                      left: BorderSide(color: Colors.black, width: 0.2),
-                      right: BorderSide(color: Colors.black, width: 0.2),
+                      left: BorderSide(color: Colors.black, width: 0.5),
+                      right: BorderSide(color: Colors.black, width: 0.5),
+                      bottom: BorderSide(color: Colors.black, width: 0.5),
                     ),
                   ),
                   child: _CellWrapper(
                     key: ValueKey(_getStableId(sortedPlayers[index])),
-                    engineTextureId: _textureId,
-                    engineStreamUrl: _roomIdToEngineUrl[sortedPlayers[index].roomId] ?? sortedPlayers[index].streamUrl, // 🚀 传给子组件，解决 Radar 失效问题
                     player: sortedPlayers[index],
                     pkStatus: widget.pkStatus,
                     currentRoomId: widget.currentRoomId,
+                    currentUserId: widget.currentUserId,
+
+                    // 🚀🚀🚀 修复：把外层接收到的集合，稳稳地传给内部的每个小格子！
+                    activeVideoUsers: widget.activeVideoUsers,
+
                     allPlayers: widget.players,
                     onTap: widget.onTapPlayer,
-                    useVideoMode: widget.useVideoMode,
-                    readyUrls: _readyUrls, // 🚀 传给子组件
                   ),
                 ),
               );
@@ -386,27 +260,23 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
 }
 
 class _CellWrapper extends StatefulWidget {
-  final int? engineTextureId;
-  final String engineStreamUrl; // 🚀 新增这行
   final LivePKPlayerModel player;
   final PKStatus pkStatus;
   final String currentRoomId;
+  final String currentUserId;
   final List<LivePKPlayerModel> allPlayers;
   final Function(LivePKPlayerModel)? onTap;
-  final bool useVideoMode;
-  final List<String> readyUrls; // 🚀 新增接收参数
+  final Set<String> activeVideoUsers; // 🚀 内层接收定义
 
   const _CellWrapper({
     super.key,
-    this.engineTextureId,
-    required this.engineStreamUrl, // 🚀 新增这行
     required this.player,
     required this.pkStatus,
     required this.currentRoomId,
+    required this.currentUserId,
     required this.allPlayers,
     this.onTap,
-    this.useVideoMode = false,
-    this.readyUrls = const [], // 🚀 默认空数组
+    this.activeVideoUsers = const {},
   });
 
   @override
@@ -416,10 +286,6 @@ class _CellWrapper extends StatefulWidget {
 class _CellWrapperState extends State<_CellWrapper> {
   int _tick = 0;
   Timer? _timer;
-  // 🚀 核心防闪烁变量：只要准备好过一次，就死死记住！
-  bool _hasEverBeenReady = false;
-  bool _isVideoReady = false;
-  Timer? _radarTimer;
 
   @override
   void initState() {
@@ -436,34 +302,6 @@ class _CellWrapperState extends State<_CellWrapper> {
     } else if (_timer == null || !_timer!.isActive) {
       _startCarousel();
     }
-
-    String oldBase = oldWidget.player.streamUrl.split('?').first;
-    String newBase = widget.player.streamUrl.split('?').first;
-    if (oldBase != newBase) {
-      // 🚀 只有当流地址真正换人时，才清空记忆，重新显示头像等待
-      _hasEverBeenReady = false;
-    }
-  }
-  // 🗑️ 彻底删掉整个 _startVideoRadar() 方法，不需要它了！
-
-  void _startVideoRadar() {
-    _isVideoReady = false;
-    _radarTimer?.cancel();
-    String safeUrl = widget.player.streamUrl.trim();
-    if (safeUrl.isEmpty) {
-      if (mounted) setState(() {});
-      return;
-    }
-    _radarTimer = Timer.periodic(const Duration(milliseconds: 200), (timer) async {
-      if (!mounted || widget.engineTextureId == null) return;
-      try {
-        final urls = await HardcoreMixer.getReadyUrls();
-        if (urls.contains(safeUrl)) {
-          if (mounted) setState(() => _isVideoReady = true);
-          timer.cancel();
-        }
-      } catch (e) {}
-    });
   }
 
   void _startCarousel() {
@@ -498,10 +336,7 @@ class _CellWrapperState extends State<_CellWrapper> {
         children: [
           if (!isMyTeam) const Icon(Icons.arrow_back_ios, size: 7, color: Colors.white),
           if (!isMyTeam) const SizedBox(width: 2),
-          Text(
-            text,
-            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
-          ),
+          Text(text, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
           if (isMyTeam) const SizedBox(width: 2),
           if (isMyTeam) const Icon(Icons.arrow_forward_ios, size: 7, color: Colors.white),
         ],
@@ -525,10 +360,7 @@ class _CellWrapperState extends State<_CellWrapper> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: const [
-          Text(
-            "房主",
-            style: TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1),
-          ),
+          Text("房主", style: TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1)),
         ],
       ),
     );
@@ -588,22 +420,13 @@ class _CellWrapperState extends State<_CellWrapper> {
                     : Colors.white24,
               ),
               child: Center(
-                child: Text(
-                  '${player.rank}',
-                  style: const TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1),
-                ),
+                child: Text('${player.rank}', style: const TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1)),
               ),
             ),
             const SizedBox(width: 4),
             Text(
               displayScore,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 10.0,
-                fontWeight: FontWeight.w600,
-                height: 1.1,
-                shadows: isHighest ? [const Shadow(color: Colors.black45, blurRadius: 2, offset: Offset(0, 1))] : null,
-              ),
+              style: TextStyle(color: Colors.white, fontSize: 10.0, fontWeight: FontWeight.w600, height: 1.1, shadows: isHighest ? [const Shadow(color: Colors.black45, blurRadius: 2, offset: Offset(0, 1))] : null),
             ),
           ],
         ),
@@ -612,75 +435,71 @@ class _CellWrapperState extends State<_CellWrapper> {
 
     bool needsBottomGradient = !isMainAnchor || (isMainAnchor && (player.isInitiator || (hasActiveBuffs && showScoreBadge)));
 
-    return GestureDetector(
-      onTap: () {
-        if (widget.onTap != null) widget.onTap!(player);
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        clipBehavior: Clip.hardEdge,
-        decoration: const BoxDecoration(color: Colors.transparent),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _buildMediaContent(player),
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: const BoxDecoration(color: Color(0xFF1B1B1B)),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. 最底层：视频内容 / 头像占位图
+          _buildMediaContent(player),
 
-            if (needsBottomGradient)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
+          // 2. 透明的“玻璃遮罩层”拦截手势
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (widget.onTap != null) widget.onTap!(player);
+              },
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+
+          // 3. UI 浮层
+          if (needsBottomGradient)
+            Positioned(
+              left: 0, right: 0, bottom: 0,
+              child: IgnorePointer(
                 child: Container(
                   height: 40.0,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [Colors.black.withOpacity(0.6), Colors.transparent],
-                    ),
+                    gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.6), Colors.transparent]),
                   ),
                 ),
               ),
+            ),
 
-            if (isMainAnchor && hasActiveBuffs)
-              Positioned(
-                top: 0.0,
-                left: 0.0,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 300),
-                  child: _buildBuffGradientLabel(currentBuffText, player.isMyTeam, key: ValueKey(currentIndex)),
-                ),
-              )
-            else if (showScoreBadge)
-              Positioned(top: 4.0, left: 4.0, child: buildScoreBadgeWidget()),
+          if (isMainAnchor && hasActiveBuffs)
+            Positioned(
+              top: 0.0, left: 0.0,
+              child: IgnorePointer(
+                child: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _buildBuffGradientLabel(currentBuffText, player.isMyTeam, key: ValueKey(currentIndex))),
+              ),
+            )
+          else if (showScoreBadge)
+            Positioned(top: 4.0, left: 4.0, child: IgnorePointer(child: buildScoreBadgeWidget())),
 
-            if (player.isMuted) const Positioned(top: 6, right: 6, child: Icon(Icons.mic_off_outlined, color: Colors.white70, size: 16.0)),
+          if (player.isMuted) const Positioned(top: 6, right: 6, child: IgnorePointer(child: Icon(Icons.mic_off_outlined, color: Colors.white70, size: 16.0))),
 
-            if (isMainAnchor && (player.isInitiator || (hasActiveBuffs && showScoreBadge)))
-              Positioned(
-                bottom: 4.0,
-                left: 4.0,
+          if (isMainAnchor && (player.isInitiator || (hasActiveBuffs && showScoreBadge)))
+            Positioned(
+              bottom: 4.0, left: 4.0,
+              child: IgnorePointer(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (player.isInitiator)
-                      Padding(
-                        padding: EdgeInsets.only(bottom: (hasActiveBuffs && showScoreBadge) ? 4.0 : 0.0),
-                        child: _buildInitiatorLabel(player.isMyTeam),
-                      ),
+                    if (player.isInitiator) Padding(padding: EdgeInsets.only(bottom: (hasActiveBuffs && showScoreBadge) ? 4.0 : 0.0), child: _buildInitiatorLabel(player.isMyTeam)),
                     if (hasActiveBuffs && showScoreBadge) buildScoreBadgeWidget(),
                   ],
                 ),
-              )
-            else if (!isMainAnchor)
-              Positioned(
-                bottom: 4.0,
-                left: 4.0,
-                right: 4.0,
+              ),
+            )
+          else if (!isMainAnchor)
+            Positioned(
+              bottom: 4.0, left: 4.0, right: 4.0,
+              child: IgnorePointer(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (player.isInitiator) Padding(padding: const EdgeInsets.only(bottom: 2.0), child: _buildInitiatorLabel(player.isMyTeam)),
                     Align(
@@ -692,26 +511,12 @@ class _CellWrapperState extends State<_CellWrapper> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Flexible(
-                              flex: 1,
-                              fit: FlexFit.loose,
+                              flex: 1, fit: FlexFit.loose,
                               child: SizedBox(
                                 height: 14.0,
                                 child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  widthFactor: 1.0,
-                                  child: Text(
-                                    player.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10.0,
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.1,
-                                      leadingDistribution: TextLeadingDistribution.even,
-                                    ),
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    overflow: TextOverflow.clip,
-                                  ),
+                                  alignment: Alignment.centerLeft, widthFactor: 1.0,
+                                  child: Text(player.name, style: const TextStyle(color: Colors.white, fontSize: 10.0, fontWeight: FontWeight.w500, height: 1.1), maxLines: 1, softWrap: false, overflow: TextOverflow.clip),
                                 ),
                               ),
                             ),
@@ -722,22 +527,8 @@ class _CellWrapperState extends State<_CellWrapper> {
                                 child: AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 300),
                                   child: Container(
-                                    height: 14.0,
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      currentBuffText,
-                                      key: ValueKey(currentIndex),
-                                      style: const TextStyle(
-                                        color: Colors.yellowAccent,
-                                        fontSize: 10.0,
-                                        fontWeight: FontWeight.bold,
-                                        height: 1.1,
-                                        leadingDistribution: TextLeadingDistribution.even,
-                                      ),
-                                      maxLines: 1,
-                                      softWrap: false,
-                                      overflow: TextOverflow.visible,
-                                    ),
+                                    height: 14.0, alignment: Alignment.center,
+                                    child: Text(currentBuffText, key: ValueKey(currentIndex), style: const TextStyle(color: Colors.yellowAccent, fontSize: 10.0, fontWeight: FontWeight.bold, height: 1.1), maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
                                   ),
                                 ),
                               ),
@@ -749,63 +540,65 @@ class _CellWrapperState extends State<_CellWrapper> {
                   ],
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
 
   Widget _buildMediaContent(LivePKPlayerModel player) {
-    String safeUrl = player.streamUrl.trim();
-    bool hasValidStream = safeUrl.isNotEmpty && (safeUrl.startsWith('http') || safeUrl.startsWith('rtmp'));
-    // 🚀 核心防闪烁逻辑：拿真正喂给引擎的、稳定的 URL 去匹配！
-    if (widget.readyUrls.contains(widget.engineStreamUrl)) {
-      _hasEverBeenReady = true;
-    }
-    // 🚀 只要记住是 Ready 的，就绝对不再变回 Avatar！
-    bool showAvatar = !_hasEverBeenReady || !widget.useVideoMode || !hasValidStream;
-    double avatarPadding = widget.allPlayers.length == 9 ? 18.0 : (widget.allPlayers.length >= 7 ? 5.0 : 12.0);
-    Widget fallbackContent = Stack(
-      fit: StackFit.expand,
-      children: [
-        Image.network(
-          player.avatarUrl,
-          fit: BoxFit.cover,
-          errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
-        ),
-        BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
-          child: Container(color: Colors.black.withOpacity(0.5)),
-        ),
-        Center(
-          child: Padding(
-            padding: EdgeInsets.all(avatarPadding),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 125.0, maxHeight: 125.0),
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false),
+    bool isMe = player.userId == widget.currentUserId;
+
+    bool hasVideoStream = isMe || widget.activeVideoUsers.contains(player.userId);
+
+    // 🛑 保护机制：如果没有视频流，渲染绝美的毛玻璃头像！
+    if (!hasVideoStream) {
+      double avatarPadding = widget.allPlayers.length >= 7 ? 12.0 : 20.0;
+      Widget fallbackContent = Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            player.avatarUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
+          ),
+          BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+            child: Container(color: Colors.black.withOpacity(0.5)),
+          ),
+          Center(
+            child: Padding(
+              padding: EdgeInsets.all(avatarPadding),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 120.0, maxHeight: 120.0),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false),
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    );
-    if (player.isPunished) {
-      fallbackContent = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: fallbackContent);
+        ],
+      );
+
+      if (player.isPunished) {
+        fallbackContent = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: fallbackContent);
+      }
+      return fallbackContent;
     }
 
-    Widget videoWidget = Container(color: Colors.transparent);
-    if (player.isPunished) videoWidget = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: videoWidget);
-    return RepaintBoundary(
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        switchInCurve: Curves.easeIn,
-        switchOutCurve: Curves.easeOut,
-        child: showAvatar
-            ? KeyedSubtree(key: const ValueKey("avatar"), child: fallbackContent)
-            : KeyedSubtree(key: const ValueKey("video_hole"), child: videoWidget),
-      ),
-    );
+    // 🎥 正常渲染视频流
+    Widget videoWidget;
+    if (isMe) {
+      videoWidget = TRTCManager().getLocalVideoWidget();
+    } else {
+      videoWidget = TRTCManager().getRemoteVideoWidget(player.userId);
+    }
+
+    if (player.isPunished) {
+      videoWidget = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: videoWidget);
+    }
+
+    return videoWidget;
   }
 }

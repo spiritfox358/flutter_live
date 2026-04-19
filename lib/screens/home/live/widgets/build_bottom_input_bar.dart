@@ -5,6 +5,9 @@ class BuildBottomInputBar extends StatelessWidget {
   final VoidCallback onTapInput;
   final VoidCallback onTapGift;
 
+  // 🟢 新增：连麦按钮点击回调
+  final VoidCallback? onTapCoHost;
+
   // 接收主播身份和PK点击事件
   final bool isHost;
   final VoidCallback? onTapPK;
@@ -15,6 +18,7 @@ class BuildBottomInputBar extends StatelessWidget {
     required this.onTapGift,
     this.isHost = false, // 默认为观众
     this.onTapPK,
+    this.onTapCoHost, // 🟢 接收回调
   });
 
   @override
@@ -38,52 +42,45 @@ class BuildBottomInputBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          // 点赞按钮
+
+          // 🟢 修改：原本的点赞变成了“连麦”按钮
           GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("点赞 +1 ❤️"), duration: Duration(milliseconds: 500)));
-            },
-            child: const Icon(Icons.favorite_border, color: Colors.pinkAccent, size: 25),
+            onTap: onTapCoHost, // 🟢 绑定回调
+            child: const Icon(Icons.mic_none, color: Colors.pinkAccent, size: 25), // 🟢 换成麦克风图标
           ),
+
           const SizedBox(width: 10),
 
           // 如果是主播显示PK按钮，如果是观众显示礼物按钮
           GestureDetector(
             onTap: isHost ? onTapPK : onTapGift,
             child: isHost
-                ? _buildPKButton() // 🟢 调用新的无边框样式
+                ? _buildPKButton()
                 : const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 25),
           ),
 
           const SizedBox(width: 10),
           // 分享/转发按钮
-          const Icon(Icons.reply, color: Colors.white, size: 30),
+          const Icon(Icons.share_rounded, color: Colors.pinkAccent, size: 25),
         ],
       ),
     );
   }
 
-  // 🟢 修改：PK 按钮样式 (纯文字、无边框、大字号)
   Widget _buildPKButton() {
     return Container(
       width: 32,
       height: 32,
       alignment: Alignment.center,
-      // 移除了 decoration (边框和背景)，完全透明
       child: const Text(
         "PK",
         style: TextStyle(
           color: Colors.pinkAccent,
           fontSize: 20,
-          // 🟢 字号放大 (原12 -> 18)
           fontWeight: FontWeight.w900,
-          // 🟢 极粗体 (Black)
           fontStyle: FontStyle.italic,
-          // 斜体，增加速度感
           height: 1.0,
-          // 紧凑行高，防止文字偏上或偏下
           shadows: [
-            // 🟢 可选：加一点点淡淡的文字阴影，防止背景太亮看不清
             Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2),
           ],
         ),

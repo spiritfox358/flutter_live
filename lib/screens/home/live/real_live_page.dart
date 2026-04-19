@@ -19,10 +19,12 @@ import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_cont
 import 'package:flutter_live/screens/home/live/widgets/room_mode/voice_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/viewer_list.dart';
 import 'package:flutter_live/screens/home/live/subpages/dynamic_pk_view/dynamic_pk_battle_view.dart';
+import 'package:flutter_live/screens/home/live/widgets/view_mode/co_host_video_list.dart';
 import 'package:flutter_live/store/user_store.dart';
 import 'package:flutter_live/tools/DictTool.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:tencent_rtc_sdk/trtc_cloud_def.dart';
 import 'package:tencent_rtc_sdk/trtc_cloud_video_view.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -104,6 +106,7 @@ class RealLivePage extends StatefulWidget {
 class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMixin, WidgetsBindingObserver {
   // 🚀 TRTC 核心管家
   final TRTCManager _trtcManager = TRTCManager();
+
   // 记录远端推流的观众 ID
   final Set<String> _remoteVideoUsers = {};
   bool _isHostInRoom = false; // 🟢 新增：用于记录主播是否在房间里
@@ -140,6 +143,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late int _monthLevel;
   late String _myAvatar;
   late String _roomId;
+  List<CoHostUserModel> _coHostList = [];
 
   // 🚀 新增：用来记录当前被“设为主咖(放大)”的那个人的 roomId
   String? _focusedRoomId;
@@ -267,6 +271,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       _currentName = widget.initialRoomData!['userName'] ?? widget.userName;
       _currentAvatar = widget.initialRoomData!['avatar'] ?? widget.avatarUrl;
     }
+
+    _coHostList = [
+      CoHostUserModel(userId: "fake_user_1", roomId: "fake_room_1", avatarUrl: "https://picsum.photos/seed/1/200", name: "榜一大哥", isMuted: false),
+      CoHostUserModel(
+        userId: "fake_user_2",
+        roomId: "fake_room_2",
+        avatarUrl: "https://picsum.photos/seed/2/200",
+        name: "神秘嘉宾",
+        isMuted: true, // 测试一下闭麦的 UI
+      ),
+    ];
 
     _fetchGiftList();
     _initializeBackground(); // 初始化左侧视频
@@ -519,7 +534,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       _channel = WebSocketChannel.connect(Uri.parse(_wsUrl));
 
       _socketSubscription = _channel!.stream.listen(
-            (message) => _handleSocketMessage(message),
+        (message) => _handleSocketMessage(message),
         onError: (error) {
           debugPrint("❌ WebSocket 报错: $error");
           _reconnect();
@@ -617,7 +632,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           AIMusicService().syncAndPlayBgm(_roomId, bgmUrl, startTimeMs);
         }
       }
-
+      if (data['coHosts'] != null) {
+        List<dynamic> coHostData = data['coHosts'];
+        setState(() {
+          _coHostList = coHostData.map((h) => CoHostUserModel(
+            userId: h['userId'],
+            roomId: h['roomId'],
+            name: h['name'],
+            avatarUrl: h['avatarUrl'],
+            isMuted: h['isMuted'],
+          )).toList();
+        });
+      }
       if (data['pkInfo'] != null) {
         final pkInfo = data['pkInfo'];
         final int status = _parseInt(pkInfo['status']);
@@ -633,6 +659,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _bgPlayer?.pause();
             // 极度安全措施：喂一个空列表，逼迫底层彻底释放硬件解码器，防止抢占 hardcore_mixer 资源
             _bgPlayer?.open(Playlist([]));
+            // 🚀🚀🚀 核心新增：向腾讯云发起跨房连麦 (PK)！
+            if (_isHost) {
+              // 找到不是我自己的那个对手
+              var opponent = _participants.firstWhere((p) => p['roomId'].toString() != _roomId, orElse: () => null);
+
+              // 拿到对手的 userId 和 roomId，告诉腾讯云：我要拉他的流！
+              if (opponent != null) {
+                String oppUserId = opponent['anchorId'].toString();
+                String oppRoomId = opponent['roomId'].toString();
+                _trtcManager.startPK(targetUserId: oppUserId, targetRoomId: oppRoomId);
+              }
+            }
           }
           for (var p in _participants) {
             if (p['isMuted'] == null) {
@@ -831,7 +869,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       final String senderBuff = data['levelHonourBuff']?.toString() ?? '';
       switch (type) {
         case "ENTER":
-        // 定义执行逻辑的闭包
+          // 定义执行逻辑的闭包
           void executeLogic() {
             if (!mounted) return;
             // 提取 ID 解析逻辑，避免重复调用 int.parse
@@ -922,7 +960,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             levelHonourBuff: senderBuff, // 🚀 传下去！
           );
           break;
-      // 处理 PK 邀请
+        // 处理 PK 邀请
         case "PK_INVITE":
           if (_isHost && _pkStatus == PKStatus.idle) {
             _pkMatchManagerKey.currentState?.showInviteDialog(
@@ -933,7 +971,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             );
           }
           break;
-      // 处理对方拒绝 PK
+        // 处理对方拒绝 PK
         case "PK_REJECTED":
           _pkMatchManagerKey.currentState?.onMatchRejected();
           break;
@@ -1025,13 +1063,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         case "PK_END":
           _disconnectCoHost();
           break;
-      // 处理直播间关闭通知
+        // 处理直播间关闭通知
         case "ROOM_CLOSE":
           if (!_isHost) {
             _showRoomClosedDialog();
           }
           break;
-      // 🟢 收到打断指令：紧急刹车并重新点火！
+        // 🟢 收到打断指令：紧急刹车并重新点火！
         case "INTERRUPT_AUDIO":
           debugPrint("🛑 收到打断指令，清空原生音频队列！");
           // 🟢 一行代码瞬间恢复 BGM 的 100% 音量
@@ -1041,12 +1079,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           _nativePlayer
               .invokeMethod('stopPlayer', {'roomId': _roomId})
               .then((_) {
-            _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000, 'roomId': _roomId}).catchError((e) {});
-          })
+                _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000, 'roomId': _roomId}).catchError((e) {});
+              })
               .catchError((e) {});
           break;
 
-      // 🟢 收到混流音频：直接喂给原生队列！
+        // 🟢 收到混流音频：直接喂给原生队列！
         case "MIXED_AUDIO_STREAM":
           String base64Data = data['audioData'];
           if (base64Data.isNotEmpty) {
@@ -1077,11 +1115,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           }
           break;
         case "PK_RELOAD":
-        // 这个方法会重新拉取 pkInfo，更新 _participants 数组，
-        // _participants 数量一旦从 2 变成 4，你的 DynamicPKBattleView 就会瞬间从 1v1 动画裂变成 4宫格！
+          // 这个方法会重新拉取 pkInfo，更新 _participants 数组，
+          // _participants 数量一旦从 2 变成 4，你的 DynamicPKBattleView 就会瞬间从 1v1 动画裂变成 4宫格！
           _fetchRoomDetailAndSyncState();
           break;
-      // 🚀 新增：处理闭麦/解麦的 WebSocket 广播
+        // 🚀 新增：处理闭麦/解麦的 WebSocket 广播
         case "MUTE_STATE_CHANGE":
           String targetRoomId = data['targetRoomId']?.toString() ?? "";
           bool isMuted = data['content'] == "1";
@@ -1114,11 +1152,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             print("🚨 Socket 处理闭麦时发生崩溃: $e");
           }
           break;
-
-      // 🚀 处理一键全员闭麦 (改为用 roomId 判断例外)
+        // 🚀 处理一键全员闭麦 (改为用 roomId 判断例外)
         case "MUTE_ALL_EXCEPT":
           String exceptionRoomId = data['targetRoomId']?.toString() ?? "";
-
           setState(() {
             List<Map<String, dynamic>> newList = [];
             for (var p in _participants) {
@@ -1143,6 +1179,49 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _participants = newList;
           });
           break;
+        case "COHOST_JOIN":
+          setState(() {
+            // 防止重复添加
+            if (!_coHostList.any((u) => u.userId == data['userId'])) {
+              _coHostList.add(CoHostUserModel(
+                userId: data['userId'],
+                roomId: _roomId,
+                name: data['userName'],
+                avatarUrl: data['avatar'],
+              ));
+            }
+          });
+          break;
+        case "COHOST_LEAVE":
+        // 🚀 核心补全：有人下麦了，立刻把他从九宫格里踢掉！
+          if (mounted) {
+            setState(() {
+              _coHostList.removeWhere((u) => u.userId == data['userId'].toString());
+            });
+          }
+          break;
+        case "KICK_COHOST":
+          String kickedUserId = data['userId'].toString();
+
+          // 情况 A：如果我自己就是那个“被踢的人”
+          if (kickedUserId == _myUserId) {
+            debugPrint("🛑 收到被踢下麦指令，强制关闭底层推流");
+            _trtcManager.stopCoHosting(); // 立即掐断 TRTC 摄像机和麦克风推流
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("您已被主播抱下麦"))
+              );
+            }
+          }
+
+          // 情况 B：所有人 (包括主播、被踢者、其他观众) 都要在本地 UI 上销毁这个人的画面
+          if (mounted) {
+            setState(() {
+              _coHostList.removeWhere((u) => u.userId == kickedUserId);
+            });
+          }
+          break;
       }
     } catch (e) {
       debugPrint("❌ 解析消息失败: $e");
@@ -1150,20 +1229,20 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _sendSocketMessage(
-      String type, {
-        String? content,
-        String? giftId,
-        int giftCount = 1,
-        String? userId,
-        String? userName,
-        bool? isHost,
-        String? avatar,
-        int? level,
-        int? monthLevel,
-        String? levelHonourBuff, // 🚀 1. 新增参数接收
-        int? score,
-        String? targetRoomId,
-      }) {
+    String type, {
+    String? content,
+    String? giftId,
+    int giftCount = 1,
+    String? userId,
+    String? userName,
+    bool? isHost,
+    String? avatar,
+    int? level,
+    int? monthLevel,
+    String? levelHonourBuff, // 🚀 1. 新增参数接收
+    int? score,
+    String? targetRoomId,
+  }) {
     if (_channel == null) return;
     final Map<String, dynamic> msg = {
       "type": type,
@@ -1231,12 +1310,81 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
+  // 🟢 修改后的手动连麦处理逻辑
+  void _handleCoHostButton() async {
+    _dismissKeyboard();
+
+    if (_isHost) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("打开连麦申请列表")));
+      return;
+    }
+
+    bool isAlreadyCoHosting = _coHostList.any((user) => user.userId == _myUserId);
+
+    if (isAlreadyCoHosting) {
+      // --------- 🛑 下麦流程 ---------
+      try {
+        // 1. 调接口：从数据库释放麦位
+        await HttpUtil().post("/api/room/seat/leave", data: {
+          "roomId": int.parse(_roomId),
+          "userId": _myUserId,
+        });
+
+        // 2. 停掉 TRTC
+        _trtcManager.stopCoHosting();
+
+        // 3. 发送 Socket 广播通知全房：我走了
+        _sendSocketMessage("COHOST_LEAVE", userId: _myUserId);
+
+        // 4. 更新本地 UI
+        setState(() {
+          _coHostList.removeWhere((user) => user.userId == _myUserId);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已结束连麦")));
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("下麦失败: $e")));
+      }
+    } else {
+      // --------- 🎤 上麦流程 ---------
+      try {
+        // 1. 🚀 调接口：在数据库占个座 (对应你之前的 coin_room_seats 表)
+        // 假设后端返回了具体的 seatIndex
+        final res = await HttpUtil().post("/api/room/seat/join", data: {
+          "roomId": int.parse(_roomId),
+          "userId": _myUserId,
+        });
+
+        // 2. 接口成功后，切换 TRTC 身份并推流
+        _trtcManager.startCoHosting();
+
+        // 3. 发送 Socket 广播通知全房：我来了
+        _sendSocketMessage(
+          "COHOST_JOIN",
+          userId: _myUserId,
+          userName: _myUserName,
+          avatar: _myAvatar,
+        );
+
+        // 4. 更新本地 UI (这一步保证自己能立刻看到自己)
+        setState(() {
+          _coHostList.add(CoHostUserModel(
+            userId: _myUserId,
+            roomId: _roomId,
+            name: _myUserName,
+            avatarUrl: _myAvatar,
+          ));
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("连麦成功！")));
+      } catch (e) {
+        // 如果接口报错（比如麦位已满），直接提示用户，不触发 TRTC
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("上麦失败: $e")));
+      }
+    }
+  }
+
   Widget? _buildVideoView() {
     if (_isHost) {
-      return TRTCCloudVideoView(
-        key: const ValueKey("local_trtc_view"),
-        onViewCreated: (viewId) => _trtcManager.startLocalPreview(viewId),
-      );
+      return TRTCCloudVideoView(key: const ValueKey("local_trtc_view"), onViewCreated: (viewId) => _trtcManager.startLocalPreview(viewId));
     } else {
       // 1. 如果已经拿到流了，直接展示
       if (_remoteVideoUsers.isNotEmpty) {
@@ -1384,7 +1532,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _critEndTimes.clear();
     _promoTimer?.cancel();
     _rightPlayer?.pause(); // 暂停对手视频
-
+    // 🚀🚀🚀 新增：如果是主播，通知腾讯云断开跨房连线
+    if (_isHost) {
+      _trtcManager.stopPK();
+    }
     HardcoreMixer.dispose();
 
     if (mounted) {
@@ -1632,15 +1783,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _addSocketChatMessage(
-      String name,
-      String content,
-      Color color, {
-        required int level,
-        required String userId,
-        required int monthLevel,
-        required bool isHost,
-        required String levelHonourBuff, // 🚀 1. 接收 Buff ID
-      }) {
+    String name,
+    String content,
+    Color color, {
+    required int level,
+    required String userId,
+    required int monthLevel,
+    required bool isHost,
+    required String levelHonourBuff, // 🚀 1. 接收 Buff ID
+  }) {
     _chatController.addMessage(
       ChatMessage(
         name: name,
@@ -1657,16 +1808,16 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _addGiftMessage(
-      String senderName,
-      String giftName,
-      int count, {
-        String senderId = "",
-        String senderAvatar = "",
-        required int senderLevel,
-        required int senderMonthLevel,
-        required bool isHost,
-        String levelHonourBuff = "", // 🚀 1. 接收 Buff ID
-      }) {
+    String senderName,
+    String giftName,
+    int count, {
+    String senderId = "",
+    String senderAvatar = "",
+    required int senderLevel,
+    required int senderMonthLevel,
+    required bool isHost,
+    String levelHonourBuff = "", // 🚀 1. 接收 Buff ID
+  }) {
     _chatController.addMessage(
       ChatMessage(
         name: senderName,
@@ -1683,17 +1834,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _processGiftEvent(
-      GiftItemData giftData,
-      String senderName,
-      String senderAvatar,
-      bool isMe, {
-        required String senderId,
-        int count = 1,
-        bool isHost = false,
-        int senderLevel = 1,
-        int senderMonthLevel = 0,
-        String levelHonourBuff = "",
-      }) {
+    GiftItemData giftData,
+    String senderName,
+    String senderAvatar,
+    bool isMe, {
+    required String senderId,
+    int count = 1,
+    bool isHost = false,
+    int senderLevel = 1,
+    int senderMonthLevel = 0,
+    String levelHonourBuff = "",
+  }) {
     final comboKey = "${senderName}_${giftData.name}";
     if (isMe) _lastGiftSent = giftData;
 
@@ -1709,7 +1860,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             giftName: giftData.name,
             giftIconUrl: giftData.iconUrl,
             trayEffectUrl:
-            "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
+                "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
             count: count,
             senderLevel: senderLevel,
             giftPrice: giftData.price,
@@ -1741,7 +1892,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       giftName: giftData.name,
       giftIconUrl: giftData.iconUrl,
       trayEffectUrl:
-      "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
+          "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/mystery_shop/adornment/banner_tray/%E5%BE%A1%E9%BE%99%E6%B8%B8%E4%BE%A0%E7%A4%BC%E7%89%A9%E6%89%98%E7%9B%98.mp4",
       count: count,
       senderLevel: senderLevel,
       giftPrice: giftData.price,
@@ -1809,19 +1960,34 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
   }
 
+  Future<void> _kickCoHost(String targetUserId) async {
+    try {
+      // 1. 调接口从数据库删除
+      await HttpUtil().post("/api/room/seat/leave", data: {
+        "roomId": int.parse(_roomId),
+        "userId": int.parse(targetUserId), // 确保转成 int 传给后端
+      });
+
+      // 2. 发送 Socket 广播通知
+      _sendSocketMessage("KICK_COHOST", userId: targetUserId);
+
+      // 3. 更新本地 UI
+      setState(() {
+        _coHostList.removeWhere((u) => u.userId == targetUserId);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已将该观众抱下麦")));
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("操作失败: $e")));
+    }
+  }
+
   void _processNewGift(GiftEvent gift) {
     if (_activeGifts.length < _maxActiveGifts) {
       _activeGifts.add(gift);
     } else {
       _waitingQueue.add(gift);
     }
-  }
-
-  void _onGiftFinished(String giftId) {
-    setState(() {
-      _activeGifts.removeWhere((element) => element.id == giftId);
-      if (_waitingQueue.isNotEmpty) _activeGifts.add(_waitingQueue.removeFirst());
-    });
   }
 
   void _triggerComboMode() {
@@ -2067,18 +2233,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           name: p['name'] ?? (isMe ? _currentName : "连麦主播"),
           avatarUrl: p['avatar'] ?? (isMe ? _currentAvatar : "https://picsum.photos/200"),
           rank: realRank,
-          // 🟢 5. 传入动态算出来的真实排名！
           score: currentScore,
           isInitiator: p['isInitiator'] ?? false,
-          streamUrl: p['streamUrl'],
           isPunished: isPunished,
           isMuted: isMuted,
-          // ✨ 不再传单条的 propText，全部通过 activeBuffs 传递
-          propText: null,
           activeBuffs: currentActiveBuffs,
           isSpeaking: isMe,
           isMyTeam: isMyTeam,
-          videoController: vc,
+          // 🗑️ 删除了 streamUrl 和 videoController 的传值！
         ),
       );
     }
@@ -2169,7 +2331,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             // 1. 底层：视频内容 (背景已在内部处理)
             VideoRoomContentView(
               videoUrl:
-              "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/video/%E8%B7%A8%E4%B8%8D%E9%81%8E%E7%9A%84%E8%B7%9D%E9%9B%A2%E3%80%90DJ%E3%80%91%20-%20%E4%B8%83%E5%85%83%E3%80%8E%E6%88%91%E6%98%8E%E6%98%8E%E9%82%84%E6%98%AF%E6%9C%83%E7%AA%81%E7%84%B6%E6%83%B3%E8%B5%B7%E4%BD%A0%EF%BC%8C%E9%82%84%E6%98%AF%E6%9C%83%E5%81%B7%E5%81%B7%E9%97%9C%E5%BF%83%E4%BD%A0.mp4",
+                  "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/video/%E8%B7%A8%E4%B8%8D%E9%81%8E%E7%9A%84%E8%B7%9D%E9%9B%A2%E3%80%90DJ%E3%80%91%20-%20%E4%B8%83%E5%85%83%E3%80%8E%E6%88%91%E6%98%8E%E6%98%8E%E9%82%84%E6%98%AF%E6%9C%83%E7%AA%81%E7%84%B6%E6%83%B3%E8%B5%B7%E4%BD%A0%EF%BC%8C%E9%82%84%E6%98%AF%E6%9C%83%E5%81%B7%E5%81%B7%E9%97%9C%E5%BF%83%E4%BD%A0.mp4",
               // 使用左侧流地址作为视频源
               bgUrl: _currentBgImage,
               // 🟢 传入 personalPkBg
@@ -2204,7 +2366,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             // 1. 底层：听歌房内容
             VideoRoomContentView(
               videoUrl:
-              "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/video/%E8%B7%A8%E4%B8%8D%E9%81%8E%E7%9A%84%E8%B7%9D%E9%9B%A2%E3%80%90DJ%E3%80%91%20-%20%E4%B8%83%E5%85%83%E3%80%8E%E6%88%91%E6%98%8E%E6%98%8E%E9%82%84%E6%98%AF%E6%9C%83%E7%AA%81%E7%84%B6%E6%83%B3%E8%B5%B7%E4%BD%A0%EF%BC%8C%E9%82%84%E6%98%AF%E6%9C%83%E5%81%B7%E5%81%B7%E9%97%9C%E5%BF%83%E4%BD%A0.mp4",
+                  "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/video/%E8%B7%A8%E4%B8%8D%E9%81%8E%E7%9A%84%E8%B7%9D%E9%9B%A2%E3%80%90DJ%E3%80%91%20-%20%E4%B8%83%E5%85%83%E3%80%8E%E6%88%91%E6%98%8E%E6%98%8E%E9%82%84%E6%98%AF%E6%9C%83%E7%AA%81%E7%84%B6%E6%83%B3%E8%B5%B7%E4%BD%A0%EF%BC%8C%E9%82%84%E6%98%AF%E6%9C%83%E5%81%B7%E5%81%B7%E9%97%9C%E5%BF%83%E4%BD%A0.mp4",
               // 使用左侧流地址作为视频源
               bgUrl: _currentBgImage,
               // 🟢 传入 personalPkBg
@@ -2338,536 +2500,539 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               child: _isLoadingDetail
                   ? _buildLoadingView()
                   : GestureDetector(
-                key: ValueKey(_roomId), // 切换房间时触发动画
-                behavior: HitTestBehavior.translucent,
-                onTap: _dismissKeyboard,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Positioned.fill(
+                      key: ValueKey(_roomId), // 切换房间时触发动画
+                      behavior: HitTestBehavior.translucent,
+                      onTap: _dismissKeyboard,
                       child: Stack(
+                        fit: StackFit.expand,
                         children: [
                           Positioned.fill(
-                            child: Container(
-                              decoration: _enableGlobalBackgroundImage
-                                  ? BoxDecoration(
-                                image: DecorationImage(image: AssetImage('assets/background.jpg'), fit: BoxFit.cover),
-                              )
-                                  : BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [const Color(0xFF310505).withOpacity(0.7), const Color(0xFF1F2445).withOpacity(0.9)],
+                            child: Stack(
+                              children: [
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: _enableGlobalBackgroundImage
+                                        ? BoxDecoration(
+                                            image: DecorationImage(image: AssetImage('assets/background.jpg'), fit: BoxFit.cover),
+                                          )
+                                        : BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [const Color(0xFF310505).withOpacity(0.7), const Color(0xFF1F2445).withOpacity(0.9)],
+                                            ),
+                                          ),
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
 
-                          // 🟢 核心：根据 PK 状态决定显示 单人模式(分发) 还是 PK 模式
-                          _pkStatus == PKStatus.idle
-                              ? _buildSingleModeContent(padding.top) // 传入 padding.top
-                              : Column(
-                            children: [
-                              Container(
-                                margin: EdgeInsets.only(top: padding.top),
-                                height: topBarHeight,
-                                child: BuildTopBar(
-                                  key: const ValueKey("TopBar"),
-                                  // 可选
-                                  viewerListKey: _viewerListKey,
-                                  // 🟢 传入 Key
-                                  roomId: _roomId,
-                                  onlineCount: _onlineCount <= 0 ? 1 : _onlineCount,
-                                  title: "直播间",
-                                  name: _currentName,
-                                  avatar: _currentAvatar,
-                                  onClose: _handleCloseButton,
-                                  anchorId: _currentUserId,
-                                ),
-                              ),
-                              SizedBox(height: gap1),
-                              SizedBox(
-                                height: fixedContainerHeight,
-                                width: size.width,
-                                child: Stack(
-                                  children: [
-                                    // 1. 最底层：视频网格图层 (垫在最下面)
-                                    Positioned(
-                                      top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 36.0 : 18.0,
-                                      left: 0,
-                                      right: 0,
-                                      bottom: 0,
-                                      child: ValueListenableBuilder<int>(
-                                        valueListenable: _pkScoreUpdateTrigger, // 👈 监听这里的变化
-                                        builder: (context, triggerValue, child) {
-                                          // 只有 triggerValue 变化时，这里的 builder 才会重新执行，重新调用 _buildCurrentPkPlayers()
-                                          return DynamicPKBattleView(
-                                            key: const ValueKey('steady_pk_battle_view'),
-                                            pkStatus: _pkStatus,
-                                            currentRoomId: _roomId,
-                                            players: _buildCurrentPkPlayers(),
-                                            useVideoMode: true,
-                                            focusedRoomId: _focusedRoomId,
-                                            onTapPlayer: (LivePKPlayerModel targetPlayer) {
-                                              // 🚀 新增防空保护：如果点到空座位，直接忽略！
-                                              if (targetPlayer.roomId.isEmpty || targetPlayer.roomId == "0") return;
+                                // 🟢 核心：根据 PK 状态决定显示 单人模式(分发) 还是 PK 模式
+                                _pkStatus == PKStatus.idle
+                                    ? _buildSingleModeContent(padding.top) // 传入 padding.top
+                                    : Column(
+                                        children: [
+                                          Container(
+                                            margin: EdgeInsets.only(top: padding.top),
+                                            height: topBarHeight,
+                                            child: BuildTopBar(
+                                              key: const ValueKey("TopBar"),
+                                              // 可选
+                                              viewerListKey: _viewerListKey,
+                                              // 🟢 传入 Key
+                                              roomId: _roomId,
+                                              onlineCount: _onlineCount <= 0 ? 1 : _onlineCount,
+                                              title: "直播间",
+                                              name: _currentName,
+                                              avatar: _currentAvatar,
+                                              onClose: _handleCloseButton,
+                                              anchorId: _currentUserId,
+                                            ),
+                                          ),
+                                          SizedBox(height: gap1),
+                                          SizedBox(
+                                            height: fixedContainerHeight,
+                                            width: size.width,
+                                            child: Stack(
+                                              children: [
+                                                // 1. 最底层：视频网格图层 (垫在最下面)
+                                                Positioned(
+                                                  top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 36.0 : 18.0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  bottom: 0,
+                                                  child: ValueListenableBuilder<int>(
+                                                    valueListenable: _pkScoreUpdateTrigger, // 👈 监听这里的变化
+                                                    builder: (context, triggerValue, child) {
+                                                      // 只有 triggerValue 变化时，这里的 builder 才会重新执行，重新调用 _buildCurrentPkPlayers()
+                                                      return DynamicPKBattleView(
+                                                        key: const ValueKey('steady_pk_battle_view'),
+                                                        pkStatus: _pkStatus,
+                                                        currentRoomId: _roomId,
+                                                        currentUserId: _myUserId,
+                                                        activeVideoUsers: _remoteVideoUsers,
+                                                        players: _buildCurrentPkPlayers(),
+                                                        useVideoMode: true,
+                                                        focusedRoomId: _focusedRoomId,
+                                                        onTapPlayer: (LivePKPlayerModel targetPlayer) {
+                                                          // 🚀 新增防空保护：如果点到空座位，直接忽略！
+                                                          if (targetPlayer.roomId.isEmpty || targetPlayer.roomId == "0") return;
 
-                                              _dismissKeyboard();
+                                                          _dismissKeyboard();
 
-                                              showModalBottomSheet(
-                                                context: context,
-                                                backgroundColor: Colors.transparent,
-                                                isScrollControlled: true,
-                                                builder: (ctx) {
-                                                  return PlayerActionBottomSheet(
-                                                    targetPlayer: targetPlayer,
-                                                    // 🚀 核心：用 roomId 来判断是不是本房间
-                                                    isMe: targetPlayer.roomId == _roomId,
-                                                    isHost: _isHost,
+                                                          showModalBottomSheet(
+                                                            context: context,
+                                                            backgroundColor: Colors.transparent,
+                                                            isScrollControlled: true,
+                                                            builder: (ctx) {
+                                                              return PlayerActionBottomSheet(
+                                                                targetPlayer: targetPlayer,
+                                                                // 🚀 核心：用 roomId 来判断是不是本房间
+                                                                isMe: targetPlayer.roomId == _roomId,
+                                                                isHost: _isHost,
 
-                                                    onEnterRoom: () {
-                                                      if (_isHost && !_isRobotActive) {
-                                                        ScaffoldMessenger.of(
-                                                          context,
-                                                        ).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
-                                                        return;
-                                                      }
-                                                      _switchToTargetRoom(targetPlayer);
+                                                                onEnterRoom: () {
+                                                                  if (_isHost && !_isRobotActive) {
+                                                                    ScaffoldMessenger.of(
+                                                                      context,
+                                                                    ).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
+                                                                    return;
+                                                                  }
+                                                                  _switchToTargetRoom(targetPlayer);
+                                                                },
+
+                                                                onToggleMute: () {
+                                                                  print("🟢 1. 成功点击了按钮！开始执行闭麦逻辑...");
+                                                                  try {
+                                                                    bool targetMuteState = !targetPlayer.isMuted;
+
+                                                                    // 🚀 如果点的是本房间，操作本地物理麦克风
+                                                                    if (targetPlayer.roomId == _roomId) {
+                                                                      AiRealTimeVoiceService().setMicMute(targetMuteState);
+                                                                    }
+
+                                                                    setState(() {
+                                                                      List<Map<String, dynamic>> newList = [];
+
+                                                                      for (var p in _participants) {
+                                                                        var newMap = Map<String, dynamic>.from(p);
+
+                                                                        // 🚀 核心：用 roomId 来匹配列表中的玩家！
+                                                                        if (newMap['roomId'].toString() == targetPlayer.roomId) {
+                                                                          newMap['isMuted'] = targetMuteState;
+
+                                                                          String streamUrl = newMap['streamUrl'] ?? "";
+                                                                          if (streamUrl.isNotEmpty) {
+                                                                            HardcoreMixer.setMuted(streamUrl, targetMuteState);
+                                                                          }
+                                                                        }
+                                                                        newList.add(newMap);
+                                                                      }
+                                                                      _participants = newList;
+                                                                    });
+
+                                                                    // 🚀 核心：通过 Socket 广播这个 roomId 的闭麦指令
+                                                                    _sendSocketMessage(
+                                                                      "MUTE_STATE_CHANGE",
+                                                                      content: targetMuteState ? "1" : "0",
+                                                                      targetRoomId: targetPlayer.roomId, // 传 roomId！
+                                                                    );
+                                                                  } catch (e, stackTrace) {
+                                                                    print("🚨 致命崩溃！代码在这里死掉了: $e");
+                                                                    print(stackTrace);
+                                                                  }
+                                                                },
+
+                                                                onSetFocus: () {
+                                                                  setState(() {
+                                                                    if (_focusedRoomId == targetPlayer.roomId) {
+                                                                      _focusedRoomId = null;
+                                                                    } else {
+                                                                      _focusedRoomId = targetPlayer.roomId;
+                                                                    }
+                                                                  });
+                                                                },
+
+                                                                onMuteAllExceptMe: () {
+                                                                  // 🚀 发送全员闭麦指令时，将自己的 roomId 传进去作为例外
+                                                                  _sendSocketMessage("MUTE_ALL_EXCEPT", targetRoomId: _roomId);
+                                                                },
+
+                                                                onViewProfile: () {
+                                                                  Map<String, dynamic> user = {"userId": targetPlayer.userId};
+                                                                  LiveUserProfilePopup.show(context, user);
+                                                                },
+                                                              );
+                                                            },
+                                                          );
+                                                        },
+                                                      );
                                                     },
-
-                                                    onToggleMute: () {
-                                                      print("🟢 1. 成功点击了按钮！开始执行闭麦逻辑...");
-                                                      try {
-                                                        bool targetMuteState = !targetPlayer.isMuted;
-
-                                                        // 🚀 如果点的是本房间，操作本地物理麦克风
-                                                        if (targetPlayer.roomId == _roomId) {
-                                                          AiRealTimeVoiceService().setMicMute(targetMuteState);
-                                                        }
-
-                                                        setState(() {
-                                                          List<Map<String, dynamic>> newList = [];
-
-                                                          for (var p in _participants) {
-                                                            var newMap = Map<String, dynamic>.from(p);
-
-                                                            // 🚀 核心：用 roomId 来匹配列表中的玩家！
-                                                            if (newMap['roomId'].toString() == targetPlayer.roomId) {
-                                                              newMap['isMuted'] = targetMuteState;
-
-                                                              String streamUrl = newMap['streamUrl'] ?? "";
-                                                              if (streamUrl.isNotEmpty) {
-                                                                HardcoreMixer.setMuted(streamUrl, targetMuteState);
-                                                              }
-                                                            }
-                                                            newList.add(newMap);
-                                                          }
-                                                          _participants = newList;
-                                                        });
-
-                                                        // 🚀 核心：通过 Socket 广播这个 roomId 的闭麦指令
-                                                        _sendSocketMessage(
-                                                          "MUTE_STATE_CHANGE",
-                                                          content: targetMuteState ? "1" : "0",
-                                                          targetRoomId: targetPlayer.roomId, // 传 roomId！
+                                                  ),
+                                                ),
+                                                // 3. 最顶层：计时器梯形 (盖在血条的上方，绝不被遮挡)
+                                                Positioned(
+                                                  top: 0,
+                                                  left: 0,
+                                                  right: 0,
+                                                  child: Center(
+                                                    child: PKTimer(
+                                                      secondsLeft: _pkTimeLeft,
+                                                      status: _pkStatus,
+                                                      myScore: _myPKScore,
+                                                      opponentScore: _opponentPKScore,
+                                                    ),
+                                                  ),
+                                                ),
+                                                // 2. 中间层：血条图层 (盖在视频上方，确保暴击卡等特效悬浮在视频之上)
+                                                if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
+                                                  Positioned(
+                                                    top: 18,
+                                                    left: 0,
+                                                    right: 0,
+                                                    child: ValueListenableBuilder<int>(
+                                                      valueListenable: _pkScoreUpdateTrigger, // 👈 同样监听变化
+                                                      builder: (context, triggerValue, child) {
+                                                        // 只有这里会重绘，将内存中最新的 _myPKScore 传进去
+                                                        return PKScoreBar(
+                                                          key: _pkScoreBarKey,
+                                                          myScore: _myPKScore,
+                                                          opponentScore: _opponentPKScore,
+                                                          status: _pkStatus,
+                                                          secondsLeft: _pkTimeLeft,
+                                                          myRoomId: _roomId,
+                                                          critEndTimes: _critEndTimes,
                                                         );
-                                                      } catch (e, stackTrace) {
-                                                        print("🚨 致命崩溃！代码在这里死掉了: $e");
-                                                        print(stackTrace);
-                                                      }
-                                                    },
+                                                      },
+                                                    ),
+                                                  ),
+                                                if (1 == 2)
+                                                  Positioned(
+                                                    right: 10,
+                                                    bottom: 10,
+                                                    child: Column(
+                                                      children: [
+                                                        _buildCircleBtn(
+                                                          onTap: _showMusicPanel,
+                                                          icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
+                                                          borderColor: Colors.purpleAccent,
+                                                          label: "点歌",
+                                                        ),
+                                                        const SizedBox(height: 10),
+                                                      ],
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
 
-                                                    onSetFocus: () {
-                                                      setState(() {
-                                                        if (_focusedRoomId == targetPlayer.roomId) {
-                                                          _focusedRoomId = null;
-                                                        } else {
-                                                          _focusedRoomId = targetPlayer.roomId;
-                                                        }
-                                                      });
-                                                    },
+                                // 🟢 1. 弹幕区：动态感知键盘高度！
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 0, // 永远钉在 Stack 最底部
+                                  child: ValueListenableBuilder<double>(
+                                    valueListenable: _keyboardNotifier,
+                                    builder: (context, bottomInset, child) {
+                                      // 计算逻辑
+                                      final double currentBottom = max(bottomInset, fixedBottomOffset);
+                                      double currentHeight = (baseChatListHeight + safeBottomOffset) - currentBottom;
+                                      if (currentHeight < 150) currentHeight = 150.0;
 
-                                                    onMuteAllExceptMe: () {
-                                                      // 🚀 发送全员闭麦指令时，将自己的 roomId 传进去作为例外
-                                                      _sendSocketMessage("MUTE_ALL_EXCEPT", targetRoomId: _roomId);
-                                                    },
+                                      return Padding(
+                                        padding: EdgeInsets.only(bottom: currentBottom),
+                                        child: SizedBox(
+                                          height: currentHeight,
+                                          child: child, // 直接使用传进来的 child，杜绝重绘！
+                                        ),
+                                      );
+                                    },
+                                    child: RepaintBoundary(
+                                      child: Column(
+                                        children: [
+                                          Expanded(
+                                            // 🟢 神级交互：拦截边界滚动，直接驱动底层 PageView！
+                                            child: NotificationListener<ScrollNotification>(
+                                              onNotification: (ScrollNotification notification) {
+                                                // 1. 手指刚按上去，或刚开始滑动
+                                                if (notification is ScrollStartNotification) {
+                                                  if (_parentDrag != null) {
+                                                    _parentDrag?.cancel();
+                                                    _parentDrag = null;
+                                                  }
+                                                  _parentDragDistance = 0.0;
 
-                                                    onViewProfile: () {
-                                                      Map<String, dynamic> user = {"userId": targetPlayer.userId};
-                                                      LiveUserProfilePopup.show(context, user);
-                                                    },
-                                                  );
-                                                },
-                                              );
-                                            },
+                                                  // 判断手指按下瞬间，列表是否【已经】在顶部或底部边缘？
+                                                  final metrics = notification.metrics;
+                                                  if (metrics.pixels <= metrics.minScrollExtent + 2.0 ||
+                                                      metrics.pixels >= metrics.maxScrollExtent - 2.0) {
+                                                    _canForwardToParent = true;
+                                                  } else {
+                                                    _canForwardToParent = false;
+                                                  }
+                                                }
+                                                // 2. 划到底部/顶部，触发了越界拖拽 (Overscroll)！
+                                                else if (notification is OverscrollNotification) {
+                                                  if (!_canForwardToParent) return false;
+
+                                                  if (notification.dragDetails != null && widget.pageController != null) {
+                                                    double dy = notification.dragDetails!.delta.dy;
+
+                                                    // 🟢 核心修改：通过开关拦截特定方向的滑动！
+                                                    // dy < 0 代表手指正在【往上滑】 (试图看下方的直播间)
+                                                    if (dy < 0 && !_enableSwipeUpToSwitchRoom) return false;
+                                                    // dy > 0 代表手指正在【往下滑】 (试图看上方的直播间)
+                                                    if (dy > 0 && !_enableSwipeDownToSwitchRoom) return false;
+
+                                                    if (_parentDrag == null) {
+                                                      _parentDrag ??= widget.pageController!.position.drag(
+                                                        DragStartDetails(globalPosition: notification.dragDetails!.globalPosition),
+                                                        () {
+                                                          _parentDrag = null;
+                                                        },
+                                                      );
+                                                    }
+
+                                                    _parentDragDistance += dy; // 累计拖拽距离
+
+                                                    // 1:1 绝对跟手传递，没有任何死区延迟
+                                                    _parentDrag?.update(
+                                                      DragUpdateDetails(
+                                                        sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
+                                                        delta: Offset(0, dy),
+                                                        primaryDelta: dy,
+                                                        globalPosition: notification.dragDetails!.globalPosition,
+                                                      ),
+                                                    );
+                                                  }
+                                                }
+                                                // 3. 手指往回拉 (反向拉动必须跟着手指退回去)
+                                                else if (notification is ScrollUpdateNotification) {
+                                                  if (_parentDrag != null && notification.dragDetails != null) {
+                                                    double dy = notification.dragDetails!.delta.dy;
+                                                    _parentDragDistance += dy;
+
+                                                    _parentDrag?.update(
+                                                      DragUpdateDetails(
+                                                        sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
+                                                        delta: Offset(0, dy),
+                                                        primaryDelta: dy,
+                                                        globalPosition: notification.dragDetails!.globalPosition,
+                                                      ),
+                                                    );
+                                                  }
+                                                }
+                                                // 4. 手指离开屏幕，滑动结束
+                                                else if (notification is ScrollEndNotification) {
+                                                  if (_parentDrag != null) {
+                                                    Velocity finalVelocity = notification.dragDetails?.velocity ?? Velocity.zero;
+
+                                                    // 防止“稍微滑一下就切房” (拖拽不足60像素强制回弹)
+                                                    if (_parentDragDistance.abs() < 60.0) {
+                                                      finalVelocity = Velocity.zero;
+                                                    }
+
+                                                    _parentDrag?.end(
+                                                      DragEndDetails(velocity: finalVelocity, primaryVelocity: finalVelocity.pixelsPerSecond.dy),
+                                                    );
+                                                    _parentDrag = null;
+                                                  }
+                                                  _parentDragDistance = 0.0;
+                                                  _canForwardToParent = false;
+                                                }
+                                                return false; // 不拦截，允许正常气泡冒泡
+                                              },
+                                              child: Align(
+                                                alignment: Alignment.bottomLeft,
+                                                child: SizedBox(
+                                                  width: size.width * 0.80, // 保持 80% 大宽屏，左手无压力
+                                                  height: double.infinity,
+                                                  child: ScrollConfiguration(
+                                                    behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+                                                    child: BuildChatList(
+                                                      key: _chatListKey,
+                                                      bottomInset: 0,
+                                                      roomId: _roomId,
+                                                      controller: _chatController,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // 🟢 2. 底部操作栏：彻底独立，死死钉在屏幕最底部！
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  // 核心魔法：永远固定在 safeBottom，绝对不加 bottomInset！
+                                  bottom: safeBottom > 0 ? safeBottom : 0,
+                                  child: BuildBottomInputBar(
+                                    onTapInput: _showInputSheet, // 点击唤起你自定义的键盘 Overlay
+                                    onTapGift: _showGiftPanel,
+                                    isHost: _isHost,
+                                    onTapPK: _onTapStartPK,
+                                    onTapCoHost: _handleCoHostButton,
+                                  ),
+                                ),
+
+                                // 挂载 PK 匹配管理器
+                                PkMatchManager(
+                                  key: _pkMatchManagerKey,
+                                  roomId: _roomId,
+                                  currentUserId: _myUserId,
+                                  currentUserName: _myUserName,
+                                  currentUserAvatar: _myAvatar,
+                                  onPkStarted: () {
+                                    // PK 开始的逻辑通常由 PK_START 消息驱动
+                                  },
+                                ),
+
+                                if (showPromoBanner)
+                                  Positioned(
+                                    top: pkVideoBottomY + 4,
+                                    left: 0,
+                                    right: 0,
+                                    child: Center(
+                                      child: Container(
+                                        height: 22,
+                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        decoration: BoxDecoration(
+                                          gradient: iHaveUsedPromo
+                                              ? LinearGradient(colors: [Colors.green.withAlpha(100), Colors.teal.withAlpha(100)])
+                                              : LinearGradient(colors: [Colors.redAccent.withAlpha(100), Colors.redAccent.withAlpha(100)]),
+                                          borderRadius: BorderRadius.circular(11),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(
+                                              iHaveUsedPromo ? "首翻已达成" : "首次送礼翻倍",
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              StringTool.formatTime(_promoTimeLeft),
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontFamily: "monospace",
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                Positioned(
+                                  top: entranceTop,
+                                  left: 0,
+                                  child: LiveUserEntrance(key: _entranceKey),
+                                ),
+                                if (_showPKStartAnimation)
+                                  Positioned.fill(
+                                    child: Container(
+                                      color: Colors.black.withOpacity(0.7),
+                                      child: AnimatedBuilder(
+                                        animation: _pkStartAnimationController,
+                                        builder: (context, child) {
+                                          return Opacity(
+                                            opacity: _pkFadeAnimation.value,
+                                            child: Center(
+                                              child: Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Transform.translate(
+                                                    offset: Offset(_pkLeftAnimation.value, 0),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                      decoration: BoxDecoration(
+                                                        gradient: const LinearGradient(
+                                                          colors: [Color(0xFFFE4164), Color(0xFFFF7F7F)],
+                                                          begin: Alignment.topLeft,
+                                                          end: Alignment.bottomRight,
+                                                        ),
+                                                        borderRadius: const BorderRadius.only(
+                                                          topLeft: Radius.circular(12),
+                                                          bottomLeft: Radius.circular(12),
+                                                        ),
+                                                        boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
+                                                      ),
+                                                      child: const Text(
+                                                        "P",
+                                                        style: TextStyle(
+                                                          fontSize: 28,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.white,
+                                                          shadows: [Shadow(blurRadius: 5, color: Colors.red)],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Transform.translate(
+                                                    offset: Offset(_pkRightAnimation.value, 0),
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                      decoration: BoxDecoration(
+                                                        gradient: const LinearGradient(
+                                                          colors: [Color(0xFF3A7BD5), Color(0xFF00D2FF)],
+                                                          begin: Alignment.topLeft,
+                                                          end: Alignment.bottomRight,
+                                                        ),
+                                                        borderRadius: const BorderRadius.only(
+                                                          topRight: Radius.circular(12),
+                                                          bottomRight: Radius.circular(12),
+                                                        ),
+                                                        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
+                                                      ),
+                                                      child: const Text(
+                                                        "K",
+                                                        style: TextStyle(
+                                                          fontSize: 28,
+                                                          fontWeight: FontWeight.bold,
+                                                          color: Colors.white,
+                                                          shadows: [Shadow(blurRadius: 5, color: Colors.blue)],
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
                                           );
                                         },
                                       ),
                                     ),
-                                    // 3. 最顶层：计时器梯形 (盖在血条的上方，绝不被遮挡)
-                                    Positioned(
-                                      top: 0,
-                                      left: 0,
-                                      right: 0,
-                                      child: Center(
-                                        child: PKTimer(
-                                          secondsLeft: _pkTimeLeft,
-                                          status: _pkStatus,
-                                          myScore: _myPKScore,
-                                          opponentScore: _opponentPKScore,
-                                        ),
-                                      ),
-                                    ),
-                                    // 2. 中间层：血条图层 (盖在视频上方，确保暴击卡等特效悬浮在视频之上)
-                                    if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
-                                      Positioned(
-                                        top: 18,
-                                        left: 0,
-                                        right: 0,
-                                        child: ValueListenableBuilder<int>(
-                                          valueListenable: _pkScoreUpdateTrigger, // 👈 同样监听变化
-                                          builder: (context, triggerValue, child) {
-                                            // 只有这里会重绘，将内存中最新的 _myPKScore 传进去
-                                            return PKScoreBar(
-                                              key: _pkScoreBarKey,
-                                              myScore: _myPKScore,
-                                              opponentScore: _opponentPKScore,
-                                              status: _pkStatus,
-                                              secondsLeft: _pkTimeLeft,
-                                              myRoomId: _roomId,
-                                              critEndTimes: _critEndTimes,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    if (1 == 2)
-                                      Positioned(
-                                        right: 10,
-                                        bottom: 10,
-                                        child: Column(
-                                          children: [
-                                            _buildCircleBtn(
-                                              onTap: _showMusicPanel,
-                                              icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
-                                              borderColor: Colors.purpleAccent,
-                                              label: "点歌",
-                                            ),
-                                            const SizedBox(height: 10),
-                                          ],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          // 🟢 1. 弹幕区：动态感知键盘高度！
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0, // 永远钉在 Stack 最底部
-                            child: ValueListenableBuilder<double>(
-                              valueListenable: _keyboardNotifier,
-                              builder: (context, bottomInset, child) {
-                                // 计算逻辑
-                                final double currentBottom = max(bottomInset, fixedBottomOffset);
-                                double currentHeight = (baseChatListHeight + safeBottomOffset) - currentBottom;
-                                if (currentHeight < 150) currentHeight = 150.0;
-
-                                return Padding(
-                                  padding: EdgeInsets.only(bottom: currentBottom),
-                                  child: SizedBox(
-                                    height: currentHeight,
-                                    child: child, // 直接使用传进来的 child，杜绝重绘！
                                   ),
+                              ],
+                            ),
+                          ),
+                          Positioned.fill(
+                            child: ChatInputOverlay(
+                              key: _inputOverlayKey,
+                              onSend: (text) {
+                                _sendSocketMessage(
+                                  "CHAT",
+                                  content: text,
+                                  userName: _myUserName,
+                                  level: _myLevel,
+                                  monthLevel: _monthLevel,
+                                  isHost: _isHost,
+                                  levelHonourBuff: _myLevelHonourBuff, // 🚀 传下去
                                 );
                               },
-                              child: RepaintBoundary(
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      // 🟢 神级交互：拦截边界滚动，直接驱动底层 PageView！
-                                      child: NotificationListener<ScrollNotification>(
-                                        onNotification: (ScrollNotification notification) {
-                                          // 1. 手指刚按上去，或刚开始滑动
-                                          if (notification is ScrollStartNotification) {
-                                            if (_parentDrag != null) {
-                                              _parentDrag?.cancel();
-                                              _parentDrag = null;
-                                            }
-                                            _parentDragDistance = 0.0;
-
-                                            // 判断手指按下瞬间，列表是否【已经】在顶部或底部边缘？
-                                            final metrics = notification.metrics;
-                                            if (metrics.pixels <= metrics.minScrollExtent + 2.0 ||
-                                                metrics.pixels >= metrics.maxScrollExtent - 2.0) {
-                                              _canForwardToParent = true;
-                                            } else {
-                                              _canForwardToParent = false;
-                                            }
-                                          }
-                                          // 2. 划到底部/顶部，触发了越界拖拽 (Overscroll)！
-                                          else if (notification is OverscrollNotification) {
-                                            if (!_canForwardToParent) return false;
-
-                                            if (notification.dragDetails != null && widget.pageController != null) {
-                                              double dy = notification.dragDetails!.delta.dy;
-
-                                              // 🟢 核心修改：通过开关拦截特定方向的滑动！
-                                              // dy < 0 代表手指正在【往上滑】 (试图看下方的直播间)
-                                              if (dy < 0 && !_enableSwipeUpToSwitchRoom) return false;
-                                              // dy > 0 代表手指正在【往下滑】 (试图看上方的直播间)
-                                              if (dy > 0 && !_enableSwipeDownToSwitchRoom) return false;
-
-                                              if (_parentDrag == null) {
-                                                _parentDrag ??= widget.pageController!.position.drag(
-                                                  DragStartDetails(globalPosition: notification.dragDetails!.globalPosition),
-                                                      () {
-                                                    _parentDrag = null;
-                                                  },
-                                                );
-                                              }
-
-                                              _parentDragDistance += dy; // 累计拖拽距离
-
-                                              // 1:1 绝对跟手传递，没有任何死区延迟
-                                              _parentDrag?.update(
-                                                DragUpdateDetails(
-                                                  sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
-                                                  delta: Offset(0, dy),
-                                                  primaryDelta: dy,
-                                                  globalPosition: notification.dragDetails!.globalPosition,
-                                                ),
-                                              );
-                                            }
-                                          }
-                                          // 3. 手指往回拉 (反向拉动必须跟着手指退回去)
-                                          else if (notification is ScrollUpdateNotification) {
-                                            if (_parentDrag != null && notification.dragDetails != null) {
-                                              double dy = notification.dragDetails!.delta.dy;
-                                              _parentDragDistance += dy;
-
-                                              _parentDrag?.update(
-                                                DragUpdateDetails(
-                                                  sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
-                                                  delta: Offset(0, dy),
-                                                  primaryDelta: dy,
-                                                  globalPosition: notification.dragDetails!.globalPosition,
-                                                ),
-                                              );
-                                            }
-                                          }
-                                          // 4. 手指离开屏幕，滑动结束
-                                          else if (notification is ScrollEndNotification) {
-                                            if (_parentDrag != null) {
-                                              Velocity finalVelocity = notification.dragDetails?.velocity ?? Velocity.zero;
-
-                                              // 防止“稍微滑一下就切房” (拖拽不足60像素强制回弹)
-                                              if (_parentDragDistance.abs() < 60.0) {
-                                                finalVelocity = Velocity.zero;
-                                              }
-
-                                              _parentDrag?.end(
-                                                DragEndDetails(velocity: finalVelocity, primaryVelocity: finalVelocity.pixelsPerSecond.dy),
-                                              );
-                                              _parentDrag = null;
-                                            }
-                                            _parentDragDistance = 0.0;
-                                            _canForwardToParent = false;
-                                          }
-                                          return false; // 不拦截，允许正常气泡冒泡
-                                        },
-                                        child: Align(
-                                          alignment: Alignment.bottomLeft,
-                                          child: SizedBox(
-                                            width: size.width * 0.80, // 保持 80% 大宽屏，左手无压力
-                                            height: double.infinity,
-                                            child: ScrollConfiguration(
-                                              behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
-                                              child: BuildChatList(
-                                                key: _chatListKey,
-                                                bottomInset: 0,
-                                                roomId: _roomId,
-                                                controller: _chatController,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
                             ),
                           ),
-                          // 🟢 2. 底部操作栏：彻底独立，死死钉在屏幕最底部！
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            // 核心魔法：永远固定在 safeBottom，绝对不加 bottomInset！
-                            bottom: safeBottom > 0 ? safeBottom : 0,
-                            child: BuildBottomInputBar(
-                              onTapInput: _showInputSheet, // 点击唤起你自定义的键盘 Overlay
-                              onTapGift: _showGiftPanel,
-                              isHost: _isHost,
-                              onTapPK: _onTapStartPK,
-                            ),
-                          ),
-
-                          // 挂载 PK 匹配管理器
-                          PkMatchManager(
-                            key: _pkMatchManagerKey,
-                            roomId: _roomId,
-                            currentUserId: _myUserId,
-                            currentUserName: _myUserName,
-                            currentUserAvatar: _myAvatar,
-                            onPkStarted: () {
-                              // PK 开始的逻辑通常由 PK_START 消息驱动
-                            },
-                          ),
-
-                          if (showPromoBanner)
-                            Positioned(
-                              top: pkVideoBottomY + 4,
-                              left: 0,
-                              right: 0,
-                              child: Center(
-                                child: Container(
-                                  height: 22,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                                  decoration: BoxDecoration(
-                                    gradient: iHaveUsedPromo
-                                        ? LinearGradient(colors: [Colors.green.withAlpha(100), Colors.teal.withAlpha(100)])
-                                        : LinearGradient(colors: [Colors.redAccent.withAlpha(100), Colors.redAccent.withAlpha(100)]),
-                                    borderRadius: BorderRadius.circular(11),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        iHaveUsedPromo ? "首翻已达成" : "首次送礼翻倍",
-                                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        StringTool.formatTime(_promoTimeLeft),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontFamily: "monospace",
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                          Positioned(
-                            top: entranceTop,
-                            left: 0,
-                            child: LiveUserEntrance(key: _entranceKey),
-                          ),
-                          if (_showPKStartAnimation)
-                            Positioned.fill(
-                              child: Container(
-                                color: Colors.black.withOpacity(0.7),
-                                child: AnimatedBuilder(
-                                  animation: _pkStartAnimationController,
-                                  builder: (context, child) {
-                                    return Opacity(
-                                      opacity: _pkFadeAnimation.value,
-                                      child: Center(
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Transform.translate(
-                                              offset: Offset(_pkLeftAnimation.value, 0),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                decoration: BoxDecoration(
-                                                  gradient: const LinearGradient(
-                                                    colors: [Color(0xFFFE4164), Color(0xFFFF7F7F)],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                  ),
-                                                  borderRadius: const BorderRadius.only(
-                                                    topLeft: Radius.circular(12),
-                                                    bottomLeft: Radius.circular(12),
-                                                  ),
-                                                  boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
-                                                ),
-                                                child: const Text(
-                                                  "P",
-                                                  style: TextStyle(
-                                                    fontSize: 28,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white,
-                                                    shadows: [Shadow(blurRadius: 5, color: Colors.red)],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            Transform.translate(
-                                              offset: Offset(_pkRightAnimation.value, 0),
-                                              child: Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                                decoration: BoxDecoration(
-                                                  gradient: const LinearGradient(
-                                                    colors: [Color(0xFF3A7BD5), Color(0xFF00D2FF)],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
-                                                  ),
-                                                  borderRadius: const BorderRadius.only(
-                                                    topRight: Radius.circular(12),
-                                                    bottomRight: Radius.circular(12),
-                                                  ),
-                                                  boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
-                                                ),
-                                                child: const Text(
-                                                  "K",
-                                                  style: TextStyle(
-                                                    fontSize: 28,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white,
-                                                    shadows: [Shadow(blurRadius: 5, color: Colors.blue)],
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ),
                         ],
                       ),
                     ),
-                    Positioned.fill(
-                      child: ChatInputOverlay(
-                        key: _inputOverlayKey,
-                        onSend: (text) {
-                          _sendSocketMessage(
-                            "CHAT",
-                            content: text,
-                            userName: _myUserName,
-                            level: _myLevel,
-                            monthLevel: _monthLevel,
-                            isHost: _isHost,
-                            levelHonourBuff: _myLevelHonourBuff, // 🚀 传下去
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
             UserEntranceEffectLayer(key: _entranceEffectKey),
             Positioned.fill(child: GiftEffectLayer(key: _giftEffectKey)),
@@ -2879,6 +3044,22 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                   _giftEffectKey.currentState?.addEffect(event.giftEffectUrl, event.id, event.configJsonList);
                 }
               },
+            ),
+            PkResultPage(key: _pkResultKey),
+            Positioned(
+              right: 12, // 靠右边留一点边距
+              bottom: (safeBottom > 0 ? safeBottom : 0) + 65,
+              child: CoHostVideoListView(
+                currentUserId: _myUserId,
+                // 这里传入你维护的连麦观众列表
+                coHosts: _coHostList,
+                isHost: _isHost,
+                onKickCoHost: _kickCoHost,
+                onTapCell: (user) {
+                  print("点击了连麦观众: ${user.name}");
+                  // TODO: 可以在这里弹出踢人/闭麦的菜单
+                },
+              ),
             ),
             if (_showComboButton && _lastGiftSent != null)
               Positioned(
@@ -2954,7 +3135,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                   ),
                 ),
               ),
-            PkResultPage(key: _pkResultKey),
           ],
         ),
         // _buildAiVoiceBtn(),

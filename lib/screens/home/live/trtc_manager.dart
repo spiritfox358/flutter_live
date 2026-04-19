@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:tencent_rtc_sdk/trtc_cloud.dart';
 import 'package:tencent_rtc_sdk/trtc_cloud_def.dart';
@@ -126,6 +127,40 @@ class TRTCManager {
   }
 
   // ==========================================
+  // ⚔️ 跨房连麦 (PK) 专属方法
+  // ==========================================
+
+  /// 发起跨房连麦 (PK)
+  Future<void> startPK({required String targetUserId, required String targetRoomId}) async {
+    if (!_isInitialized) return;
+
+    Map<String, dynamic> param = {
+      "userId": targetUserId,
+    };
+
+    // 🚀 安全处理房间号：防止超长房号转 int 失败
+    int? parsedRoomId = int.tryParse(targetRoomId);
+    if (parsedRoomId != null && parsedRoomId > 0) {
+      param["roomId"] = parsedRoomId;
+    } else {
+      param["strRoomId"] = targetRoomId;
+    }
+
+    String jsonParam = jsonEncode(param);
+    debugPrint("⚔️ [TRTC 发起PK] 呼叫参数: $jsonParam");
+
+    // 调用底层 API
+    trtcCloud.connectOtherRoom(jsonParam);
+  }
+
+  /// 结束跨房连麦 (PK)
+  Future<void> stopPK() async {
+    if (!_isInitialized) return;
+    debugPrint("🛑 [TRTC 结束PK] 断开跨房连麦");
+    trtcCloud.disconnectOtherRoom();
+  }
+
+  // ==========================================
   // Widget 渲染区
   // ==========================================
   Widget getLocalVideoWidget() {
@@ -152,5 +187,32 @@ class TRTCManager {
 
   void startRemoteView(String userId, int viewId) {
     trtcCloud.startRemoteView(userId, TRTCVideoStreamType.big, viewId);
+  }
+
+  /// 观众上麦：把身份切换为主播，并开启音频推流
+  void startCoHosting() {
+    if (!_isInitialized) return;
+    debugPrint("🎤 [TRTC] 观众发起上麦，切换身份为 Anchor...");
+
+    // 1. 切换身份为“主播”
+    trtcCloud.switchRole(TRTCRoleType.anchor);
+
+    // 2. 打开麦克风
+    trtcCloud.startLocalAudio(TRTCAudioQuality.speech);
+
+    // 注意：这里的摄像头会在 UI 渲染 getLocalVideoWidget() 时自动打开，不需要重复调用
+  }
+
+  /// 观众下麦：关闭音视频，把身份切回观众
+  void stopCoHosting() {
+    if (!_isInitialized) return;
+    debugPrint("🛑 [TRTC] 观众下麦，切回 Audience...");
+
+    // 1. 关闭摄像头和麦克风
+    trtcCloud.stopLocalPreview();
+    trtcCloud.stopLocalAudio();
+
+    // 2. 切回观众身份，停止向房间内推流
+    trtcCloud.switchRole(TRTCRoleType.audience);
   }
 }
