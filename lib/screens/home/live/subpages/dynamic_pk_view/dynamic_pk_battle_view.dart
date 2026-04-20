@@ -22,6 +22,8 @@ class LivePKPlayerModel {
   final bool isInitiator;
   final List<String> activeBuffs;
 
+  final bool isCameraOn;
+
   LivePKPlayerModel({
     required this.userId,
     required this.roomId,
@@ -37,6 +39,7 @@ class LivePKPlayerModel {
     this.isMyTeam = false,
     this.isInitiator = false,
     this.activeBuffs = const [],
+    this.isCameraOn = true,
   });
 }
 
@@ -84,8 +87,7 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
   @override
   void didUpdateWidget(DynamicPKBattleView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.players.length != widget.players.length ||
-        oldWidget.focusedRoomId != widget.focusedRoomId) {
+    if (oldWidget.players.length != widget.players.length || oldWidget.focusedRoomId != widget.focusedRoomId) {
       _recalculateLayouts();
     }
   }
@@ -119,7 +121,10 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
 
   List<List<double>> _generateFocusLayouts(List<LivePKPlayerModel> players, int focusIndex) {
     List<List<double>> layouts = List.filled(players.length, []);
-    if (players.length <= 1) return [[0.0, 0.0, 1.0, 1.0]];
+    if (players.length <= 1)
+      return [
+        [0.0, 0.0, 1.0, 1.0],
+      ];
 
     double subW = 1.0 / 3.0;
     double normalSubH = 1.0 / 6.0;
@@ -146,8 +151,10 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
     }
 
     List<List<double>> bottomSlots = [
-      [1.0 / 3.0, 5.0 / 6.0], [0.0, 5.0 / 6.0],
-      [1.0 / 3.0, 4.0 / 6.0], [0.0, 4.0 / 6.0],
+      [1.0 / 3.0, 5.0 / 6.0],
+      [0.0, 5.0 / 6.0],
+      [1.0 / 3.0, 4.0 / 6.0],
+      [0.0, 4.0 / 6.0],
     ];
 
     for (int i in normalSubIndices) {
@@ -175,18 +182,37 @@ class _DynamicPKBattleViewState extends State<DynamicPKBattleView> {
 
   List<List<double>> _generateGridLayouts(int count) {
     if (count == 3) {
-      return [ [0.0, 0.0, 0.5, 1.0], [0.5, 0.0, 0.5, 0.5], [0.5, 0.5, 0.5, 0.5] ];
+      return [
+        [0.0, 0.0, 0.5, 1.0],
+        [0.5, 0.0, 0.5, 0.5],
+        [0.5, 0.5, 0.5, 0.5],
+      ];
     }
     List<int> rowConfigs = [];
     switch (count) {
-      case 2: rowConfigs = [2]; break;
-      case 4: rowConfigs = [2, 2]; break;
-      case 5: rowConfigs = [2, 3]; break;
-      case 6: rowConfigs = [3, 3]; break;
-      case 7: rowConfigs = [3, 4]; break;
-      case 8: rowConfigs = [4, 4]; break;
-      case 9: rowConfigs = [3, 3, 3]; break;
-      default: rowConfigs = [1];
+      case 2:
+        rowConfigs = [2];
+        break;
+      case 4:
+        rowConfigs = [2, 2];
+        break;
+      case 5:
+        rowConfigs = [2, 3];
+        break;
+      case 6:
+        rowConfigs = [3, 3];
+        break;
+      case 7:
+        rowConfigs = [3, 4];
+        break;
+      case 8:
+        rowConfigs = [4, 4];
+        break;
+      case 9:
+        rowConfigs = [3, 3, 3];
+        break;
+      default:
+        rowConfigs = [1];
     }
     List<List<double>> layouts = [];
     int numRows = rowConfigs.length;
@@ -336,7 +362,10 @@ class _CellWrapperState extends State<_CellWrapper> {
         children: [
           if (!isMyTeam) const Icon(Icons.arrow_back_ios, size: 7, color: Colors.white),
           if (!isMyTeam) const SizedBox(width: 2),
-          Text(text, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
+          Text(
+            text,
+            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+          ),
           if (isMyTeam) const SizedBox(width: 2),
           if (isMyTeam) const Icon(Icons.arrow_forward_ios, size: 7, color: Colors.white),
         ],
@@ -360,7 +389,10 @@ class _CellWrapperState extends State<_CellWrapper> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: const [
-          Text("房主", style: TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1)),
+          Text(
+            "房主",
+            style: TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1),
+          ),
         ],
       ),
     );
@@ -420,13 +452,22 @@ class _CellWrapperState extends State<_CellWrapper> {
                     : Colors.white24,
               ),
               child: Center(
-                child: Text('${player.rank}', style: const TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1)),
+                child: Text(
+                  '${player.rank}',
+                  style: const TextStyle(color: Colors.white, fontSize: 9.0, fontWeight: FontWeight.bold, height: 1.1),
+                ),
               ),
             ),
             const SizedBox(width: 4),
             Text(
               displayScore,
-              style: TextStyle(color: Colors.white, fontSize: 10.0, fontWeight: FontWeight.w600, height: 1.1, shadows: isHighest ? [const Shadow(color: Colors.black45, blurRadius: 2, offset: Offset(0, 1))] : null),
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 10.0,
+                fontWeight: FontWeight.w600,
+                height: 1.1,
+                shadows: isHighest ? [const Shadow(color: Colors.black45, blurRadius: 2, offset: Offset(0, 1))] : null,
+              ),
             ),
           ],
         ),
@@ -458,12 +499,18 @@ class _CellWrapperState extends State<_CellWrapper> {
           // 3. UI 浮层
           if (needsBottomGradient)
             Positioned(
-              left: 0, right: 0, bottom: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
               child: IgnorePointer(
                 child: Container(
                   height: 40.0,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black.withOpacity(0.6), Colors.transparent]),
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                    ),
                   ),
                 ),
               ),
@@ -471,24 +518,39 @@ class _CellWrapperState extends State<_CellWrapper> {
 
           if (isMainAnchor && hasActiveBuffs)
             Positioned(
-              top: 0.0, left: 0.0,
+              top: 0.0,
+              left: 0.0,
               child: IgnorePointer(
-                child: AnimatedSwitcher(duration: const Duration(milliseconds: 300), child: _buildBuffGradientLabel(currentBuffText, player.isMyTeam, key: ValueKey(currentIndex))),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  child: _buildBuffGradientLabel(currentBuffText, player.isMyTeam, key: ValueKey(currentIndex)),
+                ),
               ),
             )
           else if (showScoreBadge)
             Positioned(top: 4.0, left: 4.0, child: IgnorePointer(child: buildScoreBadgeWidget())),
 
-          if (player.isMuted) const Positioned(top: 6, right: 6, child: IgnorePointer(child: Icon(Icons.mic_off_outlined, color: Colors.white70, size: 16.0))),
+          if (player.isMuted)
+            const Positioned(
+              top: 6,
+              right: 6,
+              child: IgnorePointer(child: Icon(Icons.mic_off_outlined, color: Colors.white70, size: 16.0)),
+            ),
 
           if (isMainAnchor && (player.isInitiator || (hasActiveBuffs && showScoreBadge)))
             Positioned(
-              bottom: 4.0, left: 4.0,
+              bottom: 4.0,
+              left: 4.0,
               child: IgnorePointer(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (player.isInitiator) Padding(padding: EdgeInsets.only(bottom: (hasActiveBuffs && showScoreBadge) ? 4.0 : 0.0), child: _buildInitiatorLabel(player.isMyTeam)),
+                    if (player.isInitiator)
+                      Padding(
+                        padding: EdgeInsets.only(bottom: (hasActiveBuffs && showScoreBadge) ? 4.0 : 0.0),
+                        child: _buildInitiatorLabel(player.isMyTeam),
+                      ),
                     if (hasActiveBuffs && showScoreBadge) buildScoreBadgeWidget(),
                   ],
                 ),
@@ -496,10 +558,13 @@ class _CellWrapperState extends State<_CellWrapper> {
             )
           else if (!isMainAnchor)
             Positioned(
-              bottom: 4.0, left: 4.0, right: 4.0,
+              bottom: 4.0,
+              left: 4.0,
+              right: 4.0,
               child: IgnorePointer(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (player.isInitiator) Padding(padding: const EdgeInsets.only(bottom: 2.0), child: _buildInitiatorLabel(player.isMyTeam)),
                     Align(
@@ -511,12 +576,20 @@ class _CellWrapperState extends State<_CellWrapper> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Flexible(
-                              flex: 1, fit: FlexFit.loose,
+                              flex: 1,
+                              fit: FlexFit.loose,
                               child: SizedBox(
                                 height: 14.0,
                                 child: Align(
-                                  alignment: Alignment.centerLeft, widthFactor: 1.0,
-                                  child: Text(player.name, style: const TextStyle(color: Colors.white, fontSize: 10.0, fontWeight: FontWeight.w500, height: 1.1), maxLines: 1, softWrap: false, overflow: TextOverflow.clip),
+                                  alignment: Alignment.centerLeft,
+                                  widthFactor: 1.0,
+                                  child: Text(
+                                    player.name,
+                                    style: const TextStyle(color: Colors.white, fontSize: 10.0, fontWeight: FontWeight.w500, height: 1.1),
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    overflow: TextOverflow.clip,
+                                  ),
                                 ),
                               ),
                             ),
@@ -527,8 +600,16 @@ class _CellWrapperState extends State<_CellWrapper> {
                                 child: AnimatedSwitcher(
                                   duration: const Duration(milliseconds: 300),
                                   child: Container(
-                                    height: 14.0, alignment: Alignment.center,
-                                    child: Text(currentBuffText, key: ValueKey(currentIndex), style: const TextStyle(color: Colors.yellowAccent, fontSize: 10.0, fontWeight: FontWeight.bold, height: 1.1), maxLines: 1, softWrap: false, overflow: TextOverflow.visible),
+                                    height: 14.0,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      currentBuffText,
+                                      key: ValueKey(currentIndex),
+                                      style: const TextStyle(color: Colors.yellowAccent, fontSize: 10.0, fontWeight: FontWeight.bold, height: 1.1),
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      overflow: TextOverflow.visible,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -549,42 +630,56 @@ class _CellWrapperState extends State<_CellWrapper> {
   Widget _buildMediaContent(LivePKPlayerModel player) {
     bool isMe = player.userId == widget.currentUserId;
 
-    bool hasVideoStream = isMe || widget.activeVideoUsers.contains(player.userId);
+    bool hasVideoStream = isMe ? player.isCameraOn : widget.activeVideoUsers.contains(player.userId);
 
     // 🛑 保护机制：如果没有视频流，渲染绝美的毛玻璃头像！
     if (!hasVideoStream) {
-      double avatarPadding = widget.allPlayers.length >= 7 ? 12.0 : 20.0;
-      Widget fallbackContent = Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.network(
-            player.avatarUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
-          ),
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
-            child: Container(color: Colors.black.withOpacity(0.5)),
-          ),
-          Center(
-            child: Padding(
-              padding: EdgeInsets.all(avatarPadding),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 120.0, maxHeight: 120.0),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false),
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          // 1. 默认恢复你最原始的代码参数，绝对不自适应！
+          double avatarPadding = widget.allPlayers.length >= 7 ? 12.0 : 20.0;
+          double avatarSize = 120.0;
+
+          // 🚀🚀🚀 核心拦截：只针对“半个格子”（1/6高度的扁格子，通常高度在 60~80px 左右）
+          if (constraints.maxHeight < 100.0) {
+            avatarPadding = 0.0; // 把内边距缩到极小，腾出空间
+            avatarSize = constraints.maxHeight - (avatarPadding * 2); // 头像刚好塞满这个扁格子
+          }
+
+          Widget fallbackContent = Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.network(
+                player.avatarUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, err, stack) => Container(color: Colors.grey[900]),
+              ),
+              BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+                child: Container(color: Colors.black.withOpacity(0.5)),
+              ),
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.all(avatarPadding),
+                  child: ConstrainedBox(
+                    // 🚀 正常格子永远锁死 120，只有半个格子才会用算出来的专属大小
+                    constraints: BoxConstraints(maxWidth: avatarSize, maxHeight: avatarSize),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: AvatarAnimation(avatarUrl: player.avatarUrl, isSpeaking: player.isSpeaking, isRotating: false),
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-        ],
-      );
+            ],
+          );
 
-      if (player.isPunished) {
-        fallbackContent = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: fallbackContent);
-      }
-      return fallbackContent;
+          if (player.isPunished) {
+            fallbackContent = ColorFiltered(colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation), child: fallbackContent);
+          }
+          return fallbackContent;
+        },
+      );
     }
 
     // 🎥 正常渲染视频流

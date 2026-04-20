@@ -1,22 +1,28 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 // 引入 LivePKPlayerModel 所在的路径
 import 'package:flutter_live/screens/home/live/subpages/dynamic_pk_view/dynamic_pk_battle_view.dart';
 
+import '../../../widgets/pk_score_bar_widgets.dart';
 import '../../pk_rank/pk_contribution_ranking_bottom_sheet.dart';
 
 class PlayerActionBottomSheet extends StatelessWidget {
   final LivePKPlayerModel targetPlayer;
   final bool isMe;
   final bool isHost;
-
+  final PKStatus pkStatus;
   final VoidCallback onToggleMute;
   final VoidCallback onMuteAllExceptMe;
   final VoidCallback onSetFocus;
   final VoidCallback onViewProfile;
   final VoidCallback onEnterRoom;
   final VoidCallback? onViewRank;
+
+  // 🟢 新增：摄像头状态和切换回调
+  final bool isCameraOn;
+  final VoidCallback onToggleCamera;
+
+  final VoidCallback? onLeaveCoHost;
 
   const PlayerActionBottomSheet({
     super.key,
@@ -28,7 +34,11 @@ class PlayerActionBottomSheet extends StatelessWidget {
     required this.onSetFocus,
     required this.onViewProfile,
     required this.onEnterRoom,
+    required this.onToggleCamera, // 🟢 必传回调
+    required this.pkStatus,
+    this.isCameraOn = true, // 🟢 默认摄像头开启
     this.onViewRank,
+    this.onLeaveCoHost,
   });
 
   @override
@@ -58,7 +68,6 @@ class PlayerActionBottomSheet extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                // 🚀 优化 1：点击头像跳转主页
                 GestureDetector(
                   onTap: () {
                     Navigator.pop(context);
@@ -91,7 +100,6 @@ class PlayerActionBottomSheet extends StatelessWidget {
                   ),
                 ),
 
-                // 🚀 优化 2：放大版“进直播间”按钮
                 if (!isMe)
                   _buildBigEnterButton(
                     onTap: () {
@@ -105,16 +113,16 @@ class PlayerActionBottomSheet extends StatelessWidget {
 
           const SizedBox(height: 20),
           const Divider(color: Colors.white10, height: 1),
-          const SizedBox(height: 20),
+          const SizedBox(height: 13),
 
           // 3. 底部操作区 (左对齐)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 10),
             child: SizedBox(
               width: double.infinity,
               child: Wrap(
-                spacing: 22,
-                runSpacing: 20,
+                spacing: 0,
+                runSpacing: 5,
                 alignment: WrapAlignment.start,
                 children: [
                   // 榜单
@@ -123,8 +131,7 @@ class PlayerActionBottomSheet extends StatelessWidget {
                     iconColor: Colors.yellowAccent,
                     label: "榜单",
                     onTap: () {
-                      Navigator.pop(context); // 先关掉当前的操作面板
-                      // 🚀 直接呼出我们新写的专属半屏榜单！把目标主播的 roomId 传过去
+                      Navigator.pop(context);
                       PkContributionBottomSheet.show(context, targetPlayer.roomId, targetPlayer.pkId);
                     },
                   ),
@@ -140,8 +147,29 @@ class PlayerActionBottomSheet extends StatelessWidget {
                     },
                   ),
 
+                  // 🟢 核心新增：开关摄像头 (仅对自己显示！)
+                  if (isMe)
+                    _buildActionButton(
+                      icon: isCameraOn ? Icons.videocam : Icons.videocam_off,
+                      iconColor: isCameraOn ? Colors.greenAccent : Colors.redAccent,
+                      label: isCameraOn ? "关摄像头" : "开摄像头",
+                      onTap: () {
+                        Navigator.pop(context);
+                        onToggleCamera(); // 触发回调
+                      },
+                    ),
+                  if (isMe && onLeaveCoHost != null)
+                    _buildActionButton(
+                      icon: Icons.exit_to_app,
+                      iconColor: Colors.redAccent,
+                      label: "下麦",
+                      onTap: () {
+                        Navigator.pop(context);
+                        onLeaveCoHost!(); // 触发下麦
+                      },
+                    ),
                   // 设为主咖
-                  if (isHost || isMe)
+                  if ((isHost || isMe) && pkStatus != PKStatus.idle)
                     _buildActionButton(
                       icon: Icons.fullscreen,
                       iconColor: Colors.blueAccent,
@@ -167,12 +195,12 @@ class PlayerActionBottomSheet extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 75),
         ],
       ),
     );
   }
 
-  // 🚀 特制的大号“进直播间”按钮
   Widget _buildBigEnterButton({required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,

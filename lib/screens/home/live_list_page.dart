@@ -164,21 +164,27 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
         color: const Color(0xFFFF0050),
         backgroundColor: Colors.white,
         onRefresh: _handleRefresh,
-        // 4. 根据状态显示不同内容，解决闪烁问题
         child: _isInitLoading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF0050)))
             : _anchors.isEmpty
-            ? const Center(
-                child: Text("暂无直播", style: TextStyle(color: Colors.grey)),
-              )
+        // 🟢 Wrap the empty state in a scrollable view
+            ? ListView(
+          physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+          children: [
+            Container(
+              height: MediaQuery.of(context).size.height * 0.7, // Take up most of the screen
+              alignment: Alignment.center,
+              child: const Text("暂无直播", style: TextStyle(color: Colors.grey)),
+            ),
+          ],
+        )
             : ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
-                padding: const EdgeInsets.only(top: 5, bottom: 80),
-                itemCount: _anchors.length,
-                separatorBuilder: (ctx, i) => Divider(height: 1, thickness: 0.5, indent: 100, endIndent: 16, color: dividerColor.withOpacity(0.1)),
-                // 🟢 3. 把 index 传给 _buildCustomListItem
-                itemBuilder: (context, index) => _buildCustomListItem(_anchors[index], theme, index),
-              ),
+          physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+          padding: const EdgeInsets.only(top: 5, bottom: 80),
+          itemCount: _anchors.length,
+          separatorBuilder: (ctx, i) => Divider(height: 1, thickness: 0.5, indent: 100, endIndent: 16, color: dividerColor.withOpacity(0.1)),
+          itemBuilder: (context, index) => _buildCustomListItem(_anchors[index], theme, index),
+        ),
       ),
     );
   }

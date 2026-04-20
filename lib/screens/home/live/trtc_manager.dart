@@ -17,6 +17,7 @@ class TRTCManager {
   bool _isInitialized = false;
 
   TRTCCloudListener? _listener;
+  int? localViewId;
 
   // 🔴 页面 UI 回调事件
   Function(String userId, bool available)? onRemoteVideoAvailable;
@@ -106,17 +107,23 @@ class TRTCManager {
   }
 
   /// 退出房间并清理
-  Future<void> exitRoom() async {
+  // 🚀🚀🚀 核心改造：新增 clearListeners 参数，默认 true (保护页面销毁)，切房时传 false！
+  Future<void> exitRoom({bool clearListeners = true}) async {
     if (!_isInitialized) return;
 
     // 🚀 上锁：标记正在退出
     _isExiting = true;
     debugPrint("🚪 [TRTC] 发起退出房间请求，开始拦截后续进房...");
 
-    // 1. 彻底清空回调，防止底层状态变化时去刷新已经销毁的旧页面（导致红屏报错）
-    onRemoteVideoAvailable = null;
-    onRemoteUserEnterRoom = null;
-    onRemoteUserLeaveRoom = null;
+    // 1. 如果 clearListeners 为 true (彻底退出页面时)，才清空回调防止红屏
+    if (clearListeners) {
+      debugPrint("🧹 [TRTC] 彻底清空 UI 监听器");
+      onRemoteVideoAvailable = null;
+      onRemoteUserEnterRoom = null;
+      onRemoteUserLeaveRoom = null;
+    } else {
+      debugPrint("🎧 [TRTC] 保留 UI 监听器 (切房专用)");
+    }
 
     // 2. 停止所有音视频采集，释放麦克风和摄像头
     trtcCloud.stopLocalAudio();
@@ -167,6 +174,7 @@ class TRTCManager {
     return TRTCCloudVideoView(
       key: const ValueKey("TRTCLocalView"),
       onViewCreated: (viewId) {
+        localViewId = viewId;
         trtcCloud.startLocalPreview(true, viewId);
       },
     );

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 
+import 'package:flutter_live/screens/home/live/widgets/pk_score_bar_widgets.dart';
+
 class BuildBottomInputBar extends StatelessWidget {
   final VoidCallback onTapInput;
   final VoidCallback onTapGift;
+  final PKStatus pkStatus;
 
   // 🟢 新增：连麦按钮点击回调
   final VoidCallback? onTapCoHost;
@@ -16,9 +19,10 @@ class BuildBottomInputBar extends StatelessWidget {
     super.key,
     required this.onTapInput,
     required this.onTapGift,
+    required this.pkStatus,
     this.isHost = false, // 默认为观众
     this.onTapPK,
-    this.onTapCoHost, // 🟢 接收回调
+    this.onTapCoHost,
   });
 
   @override
@@ -41,27 +45,27 @@ class BuildBottomInputBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
 
-          // 🟢 修改：原本的点赞变成了“连麦”按钮
-          GestureDetector(
-            onTap: onTapCoHost, // 🟢 绑定回调
-            child: const Icon(Icons.mic_none, color: Colors.pinkAccent, size: 25), // 🟢 换成麦克风图标
-          ),
+          if (pkStatus == PKStatus.idle) ...[
+            const SizedBox(width: 10),
+            // 🟢 修改：原本的点赞变成了“连麦”按钮
+            GestureDetector(
+              onTap: onTapCoHost, // 🟢 绑定回调
+              child: const Icon(Icons.join_inner_sharp, color: Colors.pinkAccent, size: 25), // 🟢 换成麦克风图标
+            ),
+          ],
 
           const SizedBox(width: 10),
 
           // 如果是主播显示PK按钮，如果是观众显示礼物按钮
           GestureDetector(
             onTap: isHost ? onTapPK : onTapGift,
-            child: isHost
-                ? _buildPKButton()
-                : const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 25),
+            child: isHost ? _buildPKButton() : const Icon(Icons.card_giftcard, color: Colors.pinkAccent, size: 25),
           ),
 
           const SizedBox(width: 10),
           // 分享/转发按钮
-          const Icon(Icons.share_rounded, color: Colors.pinkAccent, size: 25),
+          const Icon(Icons.share_outlined, color: Colors.pinkAccent, size: 25),
         ],
       ),
     );
@@ -80,9 +84,7 @@ class BuildBottomInputBar extends StatelessWidget {
           fontWeight: FontWeight.w900,
           fontStyle: FontStyle.italic,
           height: 1.0,
-          shadows: [
-            Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2),
-          ],
+          shadows: [Shadow(color: Colors.black26, offset: Offset(1, 1), blurRadius: 2)],
         ),
       ),
     );

@@ -113,9 +113,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   // 🟢 1. 新增：专门用于监听键盘高度的“局部刷新通知器”
   final ValueNotifier<double> _keyboardNotifier = ValueNotifier(0.0);
   bool _isSafeToPlayEffects = false; // 默认不安全
-  // 加载状态，默认为 true
   bool _isLoadingDetail = true;
   bool _isRoomActive = false;
+  bool _isCameraOn = false; // 记录自己本地摄像头状态
   Timer? _viewChangeTimer;
   static const MethodChannel _nativePlayer = MethodChannel('com.ai.voice/native_player');
 
@@ -143,6 +143,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late int _monthLevel;
   late String _myAvatar;
   late String _roomId;
+  String _currentTrtcRoomId = "";
   List<CoHostUserModel> _coHostList = [];
 
   // 🚀 新增：用来记录当前被“设为主咖(放大)”的那个人的 roomId
@@ -195,11 +196,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   // --- 右侧（对手）视频控制 ---
   Player? _rightPlayer;
-  VideoController? _rightVideoController;
   bool _isRightVideoInitialized = false;
   bool _isRightVideoMode = false; // 默认开启右侧视频
   // 🟢 错峰点火排队锁，防止多次拉取数据导致并发冲突
-  bool _isIgniting = false;
   int _currentUserId = 1;
   String _currentName = "";
   Timer? _heartbeatTimer;
@@ -207,7 +206,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   bool _isSwitchingRoom = false; // 🟢 新增：用来标记是否正在进入对手房间
   String _currentAvatar = "";
   late String _leftVideoUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.MOV";
-  final String _rightVideoUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/234.mp4";
 
   PKStatus _pkStatus = PKStatus.idle;
   int _myPKScore = 0;
@@ -272,16 +270,16 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       _currentAvatar = widget.initialRoomData!['avatar'] ?? widget.avatarUrl;
     }
 
-    _coHostList = [
-      CoHostUserModel(userId: "fake_user_1", roomId: "fake_room_1", avatarUrl: "https://picsum.photos/seed/1/200", name: "榜一大哥", isMuted: false),
-      CoHostUserModel(
-        userId: "fake_user_2",
-        roomId: "fake_room_2",
-        avatarUrl: "https://picsum.photos/seed/2/200",
-        name: "神秘嘉宾",
-        isMuted: true, // 测试一下闭麦的 UI
-      ),
-    ];
+    // _coHostList = [
+    //   CoHostUserModel(userId: "fake_user_1", roomId: "fake_room_1", avatarUrl: "https://picsum.photos/seed/1/200", name: "榜一大哥", isMuted: false),
+    //   CoHostUserModel(
+    //     userId: "fake_user_2",
+    //     roomId: "fake_room_2",
+    //     avatarUrl: "https://picsum.photos/seed/2/200",
+    //     name: "神秘嘉宾",
+    //     isMuted: true, // 测试一下闭麦的 UI
+    //   ),
+    // ];
 
     _fetchGiftList();
     _initializeBackground(); // 初始化左侧视频
@@ -443,7 +441,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         });
       }
     };
-
+    _currentTrtcRoomId = _roomId;
     _trtcManager.enterRoom(userId: _myUserId, roomId: _roomId, isHost: _isHost);
   }
 
@@ -635,20 +633,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       if (data['coHosts'] != null) {
         List<dynamic> coHostData = data['coHosts'];
         setState(() {
-          _coHostList = coHostData.map((h) => CoHostUserModel(
-            userId: h['userId'],
-            roomId: h['roomId'],
-            name: h['name'],
-            avatarUrl: h['avatarUrl'],
-            isMuted: h['isMuted'],
-          )).toList();
+          _coHostList = coHostData
+              .map(
+                (h) => CoHostUserModel(userId: h['userId'], roomId: h['roomId'], name: h['name'], avatarUrl: h['avatarUrl'], isMuted: h['isMuted']),
+              )
+              .toList();
         });
       }
       if (data['pkInfo'] != null) {
         final pkInfo = data['pkInfo'];
         final int status = _parseInt(pkInfo['status']);
         final String startTimeStr = pkInfo['startTime'];
-
+        _pkMatchManagerKey.currentState?.stopMatching(); // close matching widows
         _pkDuration = _parseInt(pkInfo['duration'], defaultValue: 300);
         _punishmentDuration = _parseInt(pkInfo['punishmentDuration'], defaultValue: 30);
         setState(() {
@@ -657,19 +653,26 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           // 如果参与者大于 1 人，说明处于多人连麦状态，立刻封杀单人模式的 media_kit！
           if (_participants.length > 1) {
             _bgPlayer?.pause();
-            // 极度安全措施：喂一个空列表，逼迫底层彻底释放硬件解码器，防止抢占 hardcore_mixer 资源
             _bgPlayer?.open(Playlist([]));
-            // 🚀🚀🚀 核心新增：向腾讯云发起跨房连麦 (PK)！
-            if (_isHost) {
-              // 找到不是我自己的那个对手
-              var opponent = _participants.firstWhere((p) => p['roomId'].toString() != _roomId, orElse: () => null);
+            // 🚀🚀🚀 终极稳如老狗版：直接读取后端传来的家族 ID 作为底层房间号！
+            // 无论 pk_id 怎么变，房主怎么掉线，只要后端传的这个 ID 没变，前端就绝对不会断开重连！
+            String virtualPkRoomId = pkInfo['linkGroupId'].toString();
+            // 如果当前 TRTC 不在这个虚拟战场，立刻带着观众和主播一起跳槽！
+            if (_currentTrtcRoomId != virtualPkRoomId && virtualPkRoomId.isNotEmpty) {
+              debugPrint("⚔️ 检测到多人 PK/连麦，全员底层切入稳定虚拟角斗场: $virtualPkRoomId");
+              _currentTrtcRoomId = virtualPkRoomId;
 
-              // 拿到对手的 userId 和 roomId，告诉腾讯云：我要拉他的流！
-              if (opponent != null) {
-                String oppUserId = opponent['anchorId'].toString();
-                String oppRoomId = opponent['roomId'].toString();
-                _trtcManager.startPK(targetUserId: oppUserId, targetRoomId: oppRoomId);
-              }
+              _trtcManager.exitRoom(clearListeners: false);
+
+              Future.delayed(const Duration(milliseconds: 500), () {
+                if (mounted && !_isDisposed) {
+                  _trtcManager.enterRoom(
+                    userId: _myUserId,
+                    roomId: virtualPkRoomId, // 稳稳地进房！
+                    isHost: _isHost,
+                  );
+                }
+              });
             }
           }
           for (var p in _participants) {
@@ -848,7 +851,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       _rightPlayer?.dispose();
     } catch (e) {}
     _rightPlayer = null;
-    _rightVideoController = null;
   }
 
   void _handleSocketMessage(dynamic message) {
@@ -1183,17 +1185,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           setState(() {
             // 防止重复添加
             if (!_coHostList.any((u) => u.userId == data['userId'])) {
-              _coHostList.add(CoHostUserModel(
-                userId: data['userId'],
-                roomId: _roomId,
-                name: data['userName'],
-                avatarUrl: data['avatar'],
-              ));
+              _coHostList.add(CoHostUserModel(userId: data['userId'], roomId: _roomId, name: data['userName'], avatarUrl: data['avatar']));
             }
           });
           break;
         case "COHOST_LEAVE":
-        // 🚀 核心补全：有人下麦了，立刻把他从九宫格里踢掉！
+          // 🚀 核心补全：有人下麦了，立刻把他从九宫格里踢掉！
           if (mounted) {
             setState(() {
               _coHostList.removeWhere((u) => u.userId == data['userId'].toString());
@@ -1202,16 +1199,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           break;
         case "KICK_COHOST":
           String kickedUserId = data['userId'].toString();
-
           // 情况 A：如果我自己就是那个“被踢的人”
           if (kickedUserId == _myUserId) {
             debugPrint("🛑 收到被踢下麦指令，强制关闭底层推流");
             _trtcManager.stopCoHosting(); // 立即掐断 TRTC 摄像机和麦克风推流
 
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("您已被主播抱下麦"))
-              );
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("您已被主播抱下麦")));
             }
           }
 
@@ -1267,8 +1261,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _onTapStartPK() {
     _dismissKeyboard();
-    if (_pkStatus != PKStatus.idle || !_isHost) return;
+    if (!_isHost) return;
+    // 1. 如果正在激烈战斗中（倒计时中），直接拦截
+    if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("当前正在PK中，无法进行此操作")));
+      return;
+    }
 
+    // 2. 弹出底部菜单
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
@@ -1281,23 +1281,53 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             children: [
               Container(
                 margin: const EdgeInsets.symmetric(vertical: 16),
-                child: const Text(
-                  "选择PK方式",
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                child: Text(
+                  _pkStatus == PKStatus.idle ? "选择连麦方式" : "多人连线管理",
+                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
               const Divider(color: Colors.white10, height: 1),
 
-              // 随机匹配按钮
-              ListTile(
-                leading: const Icon(Icons.shuffle, color: Colors.cyanAccent),
-                title: const Text("随机匹配在线主播", style: TextStyle(color: Colors.white)),
-                subtitle: const Text("系统自动连线空闲主播", style: TextStyle(color: Colors.white38, fontSize: 12)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pkMatchManagerKey.currentState?.startRandomMatch(context);
-                },
-              ),
+              // ==========================================
+              // 🌟 状态 A：闲置状态 (只能去拉人)
+              // ==========================================
+              if (_pkStatus == PKStatus.idle)
+                ListTile(
+                  leading: const Icon(Icons.shuffle, color: Colors.cyanAccent),
+                  title: const Text("随机匹配在线主播", style: TextStyle(color: Colors.white)),
+                  subtitle: const Text("系统自动连线空闲主播", style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pkMatchManagerKey.currentState?.startRandomMatch(context);
+                  },
+                ),
+
+              // ==========================================
+              // 🌟 状态 B：连麦中 (可以拉新人，也可以直接开战！)
+              // ==========================================
+              if (_pkStatus == PKStatus.coHost) ...[
+                ListTile(
+                  leading: const Icon(Icons.person_add_alt_1, color: Colors.greenAccent),
+                  title: const Text("邀请新人连麦", style: TextStyle(color: Colors.white)),
+                  subtitle: const Text("邀请更多主播加入当前连线", style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // 🟢 复用随机匹配组件，也可以以后改成弹窗选好友
+                    _pkMatchManagerKey.currentState?.startRandomMatch(context);
+                  },
+                ),
+                const Divider(color: Colors.white10, height: 1),
+                ListTile(
+                  leading: const Icon(Icons.local_fire_department, color: Colors.redAccent),
+                  title: const Text("正式开启 PK", style: TextStyle(color: Colors.white)),
+                  subtitle: const Text("进入积分对战模式，分数将清零重计", style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showPKDurationSelector(); // 弹出选择时长
+                  },
+                ),
+              ],
+
               const SizedBox(height: 10),
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -1308,6 +1338,63 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         );
       },
     );
+  }
+
+  // 🟢 新增：选择 PK 时长的二级弹窗
+  void _showPKDurationSelector() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF222222),
+        title: const Text("选择 PK 时长", style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text("2 分钟 (120秒)", style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _formalStartPK(120);
+              },
+            ),
+            const Divider(color: Colors.white24, height: 1),
+            ListTile(
+              title: const Text("5 分钟 (300秒)", style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _formalStartPK(300);
+              },
+            ),
+            const Divider(color: Colors.white24, height: 1),
+            ListTile(
+              title: const Text("10 分钟 (600秒)", style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _formalStartPK(600);
+              },
+            ),
+            const Divider(color: Colors.white24, height: 1),
+            ListTile(
+              title: const Text("15 分钟 (900秒)", style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(ctx);
+                _formalStartPK(900);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // 🟢 新增：正式点火请求接口
+  void _formalStartPK(int duration) async {
+    try {
+      // 🚀 这里调用后端专门用于“连麦转PK”的接口
+      await HttpUtil().post("/api/pk/formal_start", data: {"roomId": int.parse(_roomId), "duration": duration});
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开启失败: $e")));
+    }
   }
 
   // 🟢 修改后的手动连麦处理逻辑
@@ -1325,10 +1412,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       // --------- 🛑 下麦流程 ---------
       try {
         // 1. 调接口：从数据库释放麦位
-        await HttpUtil().post("/api/room/seat/leave", data: {
-          "roomId": int.parse(_roomId),
-          "userId": _myUserId,
-        });
+        await HttpUtil().post("/api/room/seat/leave", data: {"roomId": int.parse(_roomId), "userId": _myUserId});
 
         // 2. 停掉 TRTC
         _trtcManager.stopCoHosting();
@@ -1349,30 +1433,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       try {
         // 1. 🚀 调接口：在数据库占个座 (对应你之前的 coin_room_seats 表)
         // 假设后端返回了具体的 seatIndex
-        final res = await HttpUtil().post("/api/room/seat/join", data: {
-          "roomId": int.parse(_roomId),
-          "userId": _myUserId,
-        });
+        final res = await HttpUtil().post("/api/room/seat/join", data: {"roomId": int.parse(_roomId), "userId": _myUserId});
 
         // 2. 接口成功后，切换 TRTC 身份并推流
         _trtcManager.startCoHosting();
 
         // 3. 发送 Socket 广播通知全房：我来了
-        _sendSocketMessage(
-          "COHOST_JOIN",
-          userId: _myUserId,
-          userName: _myUserName,
-          avatar: _myAvatar,
-        );
+        _sendSocketMessage("COHOST_JOIN", userId: _myUserId, userName: _myUserName, avatar: _myAvatar);
 
         // 4. 更新本地 UI (这一步保证自己能立刻看到自己)
         setState(() {
-          _coHostList.add(CoHostUserModel(
-            userId: _myUserId,
-            roomId: _roomId,
-            name: _myUserName,
-            avatarUrl: _myAvatar,
-          ));
+          _isCameraOn = false;
+          _coHostList.add(CoHostUserModel(userId: _myUserId, roomId: _roomId, name: _myUserName, avatarUrl: _myAvatar, isCameraOn: false));
         });
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("连麦成功！")));
       } catch (e) {
@@ -1411,17 +1483,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _showInputSheet() {
     _inputOverlayKey.currentState?.showInput();
-  }
-
-  void _startPKWithDuration(int duration) async {
-    setState(() {
-      _pkDuration = duration;
-    });
-    try {
-      await HttpUtil().post("/api/pk/start", data: {"roomId": int.parse(_roomId), "duration": duration});
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开启失败: $e")));
-    }
   }
 
   void _startPKRound({int? initialTimeLeft}) {
@@ -1532,9 +1593,22 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _critEndTimes.clear();
     _promoTimer?.cancel();
     _rightPlayer?.pause(); // 暂停对手视频
-    // 🚀🚀🚀 新增：如果是主播，通知腾讯云断开跨房连线
-    if (_isHost) {
-      _trtcManager.stopPK();
+    // 核心退场逻辑：结束时判断如果底层房号不是本来的房号，立刻跳回来
+    if (_currentTrtcRoomId != _roomId) {
+      debugPrint("🏠 PK/连麦结束，底层退回各自独立的直播间: $_roomId");
+      _currentTrtcRoomId = _roomId;
+
+      _trtcManager.exitRoom(clearListeners: false);
+
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted && !_isDisposed) {
+          _trtcManager.enterRoom(
+            userId: _myUserId,
+            roomId: _roomId, // 回归原房间
+            isHost: _isHost,
+          );
+        }
+      });
     }
     HardcoreMixer.dispose();
 
@@ -1751,37 +1825,6 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
   }
 
-  void _switchToOpponentRoom() {
-    if (_isHost) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间"), backgroundColor: Colors.orange, duration: Duration(seconds: 2)));
-      return;
-    }
-    if (_participants.length < 2) return;
-    final opponent = _participants[1];
-    _isSwitchingRoom = true; // 🟢 核心修复 1：标记我们要切房了，保护底层播放器！
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => RealLivePage(
-          userId: widget.userId,
-          userName: widget.userName,
-          avatarUrl: widget.avatarUrl,
-          level: widget.level,
-          isHost: false,
-          roomId: opponent['roomId'].toString(),
-          monthLevel: _monthLevel,
-          // 🟢 核心修复：1v1 切房时同样把对方的数据传过去
-          initialRoomData: {
-            'userName': opponent['name'],
-            'avatar': opponent['avatar'],
-            'coverImg': opponent['personalPkBg'], // 如果有背景也可以一并传
-          },
-        ),
-      ),
-    );
-  }
-
   void _addSocketChatMessage(
     String name,
     String content,
@@ -1963,10 +2006,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   Future<void> _kickCoHost(String targetUserId) async {
     try {
       // 1. 调接口从数据库删除
-      await HttpUtil().post("/api/room/seat/leave", data: {
-        "roomId": int.parse(_roomId),
-        "userId": int.parse(targetUserId), // 确保转成 int 传给后端
-      });
+      await HttpUtil().post(
+        "/api/room/seat/leave",
+        data: {
+          "roomId": int.parse(_roomId),
+          "userId": int.parse(targetUserId), // 确保转成 int 传给后端
+        },
+      );
 
       // 2. 发送 Socket 广播通知
       _sendSocketMessage("KICK_COHOST", userId: targetUserId);
@@ -2240,6 +2286,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           activeBuffs: currentActiveBuffs,
           isSpeaking: isMe,
           isMyTeam: isMyTeam,
+          isCameraOn: isMe ? _isCameraOn : true,
           // 🗑️ 删除了 streamUrl 和 videoController 的传值！
         ),
       );
@@ -2453,7 +2500,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           baseChatListHeight = 200.0;
           break;
         case LiveRoomType.normal:
-          baseChatListHeight = size.height * 0.345;
+          final double pkVideoHeight = size.width * 0.85;
+          final double pkVideoBottomY = padding.top + topBarHeight + 105.0 + pkVideoHeight + 18;
+          baseChatListHeight = size.height - pkVideoBottomY - safeBottom - 3;
         default:
           baseChatListHeight = 460;
           break;
@@ -2587,8 +2636,30 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                                 targetPlayer: targetPlayer,
                                                                 // 🚀 核心：用 roomId 来判断是不是本房间
                                                                 isMe: targetPlayer.roomId == _roomId,
+                                                                pkStatus: _pkStatus,
                                                                 isHost: _isHost,
-
+                                                                isCameraOn: _isCameraOn,
+                                                                onToggleCamera: () {
+                                                                  setState(() {
+                                                                    _isCameraOn = !_isCameraOn;
+                                                                  });
+                                                                  // 调 TRTC 底层控制画面
+                                                                  if (_isCameraOn) {
+                                                                    // 🚀 核心修复：取出存好的 localViewId 传给底层
+                                                                    if (_trtcManager.localViewId != null) {
+                                                                      _trtcManager.trtcCloud.startLocalPreview(true, _trtcManager.localViewId!);
+                                                                      ScaffoldMessenger.of(
+                                                                        context,
+                                                                      ).showSnackBar(const SnackBar(content: Text("已开启摄像头")));
+                                                                    }
+                                                                  } else {
+                                                                    // 停止推画面
+                                                                    _trtcManager.trtcCloud.stopLocalPreview();
+                                                                    ScaffoldMessenger.of(
+                                                                      context,
+                                                                    ).showSnackBar(const SnackBar(content: Text("已关闭摄像头")));
+                                                                  }
+                                                                },
                                                                 onEnterRoom: () {
                                                                   if (_isHost && !_isRobotActive) {
                                                                     ScaffoldMessenger.of(
@@ -2872,7 +2943,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                   // 核心魔法：永远固定在 safeBottom，绝对不加 bottomInset！
                                   bottom: safeBottom > 0 ? safeBottom : 0,
                                   child: BuildBottomInputBar(
-                                    onTapInput: _showInputSheet, // 点击唤起你自定义的键盘 Overlay
+                                    onTapInput: _showInputSheet,
+                                    pkStatus: _pkStatus,
+                                    // 点击唤起你自定义的键盘 Overlay
                                     onTapGift: _showGiftPanel,
                                     isHost: _isHost,
                                     onTapPK: _onTapStartPK,
@@ -3047,17 +3120,98 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             ),
             PkResultPage(key: _pkResultKey),
             Positioned(
-              right: 12, // 靠右边留一点边距
+              right: 12,
               bottom: (safeBottom > 0 ? safeBottom : 0) + 65,
               child: CoHostVideoListView(
                 currentUserId: _myUserId,
-                // 这里传入你维护的连麦观众列表
                 coHosts: _coHostList,
                 isHost: _isHost,
+                activeVideoUsers: _remoteVideoUsers,
+                // 🚀 补上引擎数据，毛玻璃才能生效！
                 onKickCoHost: _kickCoHost,
                 onTapCell: (user) {
-                  print("点击了连麦观众: ${user.name}");
-                  // TODO: 可以在这里弹出踢人/闭麦的菜单
+                  // 🚀 核心交互：点击小格子，拉起超级操作面板！
+                  _dismissKeyboard();
+                  bool isMe = user.userId == _myUserId;
+
+                  showModalBottomSheet(
+                    context: context,
+                    backgroundColor: Colors.transparent,
+                    isScrollControlled: true,
+                    builder: (ctx) {
+                      return PlayerActionBottomSheet(
+                        // 临时转一下 Model，方便复用我们写好的操作面板
+                        targetPlayer: LivePKPlayerModel(
+                          userId: user.userId,
+                          roomId: user.roomId,
+                          pkId: "",
+                          name: user.name,
+                          avatarUrl: user.avatarUrl,
+                          rank: 0,
+                          score: 0,
+                          isMuted: user.isMuted,
+                        ),
+                        isMe: isMe,
+                        pkStatus: _pkStatus,
+                        isHost: _isHost,
+                        isCameraOn: _isCameraOn,
+                        onLeaveCoHost: () => _handleCoHostButton(),
+                        // 🚀 触发下麦逻辑！
+                        onToggleCamera: () {
+                          setState(() {
+                            _isCameraOn = !_isCameraOn;
+                            // 同步更新列表中我的状态
+                            int idx = _coHostList.indexWhere((u) => u.userId == _myUserId);
+                            if (idx != -1) {
+                              var old = _coHostList[idx];
+                              _coHostList[idx] = CoHostUserModel(
+                                userId: old.userId,
+                                roomId: old.roomId,
+                                avatarUrl: old.avatarUrl,
+                                name: old.name,
+                                isMuted: old.isMuted,
+                                isCameraOn: _isCameraOn,
+                              );
+                            }
+                          });
+                          if (_isCameraOn) {
+                            if (_trtcManager.localViewId != null) {
+                              _trtcManager.trtcCloud.startLocalPreview(true, _trtcManager.localViewId!);
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已开启摄像头")));
+                          } else {
+                            _trtcManager.trtcCloud.stopLocalPreview();
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已关闭摄像头")));
+                          }
+                        },
+                        onToggleMute: () {
+                          bool targetMuteState = !user.isMuted;
+                          if (isMe) AiRealTimeVoiceService().setMicMute(targetMuteState);
+
+                          setState(() {
+                            int idx = _coHostList.indexWhere((u) => u.userId == user.userId);
+                            if (idx != -1) {
+                              var old = _coHostList[idx];
+                              _coHostList[idx] = CoHostUserModel(
+                                userId: old.userId,
+                                roomId: old.roomId,
+                                avatarUrl: old.avatarUrl,
+                                name: old.name,
+                                isMuted: targetMuteState,
+                                isCameraOn: old.isCameraOn,
+                              );
+                            }
+                          });
+                          _sendSocketMessage("MUTE_STATE_CHANGE", content: targetMuteState ? "1" : "0", targetRoomId: user.roomId);
+                        },
+                        onMuteAllExceptMe: () => _sendSocketMessage("MUTE_ALL_EXCEPT", targetRoomId: _roomId),
+                        onSetFocus: () {},
+                        // 连麦列表不需要设为主咖
+                        onEnterRoom: () {},
+                        onViewProfile: () => LiveUserProfilePopup.show(context, {"userId": user.userId}),
+                      );
+                    },
+                  );
                 },
               ),
             ),
