@@ -34,9 +34,9 @@ class PlayerActionBottomSheet extends StatelessWidget {
     required this.onSetFocus,
     required this.onViewProfile,
     required this.onEnterRoom,
-    required this.onToggleCamera, // 🟢 必传回调
+    required this.onToggleCamera,
     required this.pkStatus,
-    this.isCameraOn = true, // 🟢 默认摄像头开启
+    this.isCameraOn = true,
     this.onViewRank,
     this.onLeaveCoHost,
   });
