@@ -143,6 +143,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late int _monthLevel;
   late String _myAvatar;
   late String _roomId;
+  late String _currentPkId="";
   String _currentTrtcRoomId = "";
   List<CoHostUserModel> _coHostList = [];
 
@@ -445,9 +446,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _trtcManager.enterRoom(userId: _myUserId, roomId: _roomId, isHost: _isHost);
   }
 
-  // 🟢 新增：滑出房间时的清理逻辑 (极其重要！防卡死、防串音)
+  // 滑出房间时的清理逻辑 (极其重要！防卡死、防串音)
   void _pauseRoom() {
-    _players.values.forEach((p) => p.pause()); // 换成 _players
+    _players.values.forEach((p) => p.pause());
     _socketSubscription?.cancel();
     _channel?.sink.close();
     _heartbeatTimer?.cancel();
@@ -456,8 +457,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _bgPlayer?.pause();
     _rightPlayer?.pause();
 
-    // 🚀 退出 TRTC 房间并清空记录
-    _trtcManager.exitRoom();
+    // 🚀🚀🚀 核心防误杀逻辑：
+    // 只有当底层的 currentRoomId 等于本页面的业务房号，
+    // 或者等于本页面刚刚身处的 PK 虚拟房号时，说明底层还在为本页面服务。
+    // 此时本页面才有资格去彻底清空它！绝不能用 isEmpty 来判断！
+    if (_trtcManager.currentRoomId == _roomId || (_currentTrtcRoomId.isNotEmpty && _trtcManager.currentRoomId == _currentTrtcRoomId)) {
+      _trtcManager.exitRoom(); // 只有老房主能执行这一步
+    }
+
     _remoteVideoUsers.clear();
 
     _pkTimer?.cancel();
@@ -623,6 +630,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       final res = await HttpUtil().get("/api/pk/detail", params: {"roomId": int.parse(_roomId), "userId": _myUserId, "userName": _myUserName});
       final data = res;
       String bgmUrl = data['currentResourceUrl'];
+      _currentPkId = data['currentPkId'].toString();
       int startTimeMs = data['bgmStartTime'];
       if (bgmUrl.isNotEmpty) {
         // 直接喂给你的智能闪避播放器，它会自动计算过去的时间并跳转！
@@ -2286,7 +2294,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           activeBuffs: currentActiveBuffs,
           isSpeaking: isMe,
           isMyTeam: isMyTeam,
-          isCameraOn: isMe ? _isCameraOn : true,
+          isCameraOn: isMe ? true : true,
           // 🗑️ 删除了 streamUrl 和 videoController 的传值！
         ),
       );
@@ -2957,6 +2965,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                 PkMatchManager(
                                   key: _pkMatchManagerKey,
                                   roomId: _roomId,
+                                  pkId: _currentPkId,
                                   currentUserId: _myUserId,
                                   currentUserName: _myUserName,
                                   currentUserAvatar: _myAvatar,
@@ -3433,7 +3442,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     _pkScoreUpdateTrigger.dispose(); // 🟢 2. 新增销毁
     _isDisposed = true;
-    _trtcManager.exitRoom();
+    if (_trtcManager.currentRoomId == _roomId || (_currentTrtcRoomId.isNotEmpty && _trtcManager.currentRoomId == _currentTrtcRoomId)) {
+      _trtcManager.exitRoom(); // 只有完全退出直播间 (比如按返回键) 时，才会执行到这里
+    } else {
+      debugPrint("🛡️ [防误杀] 发现 TRTC 已被新房间接管，老页面放弃执行 exitRoom");
+    }
     _socketSubscription?.cancel();
     _channel?.sink.close();
     _heartbeatTimer?.cancel();

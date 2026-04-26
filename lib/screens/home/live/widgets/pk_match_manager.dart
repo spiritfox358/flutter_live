@@ -4,6 +4,7 @@ import '../../../../tools/HttpUtil.dart';
 
 class PkMatchManager extends StatefulWidget {
   final String roomId;
+  final String pkId;
   final String currentUserId;
   final String currentUserName;
   final String currentUserAvatar;
@@ -12,6 +13,7 @@ class PkMatchManager extends StatefulWidget {
   const PkMatchManager({
     super.key,
     required this.roomId,
+    required this.pkId,
     required this.currentUserId,
     required this.currentUserName,
     required this.currentUserAvatar,
@@ -115,7 +117,11 @@ class PkMatchManagerState extends State<PkMatchManager> {
               ValueListenableBuilder<String>(
                 valueListenable: _statusTextNotifier,
                 builder: (context, text, child) {
-                  return Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5));
+                  return Text(
+                    text,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.5),
+                  );
                 },
               ),
               const SizedBox(height: 10),
@@ -156,7 +162,10 @@ class PkMatchManagerState extends State<PkMatchManager> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Colors.pinkAccent, width: 2)),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.pinkAccent, width: 2),
+                ),
                 child: CircleAvatar(radius: 35, backgroundImage: NetworkImage(avatar)),
               ),
               const SizedBox(height: 16),
@@ -185,7 +194,10 @@ class PkMatchManagerState extends State<PkMatchManager> {
                 Navigator.pop(ctx);
                 _replyInvite(inviterRoomId, true);
               },
-              child: const Text("接受连线", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: const Text(
+                "接受连线",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         );
@@ -197,7 +209,12 @@ class PkMatchManagerState extends State<PkMatchManager> {
     try {
       await HttpUtil().post(
         "/api/pk/reply_invite",
-        data: {"roomId": int.parse(widget.roomId), "inviterRoomId": int.parse(inviterRoomId), "accept": accept},
+        data: {
+          "roomId": int.parse(widget.roomId),
+          // "pkId": int.parse(widget.pkId),
+          "inviterRoomId": int.parse(inviterRoomId),
+          "accept": accept
+        },
       );
     } catch (e) {
       debugPrint("回复邀请失败: $e");

@@ -12,7 +12,7 @@ class TRTCManager {
   static final TRTCManager _instance = TRTCManager._internal();
   factory TRTCManager() => _instance;
   TRTCManager._internal();
-
+  String currentRoomId = "";
   late TRTCCloud trtcCloud;
   bool _isInitialized = false;
 
@@ -69,8 +69,13 @@ class TRTCManager {
   }) async {
     await init();
 
-    // 🚀🚀🚀 终极防撞处理：如果底层还在退出上个房间，强制排队等待！
-    // 最大等待 1 秒 (10 * 100ms)，绝不让进房请求被系统吃掉！
+    // 🚀🚀🚀 2. 核心拦截：如果底层还在旧房间，立刻自动退房，并且【绝对不清理】新房间刚绑好的监听器！
+    if (currentRoomId.isNotEmpty && currentRoomId != roomId) {
+      debugPrint("🔄 [TRTC] 自动退出旧房间: $currentRoomId，准备进入新房间: $roomId");
+      await exitRoom(clearListeners: false);
+    }
+
+    // 终极防撞处理：等待底层引擎彻底打扫完上个房间的战场
     int waitCount = 0;
     while (_isExiting && waitCount < 10) {
       debugPrint("⏳ [TRTC] 引擎正在打扫上个房间的战场，排队等待 100ms...");
@@ -79,6 +84,9 @@ class TRTCManager {
     }
     _isExiting = false; // 兜底解锁
 
+    // 🚀 记录当前霸占引擎的房号
+    currentRoomId = roomId;
+
     String userSig = GenerateTestUserSig.genTestSig(userId);
 
     TRTCParams params = TRTCParams();
@@ -86,7 +94,6 @@ class TRTCManager {
     params.userId = userId;
     params.userSig = userSig;
 
-    // 安全处理房间号
     int? parsedRoomId = int.tryParse(roomId);
     if (parsedRoomId != null && parsedRoomId > 0) {
       params.roomId = parsedRoomId;
@@ -111,26 +118,22 @@ class TRTCManager {
   Future<void> exitRoom({bool clearListeners = true}) async {
     if (!_isInitialized) return;
 
-    // 🚀 上锁：标记正在退出
     _isExiting = true;
     debugPrint("🚪 [TRTC] 发起退出房间请求，开始拦截后续进房...");
 
-    // 1. 如果 clearListeners 为 true (彻底退出页面时)，才清空回调防止红屏
+    // 只有在彻底销毁组件 (比如按返回键退出) 时，才清空监听器
     if (clearListeners) {
       debugPrint("🧹 [TRTC] 彻底清空 UI 监听器");
       onRemoteVideoAvailable = null;
       onRemoteUserEnterRoom = null;
       onRemoteUserLeaveRoom = null;
-    } else {
-      debugPrint("🎧 [TRTC] 保留 UI 监听器 (切房专用)");
     }
 
-    // 2. 停止所有音视频采集，释放麦克风和摄像头
     trtcCloud.stopLocalAudio();
     trtcCloud.stopLocalPreview();
-
-    // 3. 退出房间（这句调完后，底层会异步处理，直到触发 onExitRoom 回调才算真正结束）
     trtcCloud.exitRoom();
+
+    currentRoomId = ""; // 🚀 退房后清空标记
   }
 
   // ==========================================
