@@ -16,10 +16,11 @@ class HttpUtil {
   // 端口要和你 Spring Boot 的 server.port 保持一致 (我看你之前截图是 8358)
   // OSS
   // static const String _baseIpPort = 's0.efzxt.com:8358';
-  static const String _baseIpPort = '101.200.77.1:8358';
-  // Local
+  // static const String _baseIpPort = '101.200.77.1:8358';
+
+  static const String _baseIpPort = 'dance.koruhq.com';
   // static const String _baseIpPort = '192.168.0.103:8358';
-  static const String _baseUrl = "http://$_baseIpPort";
+  static const String _baseUrl = "https://$_baseIpPort";
 
   HttpUtil._internal() {
     BaseOptions options = BaseOptions(
@@ -38,7 +39,7 @@ class HttpUtil {
       InterceptorsWrapper(
         onRequest: (options, handler) {
           // 动态添加 Authorization header
-          options.headers['Authorization'] = "Bearer  ${UserStore.to.token}";
+          options.headers['Authorization'] = "Bearer ${UserStore.to.token}";
           debugPrint("请求发送: ${options.method} ${options.uri}");
           return handler.next(options);
         },
@@ -70,6 +71,16 @@ class HttpUtil {
   Future<dynamic> post(String path, {dynamic data, dynamic options}) async {
     try {
       Response response = await _dio.post(path, data: data, options: options);
+      return _handleResponse(response);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // DELETE 请求
+  Future<dynamic> delete(String path, {Map<String, dynamic>? params}) async {
+    try {
+      Response response = await _dio.delete(path, queryParameters: params);
       return _handleResponse(response);
     } catch (e) {
       rethrow;

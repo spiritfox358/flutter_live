@@ -30,7 +30,6 @@ class _MyAnchorListPageState extends State<MyAnchorListPage> with AutomaticKeepA
       // 假设后端有一个接口 /api/anchor/my_list 获取我创建的主播
       // 这里暂时用 /api/room/list 模拟，你可以替换成真实的接口
       var responseData = await HttpUtil().get("/api/room/my_anchor_list");
-
       if (mounted) {
         setState(() {
           // 这里简单模拟数据筛选，实际请使用真实数据

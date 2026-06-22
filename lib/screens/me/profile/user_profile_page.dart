@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/message/chat_detail_page.dart';
+import 'package:flutter_live/screens/message/services/dm_service.dart';
 import 'package:flutter_live/screens/me/profile/me_screen.dart';
 import 'package:flutter_live/services/user_service.dart';
 
@@ -19,11 +20,13 @@ class UserProfilePage extends StatefulWidget {
   State<UserProfilePage> createState() => _UserProfilePageState();
 }
 
-class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProviderStateMixin {
+class _UserProfilePageState extends State<UserProfilePage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<double> _titleOpacityNotifier = ValueNotifier(0.0);
-  final String _defaultBgImage = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/common_profile_bg.jpg";
+  final String _defaultBgImage =
+      "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/common_profile_bg.jpg";
 
   // 🟢 核心滚动锁状态
   bool _isScrollLocked = false;
@@ -37,33 +40,49 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
 
   List<dynamic> _worksList = [];
   bool _isLoadingWorks = true;
+  int _relationStatus = 0; // 0-未关注, 1-已关注, 2-互相关注, -1-自己
+  String _relationText = "关注";
+  bool _isRelationLoading = false;
 
   bool get isMe {
     if (widget.userInfo == null) return true;
-    return widget.userInfo!['userId']?.toString() == UserStore.to.userId?.toString();
+    return widget.userInfo!['userId']?.toString() == UserStore.to.userId;
   }
 
   String get _fetchId {
     if (isMe) return UserStore.to.userId.toString();
-    return widget.userInfo?['userId']?.toString() ?? widget.userInfo?['id']?.toString() ?? "";
+    return widget.userInfo?['userId']?.toString() ??
+        widget.userInfo?['id']?.toString() ??
+        "";
   }
 
-  String get _displayAvatar => isMe ? UserStore.to.avatar : (widget.userInfo?['avatar'] ?? '');
+  String get _displayAvatar =>
+      isMe ? UserStore.to.avatar : (widget.userInfo?['avatar'] ?? '');
 
-  String get _displayNickname => isMe ? UserStore.to.nickname : (widget.userInfo?['nickname'] ?? '--');
+  String get _displayNickname =>
+      isMe ? UserStore.to.nickname : (widget.userInfo?['nickname'] ?? '--');
 
-  String get _displayUserId => isMe ? UserStore.to.userId : (widget.userInfo?['id']?.toString() ?? '--');
+  String get _displayUserId =>
+      isMe ? UserStore.to.userId : (widget.userInfo?['id']?.toString() ?? '--');
 
-  String get _displaySignature => isMe ? UserStore.to.signature : (widget.userInfo?['signature'] ?? '...');
+  String get _displaySignature =>
+      isMe ? UserStore.to.signature : (widget.userInfo?['signature'] ?? '...');
 
-  String get _displayBgImage => isMe ? UserStore.to.profileBg : (widget.userInfo?['profileBg'] ?? _defaultBgImage);
+  String get _displayBgImage => isMe
+      ? UserStore.to.profileBg
+      : (widget.userInfo?['profileBg'] ?? _defaultBgImage);
 
   Color get _dynamicBgColor {
-    String? hexString = isMe ? UserStore.to.profileBgColor : widget.userInfo?['profileBgColor'];
+    String? hexString = isMe
+        ? UserStore.to.profileBgColor
+        : widget.userInfo?['profileBgColor'];
     return _parseHexColor(hexString);
   }
 
-  Color _parseHexColor(String? hexColor, {Color fallback = const Color(0xFF3BB5D3)}) {
+  Color _parseHexColor(
+    String? hexColor, {
+    Color fallback = const Color(0xFF3BB5D3),
+  }) {
     if (hexColor == null || hexColor.isEmpty) return fallback;
     try {
       final buffer = StringBuffer();
@@ -110,8 +129,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     if (!isMe) {
       // add visitor record
       unawaited(
-        HttpUtil().post("/api/user/visitor/record", data: {"targetUserId": _fetchId}).catchError((e) => debugPrint("记录访客失败: $e")), // 防止未捕获的异常报错
+        HttpUtil()
+            .post("/api/user/visitor/record", data: {"targetUserId": _fetchId})
+            .catchError((e) => debugPrint("记录访客失败: $e")), // 防止未捕获的异常报错
       );
+      unawaited(_fetchRelationStatus());
     }
     _fetchUserWorks();
   }
@@ -124,7 +146,10 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     }
 
     try {
-      var res = await HttpUtil().get("/api/work/user_works", params: {"userId": uid});
+      var res = await HttpUtil().get(
+        "/api/work/user_works",
+        params: {"userId": uid},
+      );
 
       if (mounted) {
         setState(() {
@@ -158,6 +183,80 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     }
   }
 
+  Future<void> _openPrivateChat() async {
+    final targetId = int.tryParse(_fetchId);
+    if (targetId == null || targetId <= 0 || isMe) return;
+
+    try {
+      final conversation = await DmService.getOrCreateConversation(
+        targetId: targetId,
+        targetName: _displayNickname,
+        targetAvatar: _displayAvatar,
+      );
+      if (!mounted) return;
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ChatDetailPage(conversation: conversation),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("打开私信失败: $e")));
+    }
+  }
+
+  Future<void> _fetchRelationStatus() async {
+    final targetId = _fetchId;
+    if (targetId.isEmpty || isMe) return;
+
+    try {
+      final data = await HttpUtil().get(
+        "/api/relation/status",
+        params: {"targetId": targetId},
+      );
+      if (!mounted || data == null) return;
+      setState(() {
+        _relationStatus = data["status"] ?? 0;
+        _relationText = data["text"] ?? "关注";
+        _isRelationLoading = false;
+      });
+    } catch (e) {
+      debugPrint("获取关系状态失败: $e");
+      if (mounted) {
+        setState(() => _isRelationLoading = false);
+      }
+    }
+  }
+
+  Future<void> _toggleFollowFromProfile() async {
+    final targetId = _fetchId;
+    if (_isRelationLoading || targetId.isEmpty || isMe) return;
+
+    setState(() => _isRelationLoading = true);
+    try {
+      if (_relationStatus == 0) {
+        await HttpUtil().post(
+          "/api/relation/follow",
+          data: {"targetId": targetId},
+        );
+      } else {
+        await HttpUtil().post(
+          "/api/relation/unfollow",
+          data: {"targetId": targetId},
+        );
+      }
+      await _fetchRelationStatus();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isRelationLoading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("操作失败: $e")));
+    }
+  }
+
   // 🌟 终极版：极其精准的高度计算与防误锁逻辑
   void _checkScrollLock() {
     if (!mounted) return;
@@ -176,9 +275,10 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     final double realVisibleHeight = screenHeight - customBottomBarHeight;
 
     // 头部总高度 (背景区 + TabBar + 刘海屏)
-    final double baseHeaderHeight = isMe ? 355.0 : 270.0;
+    final double baseHeaderHeight = isMe ? 355.0 : 290.0;
     final double tabBarHeight = 46.0;
-    final double headerExpandedHeight = baseHeaderHeight + tabBarHeight + topPadding;
+    final double headerExpandedHeight =
+        baseHeaderHeight + tabBarHeight + topPadding;
 
     double contentHeight = 0;
 
@@ -204,14 +304,22 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     // 只要总高度距离可视区底部不到 40 像素 (比如第二行露了一半)，立刻强制解锁允许滑动！
     bool shouldLock = totalHeight <= (realVisibleHeight - 40);
 
-    debugPrint("====== 高度精准计算: 头部 $headerExpandedHeight + 内容 $contentHeight = 总计 $totalHeight. 可视高度: $realVisibleHeight => 锁定状态: $shouldLock ======");
+    debugPrint(
+      "====== 高度精准计算: 头部 $headerExpandedHeight + 内容 $contentHeight = 总计 $totalHeight. 可视高度: $realVisibleHeight => 锁定状态: $shouldLock ======",
+    );
 
     if (_isScrollLocked != shouldLock) {
       setState(() {
         _isScrollLocked = shouldLock;
       });
-      if (shouldLock && _scrollController.hasClients && _scrollController.offset > 0) {
-        _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+      if (shouldLock &&
+          _scrollController.hasClients &&
+          _scrollController.offset > 0) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
       }
     }
   }
@@ -231,11 +339,13 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     const double navBarHeight = 44.0;
     const double tabBarHeight = 46.0;
 
-    final double baseHeaderHeight = isMe ? 355.0 : 270.0;
+    final double baseHeaderHeight = isMe ? 355.0 : 290.0;
     final double expandedHeight = baseHeaderHeight + tabBarHeight;
 
     // 🚀 终极杀招：直接使用系统的 NeverScrollableScrollPhysics (绝对禁止滚动)
-    final ScrollPhysics scrollPhysics = _isScrollLocked ? const NeverScrollableScrollPhysics() : const ClampingScrollPhysics();
+    final ScrollPhysics scrollPhysics = _isScrollLocked
+        ? const NeverScrollableScrollPhysics()
+        : const ClampingScrollPhysics();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -251,7 +361,8 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
             onPointerMove: (event) {
               if (!isMe) return;
               if (_isRefreshing) return;
-              if (_scrollController.hasClients && _scrollController.offset <= 0) {
+              if (_scrollController.hasClients &&
+                  _scrollController.offset <= 0) {
                 double delta = event.position.dy - _dragStartY;
                 if (delta > 0) {
                   double ratio = delta / 120.0;
@@ -275,7 +386,10 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                 _pullNotifier.value = 1.0;
 
                 fetchUnreadVisitorCount();
-                await Future.wait([UserService.syncUserInfo(), _fetchUserWorks()]);
+                await Future.wait([
+                  UserService.syncUserInfo(),
+                  _fetchUserWorks(),
+                ]);
 
                 if (mounted) {
                   setState(() {
@@ -291,45 +405,65 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               controller: _scrollController,
               // 🌟 把它赋给外层协调器
               physics: scrollPhysics,
-              headerSliverBuilder: (BuildContext context, bool innerBoxIsScrolled) {
-                return <Widget>[
-                  SliverAppBar(
-                    automaticallyImplyLeading: false,
-                    pinned: true,
-                    elevation: 0,
-                    scrolledUnderElevation: 0,
-                    backgroundColor: Colors.transparent,
-                    expandedHeight: expandedHeight,
-                    toolbarHeight: navBarHeight,
-                    collapsedHeight: navBarHeight,
-                    flexibleSpace: FlexibleSpaceBar(collapseMode: CollapseMode.pin, background: _buildHeaderContent()),
-                    bottom: PreferredSize(
-                      preferredSize: const Size.fromHeight(tabBarHeight),
-                      child: Container(
-                        color: Colors.white,
-                        child: TabBar(
-                          controller: _tabController,
-                          indicatorColor: const Color(0xFFFFD700),
-                          indicatorSize: TabBarIndicatorSize.label,
-                          indicatorWeight: 3.0,
-                          labelColor: Colors.black,
-                          unselectedLabelColor: Colors.grey,
-                          labelStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                          unselectedLabelStyle: const TextStyle(fontSize: 16),
-                          padding: EdgeInsets.zero,
-                          labelPadding: const EdgeInsets.symmetric(vertical: 10),
-                          dividerColor: Colors.transparent,
-                          onTap: (_) {
-                            setState(() {});
-                            WidgetsBinding.instance.addPostFrameCallback((_) => _checkScrollLock());
-                          },
-                          tabs: isMe ? const [Text("作品"), Text("推荐"), Text("收藏"), Text("喜欢")] : const [Text("作品"), Text("推荐")],
+              headerSliverBuilder:
+                  (BuildContext context, bool innerBoxIsScrolled) {
+                    return <Widget>[
+                      SliverAppBar(
+                        automaticallyImplyLeading: false,
+                        pinned: true,
+                        elevation: 0,
+                        scrolledUnderElevation: 0,
+                        backgroundColor: Colors.transparent,
+                        expandedHeight: expandedHeight,
+                        toolbarHeight: navBarHeight,
+                        collapsedHeight: navBarHeight,
+                        flexibleSpace: FlexibleSpaceBar(
+                          collapseMode: CollapseMode.pin,
+                          background: _buildHeaderContent(),
+                        ),
+                        bottom: PreferredSize(
+                          preferredSize: const Size.fromHeight(tabBarHeight),
+                          child: Container(
+                            color: Colors.white,
+                            child: TabBar(
+                              controller: _tabController,
+                              indicatorColor: const Color(0xFFFFD700),
+                              indicatorSize: TabBarIndicatorSize.label,
+                              indicatorWeight: 3.0,
+                              labelColor: Colors.black,
+                              unselectedLabelColor: Colors.grey,
+                              labelStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              unselectedLabelStyle: const TextStyle(
+                                fontSize: 16,
+                              ),
+                              padding: EdgeInsets.zero,
+                              labelPadding: const EdgeInsets.symmetric(
+                                vertical: 10,
+                              ),
+                              dividerColor: Colors.transparent,
+                              onTap: (_) {
+                                setState(() {});
+                                WidgetsBinding.instance.addPostFrameCallback(
+                                  (_) => _checkScrollLock(),
+                                );
+                              },
+                              tabs: isMe
+                                  ? const [
+                                      Text("作品"),
+                                      Text("推荐"),
+                                      Text("收藏"),
+                                      Text("喜欢"),
+                                    ]
+                                  : const [Text("作品"), Text("推荐")],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                ];
-              },
+                    ];
+                  },
               body: Container(
                 color: Colors.white,
                 child: TabBarView(
@@ -342,7 +476,10 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                           _buildEmptyPage("暂时没有收藏", scrollPhysics),
                           _buildEmptyPage("喜欢的视频", scrollPhysics),
                         ]
-                      : [_buildWorksGrid(scrollPhysics), _buildEmptyPage("推荐为空", scrollPhysics)],
+                      : [
+                          _buildWorksGrid(scrollPhysics),
+                          _buildEmptyPage("推荐为空", scrollPhysics),
+                        ],
                 ),
               ),
             ),
@@ -353,7 +490,9 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
             valueListenable: _pullNotifier,
             builder: (context, pullRatio, child) {
               return AnimatedPositioned(
-                duration: _isRefreshing ? const Duration(milliseconds: 300) : Duration.zero,
+                duration: _isRefreshing
+                    ? const Duration(milliseconds: 300)
+                    : Duration.zero,
                 curve: Curves.easeOutBack,
                 top: topPadding + navBarHeight + (pullRatio * 25.0),
                 left: 0,
@@ -362,7 +501,9 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                   opacity: (pullRatio * 2.0).clamp(0.0, 1.0),
                   child: Center(
                     child: Transform.scale(
-                      scale: _isRefreshing ? 1.0 : (pullRatio * 0.5 + 0.5).clamp(0.5, 1.0),
+                      scale: _isRefreshing
+                          ? 1.0
+                          : (pullRatio * 0.5 + 0.5).clamp(0.5, 1.0),
                       child: Container(
                         width: 40,
                         height: 40,
@@ -370,13 +511,28 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                         decoration: const BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 4,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: _isRefreshing
-                            ? const CircularProgressIndicator(strokeWidth: 3, valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFFD700)))
+                            ? const CircularProgressIndicator(
+                                strokeWidth: 3,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Color(0xFFFFD700),
+                                ),
+                              )
                             : Transform.rotate(
                                 angle: pullRatio * 6.28,
-                                child: const Icon(Icons.refresh, color: Color(0xFFFFD700), size: 24),
+                                child: const Icon(
+                                  Icons.refresh,
+                                  color: Color(0xFFFFD700),
+                                  size: 24,
+                                ),
                               ),
                       ),
                     ),
@@ -395,12 +551,19 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               valueListenable: _titleOpacityNotifier,
               builder: (context, opacity, child) {
                 final iconColor = opacity > 0.5 ? Colors.black : Colors.white;
-                final double buttonOpacity = (1.0 - opacity * 2.5).clamp(0.0, 1.0);
+                final double buttonOpacity = (1.0 - opacity * 2.5).clamp(
+                  0.0,
+                  1.0,
+                );
 
                 return Container(
-                  padding: EdgeInsets.only(top: topPadding, left: 16, right: 16),
+                  padding: EdgeInsets.only(
+                    top: topPadding,
+                    left: 16,
+                    right: 16,
+                  ),
                   height: topPadding + navBarHeight,
-                  color: Colors.white.withOpacity(opacity),
+                  color: Colors.white.withValues(alpha: opacity),
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
@@ -408,7 +571,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                         opacity: opacity,
                         child: Text(
                           isMe ? "个人中心" : _displayNickname,
-                          style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 17),
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 17,
+                          ),
                         ),
                       ),
 
@@ -418,13 +585,23 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (!isMe || Navigator.canPop(context)) ...[
-                              _buildGlassIcon(Icons.arrow_back_ios_new, iconColor, onTap: () => Navigator.pop(context)),
+                              _buildGlassIcon(
+                                Icons.arrow_back_ios_new,
+                                iconColor,
+                                onTap: () => Navigator.pop(context),
+                              ),
                               const SizedBox(width: 12),
                             ],
                             if (buttonOpacity > 0.0)
                               IgnorePointer(
                                 ignoring: buttonOpacity == 0.0,
-                                child: Opacity(opacity: buttonOpacity, child: _buildGlassCapsule(isMe ? "添加朋友" : "求更新", iconColor)),
+                                child: Opacity(
+                                  opacity: buttonOpacity,
+                                  child: _buildGlassCapsule(
+                                    isMe ? "添加朋友" : "求更新",
+                                    iconColor,
+                                  ),
+                                ),
                               ),
                           ],
                         ),
@@ -443,26 +620,44 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                                   child: Padding(
                                     padding: const EdgeInsets.only(right: 12.0),
                                     child: _visitorCount > 0
-                                        ? _buildVisitorCapsule(iconColor, _visitorCount)
+                                        ? _buildVisitorCapsule(
+                                            iconColor,
+                                            _visitorCount,
+                                          )
                                         : _buildGlassIcon(
                                             Icons.people_outline,
                                             iconColor,
                                             onTap: () {
-                                              Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileVisitorsPage()));
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      const ProfileVisitorsPage(),
+                                                ),
+                                              );
                                             },
                                           ),
                                   ),
                                 ),
                               ),
 
-                            _buildGlassIcon(Icons.search, iconColor, onTap: () {}),
+                            _buildGlassIcon(
+                              Icons.search,
+                              iconColor,
+                              onTap: () {},
+                            ),
                             if (isMe) ...[
                               const SizedBox(width: 12),
                               _buildGlassIcon(
                                 Icons.menu,
                                 iconColor,
                                 onTap: () {
-                                  Navigator.push(context, MaterialPageRoute(builder: (context) => MeScreen()));
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => MeScreen(),
+                                    ),
+                                  );
                                 },
                               ),
                             ],
@@ -487,7 +682,12 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
         physics: physics,
         slivers: [
           SliverFillRemaining(
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade400))),
+            child: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.grey.shade400),
+              ),
+            ),
           ),
         ],
       );
@@ -512,7 +712,9 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                 // 等待页面返回结果
                 final bool? shouldRefresh = await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => ShortVideoPage(workId: work['id'])),
+                  MaterialPageRoute(
+                    builder: (context) => ShortVideoPage(workId: work['id']),
+                  ),
                 );
 
                 // 如果接收到 true，说明发生了删除或上下架，触发列表刷新
@@ -528,7 +730,13 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                     if (coverUrl.isNotEmpty)
                       Image.network(coverUrl, fit: BoxFit.cover)
                     else
-                      const Center(child: Icon(Icons.video_library, color: Colors.white38, size: 30)),
+                      const Center(
+                        child: Icon(
+                          Icons.video_library,
+                          color: Colors.white38,
+                          size: 30,
+                        ),
+                      ),
 
                     Positioned(
                       bottom: 6,
@@ -536,7 +744,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Icon(Icons.favorite_border, color: Colors.white, size: 14),
+                          const Icon(
+                            Icons.favorite_border,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             likeCount.toString(),
@@ -544,7 +756,13 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                               color: Colors.white,
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              shadows: [Shadow(offset: Offset(0, 1), blurRadius: 2, color: Colors.black38)],
+                              shadows: [
+                                Shadow(
+                                  offset: Offset(0, 1),
+                                  blurRadius: 2,
+                                  color: Colors.black38,
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -567,19 +785,20 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   }
 
   // --- 🌟 把它同步赋给内部的所有列表和空白页 ---
-  Widget _buildEmptyPage(String text, ScrollPhysics physics) => CustomScrollView(
-    physics: physics,
-    slivers: [
-      SliverFillRemaining(
-        hasScrollBody: false,
-        child: Container(
-          color: Colors.white,
-          alignment: Alignment.center,
-          child: Text(text, style: const TextStyle(color: Colors.grey)),
-        ),
-      ),
-    ],
-  );
+  Widget _buildEmptyPage(String text, ScrollPhysics physics) =>
+      CustomScrollView(
+        physics: physics,
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Container(
+              color: Colors.white,
+              alignment: Alignment.center,
+              child: Text(text, style: const TextStyle(color: Colors.grey)),
+            ),
+          ),
+        ],
+      );
 
   Widget _buildAvatar() => SizedBox(
     width: 90,
@@ -590,9 +809,16 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(color: Colors.white, width: 2),
-            image: _displayAvatar.isNotEmpty ? DecorationImage(image: NetworkImage(_displayAvatar), fit: BoxFit.cover) : null,
+            image: _displayAvatar.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(_displayAvatar),
+                    fit: BoxFit.cover,
+                  )
+                : null,
           ),
-          child: _displayAvatar.isEmpty ? const CircularProgressIndicator(strokeWidth: 2) : null,
+          child: _displayAvatar.isEmpty
+              ? const CircularProgressIndicator(strokeWidth: 2)
+              : null,
         ),
         if (isMe)
           Positioned(
@@ -618,7 +844,10 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
       onTap: () async {
         // 🟢 加上 async
         // 🟢 等待访客页返回的结果
-        final shouldRefresh = await Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileVisitorsPage()));
+        final shouldRefresh = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ProfileVisitorsPage()),
+        );
         Future.delayed(const Duration(milliseconds: 500), () {
           if (shouldRefresh == true && mounted) {
             fetchUnreadVisitorCount();
@@ -630,7 +859,9 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
         height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
-          color: color == Colors.black ? Colors.white : Colors.black.withOpacity(0.3),
+          color: color == Colors.black
+              ? Colors.white
+              : Colors.black.withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.black12),
         ),
@@ -641,7 +872,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
             const SizedBox(width: 4),
             Text(
               "新访客$count",
-              style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -652,14 +887,20 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
   Widget _buildGlassCapsule(String text, Color color) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
     decoration: BoxDecoration(
-      color: color == Colors.black ? Colors.grey[200] : Colors.white.withOpacity(0.2),
+      color: color == Colors.black
+          ? Colors.grey[200]
+          : Colors.white.withValues(alpha: 0.2),
       borderRadius: BorderRadius.circular(20),
     ),
     child: Row(
       children: [
         Text(
           text,
-          style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold),
+          style: TextStyle(
+            color: color,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     ),
@@ -673,7 +914,9 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
         width: 32,
         height: 32,
         decoration: BoxDecoration(
-          color: color == Colors.black ? Colors.white : Colors.black.withOpacity(0.3),
+          color: color == Colors.black
+              ? Colors.white
+              : Colors.black.withValues(alpha: 0.3),
           shape: BoxShape.circle,
           border: Border.all(color: Colors.black12),
         ),
@@ -686,7 +929,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
     children: [
       Text(
         num,
-        style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold),
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       const SizedBox(width: 4),
       Text(text, style: const TextStyle(color: Colors.grey, fontSize: 12)),
@@ -713,12 +960,20 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                     return LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: const [Colors.white, Colors.transparent, Colors.transparent],
+                      colors: const [
+                        Colors.white,
+                        Colors.transparent,
+                        Colors.transparent,
+                      ],
                       stops: isMe ? const [0, 0.46, 1] : const [0, 0.56, 1],
                     ).createShader(bounds);
                   },
                   blendMode: BlendMode.dstIn,
-                  child: Image.network(_displayBgImage, fit: BoxFit.fitWidth, alignment: Alignment.topCenter),
+                  child: Image.network(
+                    _displayBgImage,
+                    fit: BoxFit.fitWidth,
+                    alignment: Alignment.topCenter,
+                  ),
                 )
               : const SizedBox(),
         ),
@@ -733,7 +988,11 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.white.withOpacity(0.5), Colors.white],
+                colors: [
+                  Colors.transparent,
+                  Colors.white.withValues(alpha: 0.5),
+                  Colors.white,
+                ],
               ),
             ),
           ),
@@ -764,15 +1023,31 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                                 color: Colors.white,
                                 fontSize: 26,
                                 fontWeight: FontWeight.bold,
-                                shadows: [Shadow(offset: Offset(0, 1), blurRadius: 2, color: Colors.black26)],
+                                shadows: [
+                                  Shadow(
+                                    offset: Offset(0, 1),
+                                    blurRadius: 2,
+                                    color: Colors.black26,
+                                  ),
+                                ],
                               ),
                             ),
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                Text("抖音号：$_displayUserId", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                Text(
+                                  "抖音号：$_displayUserId",
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.content_copy, color: Colors.white70, size: 10),
+                                const Icon(
+                                  Icons.content_copy,
+                                  color: Colors.white70,
+                                  size: 10,
+                                ),
                               ],
                             ),
                           ],
@@ -805,14 +1080,23 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Text(_displaySignature, style: const TextStyle(color: Colors.black54, fontSize: 14)),
+                  Text(
+                    _displaySignature,
+                    style: const TextStyle(color: Colors.black54, fontSize: 14),
+                  ),
 
                   if (isMe) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       color: Colors.grey[100],
-                      child: const Text("+ 添加性别等标签", style: TextStyle(color: Colors.grey, fontSize: 10)),
+                      child: const Text(
+                        "+ 添加性别等标签",
+                        style: TextStyle(color: Colors.grey, fontSize: 10),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     const Divider(height: 1, color: Color(0xFFEEEEEE)),
@@ -822,13 +1106,17 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
                       children: [
                         _buildToolItem(Icons.shopping_cart_outlined, "我的订单"),
                         _buildToolItem(Icons.history, "观看历史"),
-                        _buildToolItem(Icons.account_balance_wallet_outlined, "我的钱包"),
+                        _buildToolItem(
+                          Icons.account_balance_wallet_outlined,
+                          "我的钱包",
+                        ),
                         _buildToolItem(Icons.person_search_outlined, "常访问的人"),
                         _buildToolItem(Icons.grid_view, "全部功能"),
                       ],
                     ),
                   ] else ...[
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 18),
+                    _buildProfileActionRow(),
                   ],
 
                   const SizedBox(height: 50),
@@ -836,6 +1124,81 @@ class _UserProfilePageState extends State<UserProfilePage> with SingleTickerProv
               ),
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProfileActionRow() {
+    final bool isFollowing = _relationStatus == 1 || _relationStatus == 2;
+    final Color followBg = isFollowing
+        ? const Color(0xFFF2F2F2)
+        : const Color(0xFFFF2E55);
+    final Color followFg = isFollowing ? Colors.black87 : Colors.white;
+
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 44,
+            child: ElevatedButton(
+              onPressed: _isRelationLoading ? null : _toggleFollowFromProfile,
+              style: ElevatedButton.styleFrom(
+                elevation: 0,
+                disabledBackgroundColor: followBg,
+                disabledForegroundColor: followFg,
+                backgroundColor: followBg,
+                foregroundColor: followFg,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(6),
+                ),
+              ),
+              child: _isRelationLoading
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(followFg),
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (!isFollowing) ...[
+                          const Icon(Icons.add, size: 22),
+                          const SizedBox(width: 6),
+                        ],
+                        Text(
+                          _relationText,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Material(
+          color: const Color(0xFFF2F2F2),
+          borderRadius: BorderRadius.circular(6),
+          child: InkWell(
+            onTap: _openPrivateChat,
+            borderRadius: BorderRadius.circular(6),
+            child: const SizedBox(
+              width: 48,
+              height: 44,
+              child: Icon(
+                Icons.near_me_rounded,
+                color: Color(0xFF1F2430),
+                size: 26,
+              ),
+            ),
+          ),
         ),
       ],
     );

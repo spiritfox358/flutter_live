@@ -144,7 +144,7 @@ class _VideoRoomContentViewState extends State<VideoRoomContentView> {
       if (widget.isMuted) {
         player.setVolume(0.0);
       } else {
-        player.setVolume(50.0);
+        player.setVolume(90.0);
       }
 
       await player.open(Media(url));
