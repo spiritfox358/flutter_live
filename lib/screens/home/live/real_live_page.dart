@@ -17,6 +17,7 @@ import 'package:flutter_live/screens/home/live/widgets/live_user_entrance.dart';
 import 'package:flutter_live/screens/home/live/widgets/profile/live_user_profile_popup.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/video_room_content_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/room_mode/voice_room_content_view.dart';
+import 'package:flutter_live/screens/home/live/widgets/top_bar/live_rank_bottom_sheet.dart';
 import 'package:flutter_live/screens/home/live/widgets/top_bar/viewer_list.dart';
 import 'package:flutter_live/screens/home/live/subpages/dynamic_pk_view/dynamic_pk_battle_view.dart';
 import 'package:flutter_live/screens/home/live/widgets/view_mode/co_host_video_list.dart';
@@ -103,7 +104,8 @@ class RealLivePage extends StatefulWidget {
   State<RealLivePage> createState() => _RealLivePageState();
 }
 
-class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMixin, WidgetsBindingObserver {
+class _RealLivePageState extends State<RealLivePage>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   // 🚀 TRTC 核心管家
   final TRTCManager _trtcManager = TRTCManager();
 
@@ -117,7 +119,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   bool _isRoomActive = false;
   bool _isCameraOn = false; // 记录自己本地摄像头状态
   Timer? _viewChangeTimer;
-  static const MethodChannel _nativePlayer = MethodChannel('com.ai.voice/native_player');
+  static const MethodChannel _nativePlayer = MethodChannel(
+    'com.ai.voice/native_player',
+  );
 
   // PK时长配置
   int _pkDuration = 90; // 默认为90秒
@@ -143,7 +147,7 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late int _monthLevel;
   late String _myAvatar;
   late String _roomId;
-  late String _currentPkId="";
+  late String _currentPkId = "";
   String _currentTrtcRoomId = "";
   List<CoHostUserModel> _coHostList = [];
 
@@ -151,17 +155,22 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   String? _focusedRoomId;
   final GlobalKey<ChatInputOverlayState> _inputOverlayKey = GlobalKey();
   final GlobalKey<VoiceRoomContentViewState> _voiceRoomKey = GlobalKey();
-  final GlobalKey<UserEntranceEffectLayerState> _entranceEffectKey = GlobalKey();
-  final GlobalKey<PkResultPageState> _pkResultKey = GlobalKey<PkResultPageState>();
+  final GlobalKey<UserEntranceEffectLayerState> _entranceEffectKey =
+      GlobalKey();
+  final GlobalKey<PkResultPageState> _pkResultKey =
+      GlobalKey<PkResultPageState>();
 
   // 🟢 1. 定义一个 GlobalKey 用来控制榜单组件
-  final GlobalKey<ViewerListState> _viewerListKey = GlobalKey<ViewerListState>();
+  final GlobalKey<ViewerListState> _viewerListKey =
+      GlobalKey<ViewerListState>();
 
   // 🟢 1. 定义 PKScoreBar 的专属 GlobalKey
-  final GlobalKey<PKScoreBarState> _pkScoreBarKey = GlobalKey<PKScoreBarState>();
+  final GlobalKey<PKScoreBarState> _pkScoreBarKey =
+      GlobalKey<PKScoreBarState>();
 
   //控制进场组件的 Key
-  final GlobalKey<LiveUserEntranceState> _entranceKey = GlobalKey<LiveUserEntranceState>();
+  final GlobalKey<LiveUserEntranceState> _entranceKey =
+      GlobalKey<LiveUserEntranceState>();
   final GlobalKey<GiftTrayEffectLayerState> _trayLayerKey = GlobalKey();
 
   // 用于控制特效层的 Key
@@ -181,7 +190,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final String _wsUrl = "ws://${HttpUtil.getBaseIpPort}/ws/live";
 
   final _enableGlobalBackgroundImage = false;
-  final String _globalBackgroundImage = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_15.jpg";
+  final String _globalBackgroundImage =
+      "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_15.jpg";
 
   // --- 左侧（自己）视频控制 ---
   Player? _bgPlayer;
@@ -192,7 +202,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   final Map<String, VideoController> _videoControllers = {};
   bool _isBgInitialized = false;
   final bool _isVideoBackground = true;
-  String _currentBgImage = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_15.jpg";
+  String _currentBgImage =
+      "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_15.jpg";
   String _leftCurrentStreamUrl = "";
 
   // --- 右侧（对手）视频控制 ---
@@ -206,7 +217,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   bool _isDisposed = false;
   bool _isSwitchingRoom = false; // 🟢 新增：用来标记是否正在进入对手房间
   String _currentAvatar = "";
-  late String _leftVideoUrl = "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.MOV";
+  late String _leftVideoUrl =
+      "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/bg.MOV";
 
   PKStatus _pkStatus = PKStatus.idle;
   int _myPKScore = 0;
@@ -249,7 +261,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   late Animation<double> _pkFadeAnimation;
 
   final ValueNotifier<UserModel> _userStatusNotifier = ValueNotifier(
-    UserModel(0, 0, coinsToNextLevel: 0, coinsNextLevelThreshold: 0, coinsToNextLevelText: "0", coinsCurrentLevelThreshold: 0, monthLevel: 0),
+    UserModel(
+      0,
+      0,
+      coinsToNextLevel: 0,
+      coinsNextLevelThreshold: 0,
+      coinsToNextLevelText: "0",
+      coinsCurrentLevelThreshold: 0,
+      monthLevel: 0,
+    ),
   );
 
   @override
@@ -309,8 +329,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       debugLabel: 'real_live_page',
     );
     // 🟢 极其重要：必须在这里把曲线动画定义好，绝不能在 build 方法里直接 new！
-    _comboScaleAnimation = CurvedAnimation(parent: _comboScaleController, curve: Curves.elasticOut);
-    _countdownController = AnimationController(vsync: this, duration: const Duration(seconds: 3));
+    _comboScaleAnimation = CurvedAnimation(
+      parent: _comboScaleController,
+      curve: Curves.elasticOut,
+    );
+    _countdownController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
     _countdownController.addStatusListener((status) {
       if (status == AnimationStatus.completed && mounted) {
         _comboScaleController.reverse().then((_) {
@@ -387,7 +413,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     if (isBetweenPages) {
       // 🚨 页面悬停或正在滚动中！继续高频巡逻 (50ms)，死死咬住音频！
-      _viewChangeTimer = Timer(const Duration(milliseconds: 50), _checkAndPause);
+      _viewChangeTimer = Timer(
+        const Duration(milliseconds: 50),
+        _checkAndPause,
+      );
     } else {
       // ✅ 页面物理滚动已经完全停止，稳稳落在了一个整数页面上。
       // 🛑 致命关键点：此时它可能是落到了【下一个房间】，也可能是【反悔弹回了本房间】！
@@ -405,7 +434,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _resumeRoom() {
     _players.values.forEach((p) => p.play());
-    _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000, 'roomId': _roomId}).catchError((e) {});
+    _nativePlayer
+        .invokeMethod('initPlayer', {'sampleRate': 24000, 'roomId': _roomId})
+        .catchError((e) {});
     _startEnterRoomSequence();
 
     // 🟢 监听：远端用户进房
@@ -461,7 +492,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     // 只有当底层的 currentRoomId 等于本页面的业务房号，
     // 或者等于本页面刚刚身处的 PK 虚拟房号时，说明底层还在为本页面服务。
     // 此时本页面才有资格去彻底清空它！绝不能用 isEmpty 来判断！
-    if (_trtcManager.currentRoomId == _roomId || (_currentTrtcRoomId.isNotEmpty && _trtcManager.currentRoomId == _currentTrtcRoomId)) {
+    if (_trtcManager.currentRoomId == _roomId ||
+        (_currentTrtcRoomId.isNotEmpty &&
+            _trtcManager.currentRoomId == _currentTrtcRoomId)) {
       _trtcManager.exitRoom(); // 只有老房主能执行这一步
     }
 
@@ -576,7 +609,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         return;
       }
       try {
-        _channel?.sink.add(jsonEncode({"type": "HEARTBEAT", "roomId": _roomId}));
+        _channel?.sink.add(
+          jsonEncode({"type": "HEARTBEAT", "roomId": _roomId}),
+        );
       } catch (e) {
         _reconnect();
       }
@@ -627,7 +662,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     // if (mounted) setState(() => _isLoadingDetail = true);
 
     try {
-      final res = await HttpUtil().get("/api/pk/detail", params: {"roomId": int.parse(_roomId), "userId": _myUserId, "userName": _myUserName});
+      final res = await HttpUtil().get(
+        "/api/pk/detail",
+        params: {
+          "roomId": int.parse(_roomId),
+          "userId": _myUserId,
+          "userName": _myUserName,
+        },
+      );
       final data = res;
       String bgmUrl = data['currentResourceUrl'];
       _currentPkId = data['currentPkId'].toString();
@@ -643,7 +685,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         setState(() {
           _coHostList = coHostData
               .map(
-                (h) => CoHostUserModel(userId: h['userId'], roomId: h['roomId'], name: h['name'], avatarUrl: h['avatarUrl'], isMuted: h['isMuted']),
+                (h) => CoHostUserModel(
+                  userId: h['userId'],
+                  roomId: h['roomId'],
+                  name: h['name'],
+                  avatarUrl: h['avatarUrl'],
+                  isMuted: h['isMuted'],
+                ),
               )
               .toList();
         });
@@ -652,9 +700,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         final pkInfo = data['pkInfo'];
         final int status = _parseInt(pkInfo['status']);
         final String startTimeStr = pkInfo['startTime'];
-        _pkMatchManagerKey.currentState?.stopMatching(); // close matching widows
+        _pkMatchManagerKey.currentState
+            ?.stopMatching(); // close matching widows
         _pkDuration = _parseInt(pkInfo['duration'], defaultValue: 300);
-        _punishmentDuration = _parseInt(pkInfo['punishmentDuration'], defaultValue: 30);
+        _punishmentDuration = _parseInt(
+          pkInfo['punishmentDuration'],
+          defaultValue: 30,
+        );
         setState(() {
           _participants = pkInfo['participants'] as List;
           // 🚀🚀🚀 核心切换 1：进入/刷新多人模式
@@ -666,7 +718,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             // 无论 pk_id 怎么变，房主怎么掉线，只要后端传的这个 ID 没变，前端就绝对不会断开重连！
             String virtualPkRoomId = pkInfo['linkGroupId'].toString();
             // 如果当前 TRTC 不在这个虚拟战场，立刻带着观众和主播一起跳槽！
-            if (_currentTrtcRoomId != virtualPkRoomId && virtualPkRoomId.isNotEmpty) {
+            if (_currentTrtcRoomId != virtualPkRoomId &&
+                virtualPkRoomId.isNotEmpty) {
               debugPrint("⚔️ 检测到多人 PK/连麦，全员底层切入稳定虚拟角斗场: $virtualPkRoomId");
               _currentTrtcRoomId = virtualPkRoomId;
 
@@ -705,8 +758,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           if (_participants.isNotEmpty) {
             _currentName = _participants[0]['name'] ?? _currentName;
             _currentAvatar = _participants[0]['avatar'] ?? _currentAvatar;
-            _currentBgImage = _participants[0]['personalPkBg'] ?? _currentBgImage;
-            _leftCurrentStreamUrl = _participants[0]['streamUrl'] ?? _leftCurrentStreamUrl;
+            _currentBgImage =
+                _participants[0]['personalPkBg'] ?? _currentBgImage;
+            _leftCurrentStreamUrl =
+                _participants[0]['streamUrl'] ?? _leftCurrentStreamUrl;
 
             // 🟢 1. 找出“我方”的阵营 ID (teamId)
             int myCamp = 0;
@@ -751,7 +806,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               final String pRoomId = p['roomId'].toString();
               final int critLeft = _parseInt(p['critSecondsLeft']);
               if (critLeft > 0) {
-                _critEndTimes[pRoomId] = DateTime.now().add(Duration(seconds: critLeft));
+                _critEndTimes[pRoomId] = DateTime.now().add(
+                  Duration(seconds: critLeft),
+                );
               }
             }
           }
@@ -785,7 +842,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _enterPunishmentPhase();
           }
         } else if (status == 2) {
-          final int remainingPunishment = _punishmentDuration - (elapsedSeconds - _pkDuration);
+          final int remainingPunishment =
+              _punishmentDuration - (elapsedSeconds - _pkDuration);
           if (remainingPunishment > 0) {
             _enterPunishmentPhase(timeLeft: remainingPunishment);
           }
@@ -794,7 +852,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           DateTime startTime = DateTime.parse(startTimeStr);
           int totalElapsed = DateTime.now().difference(startTime).inSeconds;
           int coHostElapsed = totalElapsed - _pkDuration - _punishmentDuration;
-          _enterCoHostPhase(initialElapsedTime: totalElapsed > 0 ? totalElapsed : 0, serverStartTime: startTime);
+          _enterCoHostPhase(
+            initialElapsedTime: totalElapsed > 0 ? totalElapsed : 0,
+            serverStartTime: startTime,
+          );
         }
       } else {
         HardcoreMixer.dispose();
@@ -805,11 +866,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           _currentName = data['title'] ?? _currentName;
           _currentAvatar = data['coverImg'] ?? _currentAvatar;
           _leftVideoUrl = data['streamUrl'] ?? _leftVideoUrl;
-          _leftCurrentStreamUrl = data['streamUrl'] ?? _leftCurrentStreamUrl; // 🟢 补上这句
+          _leftCurrentStreamUrl =
+              data['streamUrl'] ?? _leftCurrentStreamUrl; // 🟢 补上这句
           _currentBgImage = data['personalPkBg'] ?? _currentBgImage;
         });
         // 🟢 新增：如果单人模式下拿到了流地址，立刻重新喂给底层播放器！
-        if (widget.roomType == LiveRoomType.normal && _leftCurrentStreamUrl.isNotEmpty) {
+        if (widget.roomType == LiveRoomType.normal &&
+            _leftCurrentStreamUrl.isNotEmpty) {
           _bgPlayer?.open(Media(_leftCurrentStreamUrl), play: true);
         }
       }
@@ -874,8 +937,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       final String joinerId = data['userId'] ?? "神秘人";
       final String joinerName = data['userName'] ?? "神秘人";
       final String joinerAvatar = data['avatar'] ?? "";
-      final int joinerLevel = int.tryParse(data['level']?.toString() ?? '') ?? 0;
-      final int joinerMonthLevel = int.tryParse(data['monthLevel']?.toString() ?? '') ?? 0;
+      final int joinerLevel =
+          int.tryParse(data['level']?.toString() ?? '') ?? 0;
+      final int joinerMonthLevel =
+          int.tryParse(data['monthLevel']?.toString() ?? '') ?? 0;
       final String senderBuff = data['levelHonourBuff']?.toString() ?? '';
       switch (type) {
         case "ENTER":
@@ -901,7 +966,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
             // 🚀🚀🚀 核心改动 2：判断该用户是否拥有后台动态配置的特效！
             // 只要包含了视频链接 (floatVideoUrl/resourceUrl) 或者额外配置 (extraConfig)，就说明有特权！
-            bool hasCustomEntrance = data['floatVideoUrl'] != null || data['resourceUrl'] != null || extraConfig != null;
+            bool hasCustomEntrance =
+                data['floatVideoUrl'] != null ||
+                data['resourceUrl'] != null ||
+                extraConfig != null;
 
             // 🚀🚀🚀 核心改动 3：打破写死的 ID 限制！
             // 如果后端下发了配置，或者依然属于你们原来的 2,6,163 测试白名单，一律走尊贵特效进场！
@@ -952,10 +1020,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           GiftItemData? targetGift;
           try {
             if (_giftList.isNotEmpty) {
-              targetGift = _giftList.firstWhere((g) => g.id.toString() == giftId);
+              targetGift = _giftList.firstWhere(
+                (g) => g.id.toString() == giftId,
+              );
             }
           } catch (e) {}
-          targetGift ??= GiftItemData(id: giftId, name: "未知礼物", price: 0, iconUrl: "...");
+          targetGift ??= GiftItemData(
+            id: giftId,
+            name: "未知礼物",
+            price: 0,
+            iconUrl: "...",
+          );
 
           _processGiftEvent(
             targetGift,
@@ -1089,7 +1164,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           _nativePlayer
               .invokeMethod('stopPlayer', {'roomId': _roomId})
               .then((_) {
-                _nativePlayer.invokeMethod('initPlayer', {'sampleRate': 24000, 'roomId': _roomId}).catchError((e) {});
+                _nativePlayer
+                    .invokeMethod('initPlayer', {
+                      'sampleRate': 24000,
+                      'roomId': _roomId,
+                    })
+                    .catchError((e) {});
               })
               .catchError((e) {});
           break;
@@ -1105,23 +1185,34 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             AIMusicService().duckFor(_roomId, durationMs);
             // 2. 极速喂给 Android 原生层！你的 LinkedBlockingQueue 会自动把它们丝滑拼在一起播放！
             // 🚀 终极防崩修复
-            _nativePlayer.invokeMethod('feedAudio', {'data': pcmBytes, 'roomId': _roomId}).catchError((e) {});
+            _nativePlayer
+                .invokeMethod('feedAudio', {
+                  'data': pcmBytes,
+                  'roomId': _roomId,
+                })
+                .catchError((e) {});
           }
           break;
         case "PROP_CRIT":
           final String targetRoomId = data['targetRoomId']?.toString() ?? "";
-          final int secondsLeft = int.tryParse(data['secondsLeft']?.toString() ?? '0') ?? 0;
+          final int secondsLeft =
+              int.tryParse(data['secondsLeft']?.toString() ?? '0') ?? 0;
 
           if (targetRoomId.isNotEmpty) {
             // 默默更新集合
             if (secondsLeft > 0) {
-              _critEndTimes[targetRoomId] = DateTime.now().add(Duration(seconds: secondsLeft));
+              _critEndTimes[targetRoomId] = DateTime.now().add(
+                Duration(seconds: secondsLeft),
+              );
             } else {
               _critEndTimes.remove(targetRoomId);
             }
 
             // 🟢 精准呼叫子组件，告诉它是哪个房间的卡生效了
-            _pkScoreBarKey.currentState?.updateCritTime(targetRoomId, secondsLeft);
+            _pkScoreBarKey.currentState?.updateCritTime(
+              targetRoomId,
+              secondsLeft,
+            );
           }
           break;
         case "PK_RELOAD":
@@ -1156,7 +1247,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             // 🚀 判断如果被禁麦的正是当前我所在的直播间
             if (targetRoomId == _roomId) {
               AiRealTimeVoiceService().setMicMute(isMuted);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isMuted ? "本直播间已被禁麦" : "本直播间已解除禁麦")));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(isMuted ? "本直播间已被禁麦" : "本直播间已解除禁麦")),
+              );
             }
           } catch (e) {
             print("🚨 Socket 处理闭麦时发生崩溃: $e");
@@ -1181,7 +1274,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
                 if (pRoomId == _roomId) {
                   // AiRealTimeVoiceService().setMicMute(true);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("房主已开启全员禁麦，麦克风已断开")));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("房主已开启全员禁麦，麦克风已断开")),
+                  );
                 }
               }
               newList.add(newMap);
@@ -1193,7 +1288,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           setState(() {
             // 防止重复添加
             if (!_coHostList.any((u) => u.userId == data['userId'])) {
-              _coHostList.add(CoHostUserModel(userId: data['userId'], roomId: _roomId, name: data['userName'], avatarUrl: data['avatar']));
+              _coHostList.add(
+                CoHostUserModel(
+                  userId: data['userId'],
+                  roomId: _roomId,
+                  name: data['userName'],
+                  avatarUrl: data['avatar'],
+                ),
+              );
             }
           });
           break;
@@ -1201,7 +1303,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           // 🚀 核心补全：有人下麦了，立刻把他从九宫格里踢掉！
           if (mounted) {
             setState(() {
-              _coHostList.removeWhere((u) => u.userId == data['userId'].toString());
+              _coHostList.removeWhere(
+                (u) => u.userId == data['userId'].toString(),
+              );
             });
           }
           break;
@@ -1213,7 +1317,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             _trtcManager.stopCoHosting(); // 立即掐断 TRTC 摄像机和麦克风推流
 
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("您已被主播抱下麦")));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text("您已被主播抱下麦")));
             }
           }
 
@@ -1272,7 +1378,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     if (!_isHost) return;
     // 1. 如果正在激烈战斗中（倒计时中），直接拦截
     if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("当前正在PK中，无法进行此操作")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("当前正在PK中，无法进行此操作")));
       return;
     }
 
@@ -1280,10 +1388,16 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (BuildContext context) {
         return Container(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom + 20, left: 20, right: 20),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+            left: 20,
+            right: 20,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1291,7 +1405,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                 margin: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
                   _pkStatus == PKStatus.idle ? "选择连麦方式" : "多人连线管理",
-                  style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
               const Divider(color: Colors.white10, height: 1),
@@ -1302,8 +1420,14 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               if (_pkStatus == PKStatus.idle)
                 ListTile(
                   leading: const Icon(Icons.shuffle, color: Colors.cyanAccent),
-                  title: const Text("随机匹配在线主播", style: TextStyle(color: Colors.white)),
-                  subtitle: const Text("系统自动连线空闲主播", style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  title: const Text(
+                    "随机匹配在线主播",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  subtitle: const Text(
+                    "系统自动连线空闲主播",
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     _pkMatchManagerKey.currentState?.startRandomMatch(context);
@@ -1315,9 +1439,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               // ==========================================
               if (_pkStatus == PKStatus.coHost) ...[
                 ListTile(
-                  leading: const Icon(Icons.person_add_alt_1, color: Colors.greenAccent),
-                  title: const Text("邀请新人连麦", style: TextStyle(color: Colors.white)),
-                  subtitle: const Text("邀请更多主播加入当前连线", style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  leading: const Icon(
+                    Icons.person_add_alt_1,
+                    color: Colors.greenAccent,
+                  ),
+                  title: const Text(
+                    "邀请新人连麦",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  subtitle: const Text(
+                    "邀请更多主播加入当前连线",
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     // 🟢 复用随机匹配组件，也可以以后改成弹窗选好友
@@ -1326,9 +1459,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                 ),
                 const Divider(color: Colors.white10, height: 1),
                 ListTile(
-                  leading: const Icon(Icons.local_fire_department, color: Colors.redAccent),
-                  title: const Text("正式开启 PK", style: TextStyle(color: Colors.white)),
-                  subtitle: const Text("进入积分对战模式，分数将清零重计", style: TextStyle(color: Colors.white38, fontSize: 12)),
+                  leading: const Icon(
+                    Icons.local_fire_department,
+                    color: Colors.redAccent,
+                  ),
+                  title: const Text(
+                    "正式开启 PK",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  subtitle: const Text(
+                    "进入积分对战模式，分数将清零重计",
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
                   onTap: () {
                     Navigator.pop(context);
                     _showPKDurationSelector(); // 弹出选择时长
@@ -1339,7 +1481,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               const SizedBox(height: 10),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("取消", style: TextStyle(color: Colors.white54)),
+                child: const Text(
+                  "取消",
+                  style: TextStyle(color: Colors.white54),
+                ),
               ),
             ],
           ),
@@ -1359,7 +1504,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              title: const Text("2 分钟 (120秒)", style: TextStyle(color: Colors.white)),
+              title: const Text(
+                "2 分钟 (120秒)",
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _formalStartPK(120);
@@ -1367,7 +1515,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             ),
             const Divider(color: Colors.white24, height: 1),
             ListTile(
-              title: const Text("5 分钟 (300秒)", style: TextStyle(color: Colors.white)),
+              title: const Text(
+                "5 分钟 (300秒)",
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _formalStartPK(300);
@@ -1375,7 +1526,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             ),
             const Divider(color: Colors.white24, height: 1),
             ListTile(
-              title: const Text("10 分钟 (600秒)", style: TextStyle(color: Colors.white)),
+              title: const Text(
+                "10 分钟 (600秒)",
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _formalStartPK(600);
@@ -1383,7 +1537,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             ),
             const Divider(color: Colors.white24, height: 1),
             ListTile(
-              title: const Text("15 分钟 (900秒)", style: TextStyle(color: Colors.white)),
+              title: const Text(
+                "15 分钟 (900秒)",
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _formalStartPK(900);
@@ -1399,9 +1556,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   void _formalStartPK(int duration) async {
     try {
       // 🚀 这里调用后端专门用于“连麦转PK”的接口
-      await HttpUtil().post("/api/pk/formal_start", data: {"roomId": int.parse(_roomId), "duration": duration});
+      await HttpUtil().post(
+        "/api/pk/formal_start",
+        data: {"roomId": int.parse(_roomId), "duration": duration},
+      );
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开启失败: $e")));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("开启失败: $e")));
     }
   }
 
@@ -1410,17 +1573,24 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _dismissKeyboard();
 
     if (_isHost) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("打开连麦申请列表")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("打开连麦申请列表")));
       return;
     }
 
-    bool isAlreadyCoHosting = _coHostList.any((user) => user.userId == _myUserId);
+    bool isAlreadyCoHosting = _coHostList.any(
+      (user) => user.userId == _myUserId,
+    );
 
     if (isAlreadyCoHosting) {
       // --------- 🛑 下麦流程 ---------
       try {
         // 1. 调接口：从数据库释放麦位
-        await HttpUtil().post("/api/room/seat/leave", data: {"roomId": int.parse(_roomId), "userId": _myUserId});
+        await HttpUtil().post(
+          "/api/room/seat/leave",
+          data: {"roomId": int.parse(_roomId), "userId": _myUserId},
+        );
 
         // 2. 停掉 TRTC
         _trtcManager.stopCoHosting();
@@ -1432,53 +1602,87 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         setState(() {
           _coHostList.removeWhere((user) => user.userId == _myUserId);
         });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已结束连麦")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("已结束连麦")));
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("下麦失败: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("下麦失败: $e")));
       }
     } else {
       // --------- 🎤 上麦流程 ---------
       try {
         // 1. 🚀 调接口：在数据库占个座 (对应你之前的 coin_room_seats 表)
         // 假设后端返回了具体的 seatIndex
-        final res = await HttpUtil().post("/api/room/seat/join", data: {"roomId": int.parse(_roomId), "userId": _myUserId});
+        final res = await HttpUtil().post(
+          "/api/room/seat/join",
+          data: {"roomId": int.parse(_roomId), "userId": _myUserId},
+        );
 
         // 2. 接口成功后，切换 TRTC 身份并推流
         _trtcManager.startCoHosting();
 
         // 3. 发送 Socket 广播通知全房：我来了
-        _sendSocketMessage("COHOST_JOIN", userId: _myUserId, userName: _myUserName, avatar: _myAvatar);
+        _sendSocketMessage(
+          "COHOST_JOIN",
+          userId: _myUserId,
+          userName: _myUserName,
+          avatar: _myAvatar,
+        );
 
         // 4. 更新本地 UI (这一步保证自己能立刻看到自己)
         setState(() {
           _isCameraOn = false;
-          _coHostList.add(CoHostUserModel(userId: _myUserId, roomId: _roomId, name: _myUserName, avatarUrl: _myAvatar, isCameraOn: false));
+          _coHostList.add(
+            CoHostUserModel(
+              userId: _myUserId,
+              roomId: _roomId,
+              name: _myUserName,
+              avatarUrl: _myAvatar,
+              isCameraOn: false,
+            ),
+          );
         });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("连麦成功！")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("连麦成功！")));
       } catch (e) {
         // 如果接口报错（比如麦位已满），直接提示用户，不触发 TRTC
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("上麦失败: $e")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("上麦失败: $e")));
       }
     }
   }
 
   Widget? _buildVideoView() {
     if (_isHost) {
-      return TRTCCloudVideoView(key: const ValueKey("local_trtc_view"), onViewCreated: (viewId) => _trtcManager.startLocalPreview(viewId));
+      return TRTCCloudVideoView(
+        key: const ValueKey("local_trtc_view"),
+        onViewCreated: (viewId) => _trtcManager.startLocalPreview(viewId),
+      );
     } else {
       // 1. 如果已经拿到流了，直接展示
       if (_remoteVideoUsers.isNotEmpty) {
         String targetUserId = _remoteVideoUsers.first;
         return TRTCCloudVideoView(
           key: ValueKey("remote_trtc_$targetUserId"),
-          onViewCreated: (viewId) => _trtcManager.startRemoteView(targetUserId, viewId),
+          onViewCreated: (viewId) =>
+              _trtcManager.startRemoteView(targetUserId, viewId),
         );
       }
 
       // 2. 如果是机器人房
-      if (_isRobotActive && _leftCurrentStreamUrl.isNotEmpty && _bgController != null) {
+      if (_isRobotActive &&
+          _leftCurrentStreamUrl.isNotEmpty &&
+          _bgController != null) {
         return SizedBox.expand(
-          child: Video(controller: _bgController!, fit: BoxFit.cover, controls: NoVideoControls),
+          child: Video(
+            controller: _bgController!,
+            fit: BoxFit.cover,
+            controls: NoVideoControls,
+          ),
         );
       }
 
@@ -1535,7 +1739,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _pkResultKey.currentState?.showResult(true);
     setState(() {
       _pkStatus = PKStatus.punishment;
-      _pkTimeLeft = (timeLeft != null && timeLeft > 0) ? timeLeft : _punishmentDuration;
+      _pkTimeLeft = (timeLeft != null && timeLeft > 0)
+          ? timeLeft
+          : _punishmentDuration;
       _isFirstGiftPromoActive = false;
       _promoTimer?.cancel();
     });
@@ -1557,12 +1763,18 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     _enterCoHostPhase(initialElapsedTime: 0);
     if (_isHost) {
       try {
-        await HttpUtil().post("/api/pk/to_cohost", data: {"roomId": int.parse(_roomId)});
+        await HttpUtil().post(
+          "/api/pk/to_cohost",
+          data: {"roomId": int.parse(_roomId)},
+        );
       } catch (e) {}
     }
   }
 
-  void _enterCoHostPhase({required int initialElapsedTime, DateTime? serverStartTime}) {
+  void _enterCoHostPhase({
+    required int initialElapsedTime,
+    DateTime? serverStartTime,
+  }) {
     _pkTimer?.cancel();
     _pkTimer = null;
 
@@ -1578,7 +1790,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       anchorTime = serverStartTime;
       // anchorTime = serverStartTime.add(Duration(seconds: _pkDuration + _punishmentDuration));
     } else {
-      anchorTime = DateTime.now().subtract(Duration(seconds: initialElapsedTime));
+      anchorTime = DateTime.now().subtract(
+        Duration(seconds: initialElapsedTime),
+      );
     }
 
     _pkTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -1631,7 +1845,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
 
     // 🚀 重新拉起 media_kit，填补画面空白
-    if (widget.roomType == LiveRoomType.normal && _leftCurrentStreamUrl.isNotEmpty) {
+    if (widget.roomType == LiveRoomType.normal &&
+        _leftCurrentStreamUrl.isNotEmpty) {
       _bgPlayer?.open(Media(_leftCurrentStreamUrl), play: true);
     } else {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1662,9 +1877,22 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   }
 
   void _initPKStartAnimation() {
-    _pkStartAnimationController = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _pkLeftAnimation = Tween<double>(begin: -300, end: 0).animate(CurvedAnimation(parent: _pkStartAnimationController, curve: Curves.easeOutExpo));
-    _pkRightAnimation = Tween<double>(begin: 300, end: 0).animate(CurvedAnimation(parent: _pkStartAnimationController, curve: Curves.easeOutExpo));
+    _pkStartAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _pkLeftAnimation = Tween<double>(begin: -300, end: 0).animate(
+      CurvedAnimation(
+        parent: _pkStartAnimationController,
+        curve: Curves.easeOutExpo,
+      ),
+    );
+    _pkRightAnimation = Tween<double>(begin: 300, end: 0).animate(
+      CurvedAnimation(
+        parent: _pkStartAnimationController,
+        curve: Curves.easeOutExpo,
+      ),
+    );
     _pkFadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _pkStartAnimationController,
@@ -1724,7 +1952,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           children: [
             ListTile(
               leading: const Icon(Icons.link_off, color: Colors.redAccent),
-              title: const Text("断开连线/PK", style: TextStyle(color: Colors.white)),
+              title: const Text(
+                "断开连线/PK",
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _requestEndPk(); // 调用接口断开 PK
@@ -1752,7 +1983,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF222222),
         title: const Text("结束直播", style: TextStyle(color: Colors.white)),
-        content: const Text("确定要结束当前直播吗？直播间将立即关闭。", style: TextStyle(color: Colors.white70)),
+        content: const Text(
+          "确定要结束当前直播吗？直播间将立即关闭。",
+          style: TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -1779,7 +2013,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     try {
       // 调用后端接口关闭房间
-      await HttpUtil().post("/api/room/close", data: {"roomId": int.parse(_roomId)});
+      await HttpUtil().post(
+        "/api/room/close",
+        data: {"roomId": int.parse(_roomId)},
+      );
     } catch (e) {
       debugPrint("下播请求失败: $e");
     } finally {
@@ -1809,10 +2046,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         child: AlertDialog(
           backgroundColor: const Color(0xFF222222),
           title: const Text("直播已结束", style: TextStyle(color: Colors.white)),
-          content: const Text("主播已下播，感谢观看。", style: TextStyle(color: Colors.white70)),
+          content: const Text(
+            "主播已下播，感谢观看。",
+            style: TextStyle(color: Colors.white70),
+          ),
           actions: [
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.pinkAccent),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.pinkAccent,
+              ),
               onPressed: () {
                 Navigator.pop(ctx);
                 Navigator.of(context).pop();
@@ -1827,7 +2069,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _requestEndPk() async {
     try {
-      await HttpUtil().post("/api/pk/pk_end", data: {"roomId": int.parse(_roomId)});
+      await HttpUtil().post(
+        "/api/pk/pk_end",
+        data: {"roomId": int.parse(_roomId)},
+      );
     } catch (e) {
       debugPrint("断开失败: $e");
     }
@@ -1900,9 +2145,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     if (isMe) _lastGiftSent = giftData;
 
     setState(() {
-      final existingIndex = _activeGifts.indexWhere((g) => g.comboKey == comboKey);
+      final existingIndex = _activeGifts.indexWhere(
+        (g) => g.comboKey == comboKey,
+      );
       if (existingIndex != -1) {
-        _activeGifts[existingIndex] = _activeGifts[existingIndex].copyWith(count: _activeGifts[existingIndex].count + count);
+        _activeGifts[existingIndex] = _activeGifts[existingIndex].copyWith(
+          count: _activeGifts[existingIndex].count + count,
+        );
       } else {
         _processNewGift(
           GiftEvent(
@@ -1962,14 +2211,21 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     int totalPrice = giftData.price * countToSend;
 
     if (_myCoins < totalPrice) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("余额不足，请充值"), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("余额不足，请充值"), backgroundColor: Colors.red),
+      );
       return;
     }
 
     try {
       final res = await HttpUtil().post(
         "/api/gift/send",
-        data: {"userId": int.parse(_myUserId), "giftId": giftData.id, "count": countToSend, "roomId": _roomId},
+        data: {
+          "userId": int.parse(_myUserId),
+          "giftId": giftData.id,
+          "count": countToSend,
+          "roomId": _roomId,
+        },
       );
 
       if (!mounted) return;
@@ -1990,7 +2246,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           coinsToNextLevel: _parseInt(res['coinsToNextLevel']),
           coinsToNextLevelText: res['coinsToNextLevelText'],
           coinsNextLevelThreshold: _parseInt(res['coinsNextLevelThreshold']),
-          coinsCurrentLevelThreshold: _parseInt(res['coinsCurrentLevelThreshold']),
+          coinsCurrentLevelThreshold: _parseInt(
+            res['coinsCurrentLevelThreshold'],
+          ),
         );
       });
 
@@ -2007,7 +2265,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       );
     } catch (e) {
       debugPrint("❌ 送礼失败: $e");
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("发送失败: $e")));
+      if (mounted)
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("发送失败: $e")));
     }
   }
 
@@ -2030,9 +2291,13 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         _coHostList.removeWhere((u) => u.userId == targetUserId);
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已将该观众抱下麦")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("已将该观众抱下麦")));
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("操作失败: $e")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("操作失败: $e")));
     }
   }
 
@@ -2061,7 +2326,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       _bgPlayer!.setPlaylistMode(PlaylistMode.loop);
 
       // 🟢 修改：优先使用最新的流地址，如果为空再用兜底的
-      String targetUrl = _leftCurrentStreamUrl.isNotEmpty ? _leftCurrentStreamUrl : _leftVideoUrl;
+      String targetUrl = _leftCurrentStreamUrl.isNotEmpty
+          ? _leftCurrentStreamUrl
+          : _leftVideoUrl;
 
       // 🟢 如果是个有效的 http 视频链接，就开始拉流
       if (targetUrl.isNotEmpty && targetUrl.startsWith("http")) {
@@ -2069,8 +2336,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       }
 
       _bgPlayer!.stream.duration.listen((duration) {
-        if (duration > Duration.zero && _bgPlayer!.state.position == Duration.zero) {
-          int positionMs = DateTime.now().millisecondsSinceEpoch % duration.inMilliseconds;
+        if (duration > Duration.zero &&
+            _bgPlayer!.state.position == Duration.zero) {
+          int positionMs =
+              DateTime.now().millisecondsSinceEpoch % duration.inMilliseconds;
           _bgPlayer!.seek(Duration(milliseconds: positionMs));
         }
       });
@@ -2101,7 +2370,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
   void _showMusicPanel() {
     _dismissKeyboard();
-    showModalBottomSheet(context: context, backgroundColor: Colors.transparent, isScrollControlled: true, builder: (_) => const MusicPanel());
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => const MusicPanel(),
+    );
   }
 
   void _simulateVipEnter({
@@ -2120,7 +2394,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
       userName: name,
       level: overrideLevel,
       monthLevel: overrideMonthLevel,
-      avatarUrl: overrideAvatar ?? "https://picsum.photos/seed/${888 + randomIdx}/200",
+      avatarUrl:
+          overrideAvatar ?? "https://picsum.photos/seed/${888 + randomIdx}/200",
       frameUrl: "https://cdn-icons-png.flaticon.com/512/8313/8313626.png",
     );
     _entranceKey.currentState?.addEvent(event);
@@ -2164,7 +2439,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         Image.network(
           bgImage,
           fit: BoxFit.cover,
-          errorBuilder: (ctx, err, stack) => Container(color: const Color(0xFF1A1A1A)),
+          errorBuilder: (ctx, err, stack) =>
+              Container(color: const Color(0xFF1A1A1A)),
         ),
 
         // 🟢 修改点：去掉了 BackdropFilter 和 ImageFilter.blur，只保留半透明黑底
@@ -2180,13 +2456,17 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                 padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 1),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  ),
                 ),
                 child: ClipOval(
                   child: Image.network(
                     bgImage,
                     fit: BoxFit.cover,
-                    errorBuilder: (c, e, s) => const Icon(Icons.person, color: Colors.white),
+                    errorBuilder: (c, e, s) =>
+                        const Icon(Icons.person, color: Colors.white),
                   ),
                 ),
               ),
@@ -2194,10 +2474,20 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               const SizedBox(
                 width: 24,
                 height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white70)),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                ),
               ),
               const SizedBox(height: 16),
-              Text("正在进入 $targetName 的直播间...", style: const TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 1)),
+              Text(
+                "正在进入 $targetName 的直播间...",
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  letterSpacing: 1,
+                ),
+              ),
             ],
           ),
         ),
@@ -2222,7 +2512,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     }
 
     // 🟢 2. 新增：提取所有人的分数并降序排列，用于计算真实的排名！
-    List<int> allScores = _participants.map((p) => _parseInt(p['score'])).toList();
+    List<int> allScores = _participants
+        .map((p) => _parseInt(p['score']))
+        .toList();
     allScores.sort((a, b) => b.compareTo(a)); // 降序排列
 
     for (int i = 0; i < _participants.length; i++) {
@@ -2285,7 +2577,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           roomId: pRoomId,
           pkId: p['pkId'].toString(),
           name: p['name'] ?? (isMe ? _currentName : "连麦主播"),
-          avatarUrl: p['avatar'] ?? (isMe ? _currentAvatar : "https://picsum.photos/200"),
+          avatarUrl:
+              p['avatar'] ??
+              (isMe ? _currentAvatar : "https://picsum.photos/200"),
           rank: realRank,
           score: currentScore,
           isInitiator: p['isInitiator'] ?? false,
@@ -2305,7 +2599,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   // 🟢 核心改造：切房前的极限转场保护
   void _switchToTargetRoom(LivePKPlayerModel targetPlayer) {
     if (_isHost && !_isRobotActive) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
       return;
     }
     _isSwitchingRoom = true;
@@ -2351,7 +2647,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           isHost: false,
           roomId: targetPlayer.roomId,
           monthLevel: _monthLevel,
-          initialRoomData: {'userName': targetPlayer.name, 'avatar': targetPlayer.avatarUrl},
+          initialRoomData: {
+            'userName': targetPlayer.name,
+            'avatar': targetPlayer.avatarUrl,
+          },
         ),
       ),
     );
@@ -2404,7 +2703,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             // 1. 底层：视频内容 (背景已在内部处理)
             VoiceRoomContentView(
               key: _voiceRoomKey,
-              anchorAvatar: "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/xiaoqi.jpg",
+              anchorAvatar:
+                  "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/avatar/xiaoqi.jpg",
               currentBgImage: '234234',
               roomTitle: '345345',
               anchorName: 'werrwetert',
@@ -2459,7 +2759,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                 left: 0,
                 right: 0,
                 child: Center(
-                  child: AvatarAnimation(avatarUrl: _currentAvatar, name: _currentName, isSpeaking: true, isRotating: false),
+                  child: AvatarAnimation(
+                    avatarUrl: _currentAvatar,
+                    name: _currentName,
+                    isSpeaking: true,
+                    isRotating: false,
+                  ),
                 ),
               ),
             ],
@@ -2482,7 +2787,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     if (_pkStatus != PKStatus.idle) {
       final double pkVideoHeight = size.width * 0.85;
-      final double pkVideoBottomY = padding.top + topBarHeight + 105.0 + pkVideoHeight + 18;
+      final double pkVideoBottomY =
+          padding.top + topBarHeight + 105.0 + pkVideoHeight + 18;
       // 🟢 修复：减去 safeBottom，保证弹幕区完美顶在 PK 视频的下边缘！
       baseChatListHeight = size.height - pkVideoBottomY - safeBottom - 3;
     } else {
@@ -2493,14 +2799,16 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
         case LiveRoomType.video:
           const double myVideoHeight = 240.0;
           const double headerHeight = 8;
-          double topContentEndY = padding.top + topBarHeight + headerHeight + myVideoHeight;
+          double topContentEndY =
+              padding.top + topBarHeight + headerHeight + myVideoHeight;
           // 🟢 修复：同样减去 safeBottom
           baseChatListHeight = size.height - topContentEndY - safeBottom;
           break;
         case LiveRoomType.voice:
           const double myVideoHeight = 400.0;
           const double headerHeight = 8;
-          double topContentEndY = padding.top + topBarHeight + headerHeight + myVideoHeight;
+          double topContentEndY =
+              padding.top + topBarHeight + headerHeight + myVideoHeight;
           // 🟢 修复：同样减去 safeBottom
           baseChatListHeight = size.height - topContentEndY - safeBottom;
           break;
@@ -2509,7 +2817,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           break;
         case LiveRoomType.normal:
           final double pkVideoHeight = size.width * 0.85;
-          final double pkVideoBottomY = padding.top + topBarHeight + 105.0 + pkVideoHeight + 18;
+          final double pkVideoBottomY =
+              padding.top + topBarHeight + 105.0 + pkVideoHeight + 18;
           baseChatListHeight = size.height - pkVideoBottomY - safeBottom - 3;
         default:
           baseChatListHeight = 460;
@@ -2530,13 +2839,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     final double fixedContainerHeight = pkVideoHeight + maxTopOffset;
 
     // 🟢 2. 弹幕区和各种底边计算，全部基于这个绝对固定的 fixedContainerHeight
-    final double pkVideoBottomY = padding.top + topBarHeight + gap1 + fixedContainerHeight;
+    final double pkVideoBottomY =
+        padding.top + topBarHeight + gap1 + fixedContainerHeight;
     double entranceTop = pkVideoBottomY + 4;
 
     if (_pkStatus == PKStatus.idle) {
       // entranceTop = padding.top + topBarHeight + 20;
     }
-    final bool showPromoBanner = _isFirstGiftPromoActive && _pkStatus == PKStatus.playing;
+    final bool showPromoBanner =
+        _isFirstGiftPromoActive && _pkStatus == PKStatus.playing;
     final bool iHaveUsedPromo = _usersWhoUsedPromo.contains(_myUserId);
     if (showPromoBanner) entranceTop += 22 + 4;
     // 1. 使用 PopScope 包裹 Scaffold 拦截物理返回
@@ -2570,13 +2881,25 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                   child: Container(
                                     decoration: _enableGlobalBackgroundImage
                                         ? BoxDecoration(
-                                            image: DecorationImage(image: AssetImage('assets/background.jpg'), fit: BoxFit.cover),
+                                            image: DecorationImage(
+                                              image: AssetImage(
+                                                'assets/background.jpg',
+                                              ),
+                                              fit: BoxFit.cover,
+                                            ),
                                           )
                                         : BoxDecoration(
                                             gradient: LinearGradient(
                                               begin: Alignment.topCenter,
                                               end: Alignment.bottomCenter,
-                                              colors: [const Color(0xFF310505).withOpacity(0.7), const Color(0xFF1F2445).withOpacity(0.9)],
+                                              colors: [
+                                                const Color(
+                                                  0xFF310505,
+                                                ).withOpacity(0.7),
+                                                const Color(
+                                                  0xFF1F2445,
+                                                ).withOpacity(0.9),
+                                              ],
                                             ),
                                           ),
                                   ),
@@ -2584,11 +2907,15 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
                                 // 🟢 核心：根据 PK 状态决定显示 单人模式(分发) 还是 PK 模式
                                 _pkStatus == PKStatus.idle
-                                    ? _buildSingleModeContent(padding.top) // 传入 padding.top
+                                    ? _buildSingleModeContent(
+                                        padding.top,
+                                      ) // 传入 padding.top
                                     : Column(
                                         children: [
                                           Container(
-                                            margin: EdgeInsets.only(top: padding.top),
+                                            margin: EdgeInsets.only(
+                                              top: padding.top,
+                                            ),
                                             height: topBarHeight,
                                             child: BuildTopBar(
                                               key: const ValueKey("TopBar"),
@@ -2596,7 +2923,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                               viewerListKey: _viewerListKey,
                                               // 🟢 传入 Key
                                               roomId: _roomId,
-                                              onlineCount: _onlineCount <= 0 ? 1 : _onlineCount,
+                                              onlineCount: _onlineCount <= 0
+                                                  ? 1
+                                                  : _onlineCount,
                                               title: "直播间",
                                               name: _currentName,
                                               avatar: _currentAvatar,
@@ -2612,137 +2941,258 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                               children: [
                                                 // 1. 最底层：视频网格图层 (垫在最下面)
                                                 Positioned(
-                                                  top: (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment) ? 36.0 : 18.0,
+                                                  top:
+                                                      (_pkStatus ==
+                                                              PKStatus
+                                                                  .playing ||
+                                                          _pkStatus ==
+                                                              PKStatus
+                                                                  .punishment)
+                                                      ? 36.0
+                                                      : 18.0,
                                                   left: 0,
                                                   right: 0,
                                                   bottom: 0,
                                                   child: ValueListenableBuilder<int>(
-                                                    valueListenable: _pkScoreUpdateTrigger, // 👈 监听这里的变化
+                                                    valueListenable:
+                                                        _pkScoreUpdateTrigger, // 👈 监听这里的变化
                                                     builder: (context, triggerValue, child) {
                                                       // 只有 triggerValue 变化时，这里的 builder 才会重新执行，重新调用 _buildCurrentPkPlayers()
                                                       return DynamicPKBattleView(
-                                                        key: const ValueKey('steady_pk_battle_view'),
+                                                        key: const ValueKey(
+                                                          'steady_pk_battle_view',
+                                                        ),
                                                         pkStatus: _pkStatus,
                                                         currentRoomId: _roomId,
-                                                        currentUserId: _myUserId,
-                                                        activeVideoUsers: _remoteVideoUsers,
-                                                        players: _buildCurrentPkPlayers(),
+                                                        currentUserId:
+                                                            _myUserId,
+                                                        activeVideoUsers:
+                                                            _remoteVideoUsers,
+                                                        players:
+                                                            _buildCurrentPkPlayers(),
                                                         useVideoMode: true,
-                                                        focusedRoomId: _focusedRoomId,
-                                                        onTapPlayer: (LivePKPlayerModel targetPlayer) {
-                                                          // 🚀 新增防空保护：如果点到空座位，直接忽略！
-                                                          if (targetPlayer.roomId.isEmpty || targetPlayer.roomId == "0") return;
+                                                        focusedRoomId:
+                                                            _focusedRoomId,
+                                                        onTapPlayer:
+                                                            (
+                                                              LivePKPlayerModel
+                                                              targetPlayer,
+                                                            ) {
+                                                              // 🚀 新增防空保护：如果点到空座位，直接忽略！
+                                                              if (targetPlayer
+                                                                      .roomId
+                                                                      .isEmpty ||
+                                                                  targetPlayer
+                                                                          .roomId ==
+                                                                      "0")
+                                                                return;
 
-                                                          _dismissKeyboard();
+                                                              _dismissKeyboard();
 
-                                                          showModalBottomSheet(
-                                                            context: context,
-                                                            backgroundColor: Colors.transparent,
-                                                            isScrollControlled: true,
-                                                            builder: (ctx) {
-                                                              return PlayerActionBottomSheet(
-                                                                targetPlayer: targetPlayer,
-                                                                // 🚀 核心：用 roomId 来判断是不是本房间
-                                                                isMe: targetPlayer.roomId == _roomId,
-                                                                pkStatus: _pkStatus,
-                                                                isHost: _isHost,
-                                                                isCameraOn: _isCameraOn,
-                                                                onToggleCamera: () {
-                                                                  setState(() {
-                                                                    _isCameraOn = !_isCameraOn;
-                                                                  });
-                                                                  // 调 TRTC 底层控制画面
-                                                                  if (_isCameraOn) {
-                                                                    // 🚀 核心修复：取出存好的 localViewId 传给底层
-                                                                    if (_trtcManager.localViewId != null) {
-                                                                      _trtcManager.trtcCloud.startLocalPreview(true, _trtcManager.localViewId!);
-                                                                      ScaffoldMessenger.of(
-                                                                        context,
-                                                                      ).showSnackBar(const SnackBar(content: Text("已开启摄像头")));
-                                                                    }
-                                                                  } else {
-                                                                    // 停止推画面
-                                                                    _trtcManager.trtcCloud.stopLocalPreview();
-                                                                    ScaffoldMessenger.of(
-                                                                      context,
-                                                                    ).showSnackBar(const SnackBar(content: Text("已关闭摄像头")));
-                                                                  }
-                                                                },
-                                                                onEnterRoom: () {
-                                                                  if (_isHost && !_isRobotActive) {
-                                                                    ScaffoldMessenger.of(
-                                                                      context,
-                                                                    ).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
-                                                                    return;
-                                                                  }
-                                                                  _switchToTargetRoom(targetPlayer);
-                                                                },
-
-                                                                onToggleMute: () {
-                                                                  print("🟢 1. 成功点击了按钮！开始执行闭麦逻辑...");
-                                                                  try {
-                                                                    bool targetMuteState = !targetPlayer.isMuted;
-
-                                                                    // 🚀 如果点的是本房间，操作本地物理麦克风
-                                                                    if (targetPlayer.roomId == _roomId) {
-                                                                      AiRealTimeVoiceService().setMicMute(targetMuteState);
-                                                                    }
-
-                                                                    setState(() {
-                                                                      List<Map<String, dynamic>> newList = [];
-
-                                                                      for (var p in _participants) {
-                                                                        var newMap = Map<String, dynamic>.from(p);
-
-                                                                        // 🚀 核心：用 roomId 来匹配列表中的玩家！
-                                                                        if (newMap['roomId'].toString() == targetPlayer.roomId) {
-                                                                          newMap['isMuted'] = targetMuteState;
-
-                                                                          String streamUrl = newMap['streamUrl'] ?? "";
-                                                                          if (streamUrl.isNotEmpty) {
-                                                                            HardcoreMixer.setMuted(streamUrl, targetMuteState);
-                                                                          }
+                                                              showModalBottomSheet(
+                                                                context:
+                                                                    context,
+                                                                backgroundColor:
+                                                                    Colors
+                                                                        .transparent,
+                                                                isScrollControlled:
+                                                                    true,
+                                                                builder: (ctx) {
+                                                                  return PlayerActionBottomSheet(
+                                                                    targetPlayer:
+                                                                        targetPlayer,
+                                                                    // 🚀 核心：用 roomId 来判断是不是本房间
+                                                                    isMe:
+                                                                        targetPlayer
+                                                                            .roomId ==
+                                                                        _roomId,
+                                                                    pkStatus:
+                                                                        _pkStatus,
+                                                                    isHost:
+                                                                        _isHost,
+                                                                    isCameraOn:
+                                                                        _isCameraOn,
+                                                                    onToggleCamera: () {
+                                                                      setState(() {
+                                                                        _isCameraOn =
+                                                                            !_isCameraOn;
+                                                                      });
+                                                                      // 调 TRTC 底层控制画面
+                                                                      if (_isCameraOn) {
+                                                                        // 🚀 核心修复：取出存好的 localViewId 传给底层
+                                                                        if (_trtcManager.localViewId !=
+                                                                            null) {
+                                                                          _trtcManager.trtcCloud.startLocalPreview(
+                                                                            true,
+                                                                            _trtcManager.localViewId!,
+                                                                          );
+                                                                          ScaffoldMessenger.of(
+                                                                            context,
+                                                                          ).showSnackBar(
+                                                                            const SnackBar(
+                                                                              content: Text(
+                                                                                "已开启摄像头",
+                                                                              ),
+                                                                            ),
+                                                                          );
                                                                         }
-                                                                        newList.add(newMap);
+                                                                      } else {
+                                                                        // 停止推画面
+                                                                        _trtcManager
+                                                                            .trtcCloud
+                                                                            .stopLocalPreview();
+                                                                        ScaffoldMessenger.of(
+                                                                          context,
+                                                                        ).showSnackBar(
+                                                                          const SnackBar(
+                                                                            content: Text(
+                                                                              "已关闭摄像头",
+                                                                            ),
+                                                                          ),
+                                                                        );
                                                                       }
-                                                                      _participants = newList;
-                                                                    });
+                                                                    },
+                                                                    onEnterRoom: () {
+                                                                      if (_isHost &&
+                                                                          !_isRobotActive) {
+                                                                        ScaffoldMessenger.of(
+                                                                          context,
+                                                                        ).showSnackBar(
+                                                                          const SnackBar(
+                                                                            content: Text(
+                                                                              "主播不能离开自己的直播间",
+                                                                            ),
+                                                                          ),
+                                                                        );
+                                                                        return;
+                                                                      }
+                                                                      _switchToTargetRoom(
+                                                                        targetPlayer,
+                                                                      );
+                                                                    },
 
-                                                                    // 🚀 核心：通过 Socket 广播这个 roomId 的闭麦指令
-                                                                    _sendSocketMessage(
-                                                                      "MUTE_STATE_CHANGE",
-                                                                      content: targetMuteState ? "1" : "0",
-                                                                      targetRoomId: targetPlayer.roomId, // 传 roomId！
-                                                                    );
-                                                                  } catch (e, stackTrace) {
-                                                                    print("🚨 致命崩溃！代码在这里死掉了: $e");
-                                                                    print(stackTrace);
-                                                                  }
-                                                                },
+                                                                    onToggleMute: () {
+                                                                      print(
+                                                                        "🟢 1. 成功点击了按钮！开始执行闭麦逻辑...",
+                                                                      );
+                                                                      try {
+                                                                        bool
+                                                                        targetMuteState =
+                                                                            !targetPlayer.isMuted;
 
-                                                                onSetFocus: () {
-                                                                  setState(() {
-                                                                    if (_focusedRoomId == targetPlayer.roomId) {
-                                                                      _focusedRoomId = null;
-                                                                    } else {
-                                                                      _focusedRoomId = targetPlayer.roomId;
-                                                                    }
-                                                                  });
-                                                                },
+                                                                        // 🚀 如果点的是本房间，操作本地物理麦克风
+                                                                        if (targetPlayer.roomId ==
+                                                                            _roomId) {
+                                                                          AiRealTimeVoiceService().setMicMute(
+                                                                            targetMuteState,
+                                                                          );
+                                                                        }
 
-                                                                onMuteAllExceptMe: () {
-                                                                  // 🚀 发送全员闭麦指令时，将自己的 roomId 传进去作为例外
-                                                                  _sendSocketMessage("MUTE_ALL_EXCEPT", targetRoomId: _roomId);
-                                                                },
+                                                                        setState(() {
+                                                                          List<
+                                                                            Map<
+                                                                              String,
+                                                                              dynamic
+                                                                            >
+                                                                          >
+                                                                          newList =
+                                                                              [];
 
-                                                                onViewProfile: () {
-                                                                  Map<String, dynamic> user = {"userId": targetPlayer.userId};
-                                                                  LiveUserProfilePopup.show(context, user);
+                                                                          for (var p
+                                                                              in _participants) {
+                                                                            var newMap =
+                                                                                Map<
+                                                                                  String,
+                                                                                  dynamic
+                                                                                >.from(p);
+
+                                                                            // 🚀 核心：用 roomId 来匹配列表中的玩家！
+                                                                            if (newMap['roomId'].toString() ==
+                                                                                targetPlayer.roomId) {
+                                                                              newMap['isMuted'] = targetMuteState;
+
+                                                                              String
+                                                                              streamUrl =
+                                                                                  newMap['streamUrl'] ??
+                                                                                  "";
+                                                                              if (streamUrl.isNotEmpty) {
+                                                                                HardcoreMixer.setMuted(
+                                                                                  streamUrl,
+                                                                                  targetMuteState,
+                                                                                );
+                                                                              }
+                                                                            }
+                                                                            newList.add(
+                                                                              newMap,
+                                                                            );
+                                                                          }
+                                                                          _participants =
+                                                                              newList;
+                                                                        });
+
+                                                                        // 🚀 核心：通过 Socket 广播这个 roomId 的闭麦指令
+                                                                        _sendSocketMessage(
+                                                                          "MUTE_STATE_CHANGE",
+                                                                          content:
+                                                                              targetMuteState
+                                                                              ? "1"
+                                                                              : "0",
+                                                                          targetRoomId:
+                                                                              targetPlayer.roomId, // 传 roomId！
+                                                                        );
+                                                                      } catch (
+                                                                        e,
+                                                                        stackTrace
+                                                                      ) {
+                                                                        print(
+                                                                          "🚨 致命崩溃！代码在这里死掉了: $e",
+                                                                        );
+                                                                        print(
+                                                                          stackTrace,
+                                                                        );
+                                                                      }
+                                                                    },
+
+                                                                    onSetFocus: () {
+                                                                      setState(() {
+                                                                        if (_focusedRoomId ==
+                                                                            targetPlayer.roomId) {
+                                                                          _focusedRoomId =
+                                                                              null;
+                                                                        } else {
+                                                                          _focusedRoomId =
+                                                                              targetPlayer.roomId;
+                                                                        }
+                                                                      });
+                                                                    },
+
+                                                                    onMuteAllExceptMe: () {
+                                                                      // 🚀 发送全员闭麦指令时，将自己的 roomId 传进去作为例外
+                                                                      _sendSocketMessage(
+                                                                        "MUTE_ALL_EXCEPT",
+                                                                        targetRoomId:
+                                                                            _roomId,
+                                                                      );
+                                                                    },
+
+                                                                    onViewProfile: () {
+                                                                      Map<
+                                                                        String,
+                                                                        dynamic
+                                                                      >
+                                                                      user = {
+                                                                        "userId":
+                                                                            targetPlayer.userId,
+                                                                      };
+                                                                      LiveUserProfilePopup.show(
+                                                                        context,
+                                                                        user,
+                                                                      );
+                                                                    },
+                                                                  );
                                                                 },
                                                               );
                                                             },
-                                                          );
-                                                        },
                                                       );
                                                     },
                                                   ),
@@ -2757,30 +3207,45 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                       secondsLeft: _pkTimeLeft,
                                                       status: _pkStatus,
                                                       myScore: _myPKScore,
-                                                      opponentScore: _opponentPKScore,
+                                                      opponentScore:
+                                                          _opponentPKScore,
                                                     ),
                                                   ),
                                                 ),
                                                 // 2. 中间层：血条图层 (盖在视频上方，确保暴击卡等特效悬浮在视频之上)
-                                                if (_pkStatus == PKStatus.playing || _pkStatus == PKStatus.punishment)
+                                                if (_pkStatus ==
+                                                        PKStatus.playing ||
+                                                    _pkStatus ==
+                                                        PKStatus.punishment)
                                                   Positioned(
                                                     top: 18,
                                                     left: 0,
                                                     right: 0,
                                                     child: ValueListenableBuilder<int>(
-                                                      valueListenable: _pkScoreUpdateTrigger, // 👈 同样监听变化
-                                                      builder: (context, triggerValue, child) {
-                                                        // 只有这里会重绘，将内存中最新的 _myPKScore 传进去
-                                                        return PKScoreBar(
-                                                          key: _pkScoreBarKey,
-                                                          myScore: _myPKScore,
-                                                          opponentScore: _opponentPKScore,
-                                                          status: _pkStatus,
-                                                          secondsLeft: _pkTimeLeft,
-                                                          myRoomId: _roomId,
-                                                          critEndTimes: _critEndTimes,
-                                                        );
-                                                      },
+                                                      valueListenable:
+                                                          _pkScoreUpdateTrigger, // 👈 同样监听变化
+                                                      builder:
+                                                          (
+                                                            context,
+                                                            triggerValue,
+                                                            child,
+                                                          ) {
+                                                            // 只有这里会重绘，将内存中最新的 _myPKScore 传进去
+                                                            return PKScoreBar(
+                                                              key:
+                                                                  _pkScoreBarKey,
+                                                              myScore:
+                                                                  _myPKScore,
+                                                              opponentScore:
+                                                                  _opponentPKScore,
+                                                              status: _pkStatus,
+                                                              secondsLeft:
+                                                                  _pkTimeLeft,
+                                                              myRoomId: _roomId,
+                                                              critEndTimes:
+                                                                  _critEndTimes,
+                                                            );
+                                                          },
                                                     ),
                                                   ),
                                                 if (1 == 2)
@@ -2790,12 +3255,20 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                     child: Column(
                                                       children: [
                                                         _buildCircleBtn(
-                                                          onTap: _showMusicPanel,
-                                                          icon: const Icon(Icons.music_note, color: Colors.white, size: 20),
-                                                          borderColor: Colors.purpleAccent,
+                                                          onTap:
+                                                              _showMusicPanel,
+                                                          icon: const Icon(
+                                                            Icons.music_note,
+                                                            color: Colors.white,
+                                                            size: 20,
+                                                          ),
+                                                          borderColor: Colors
+                                                              .purpleAccent,
                                                           label: "点歌",
                                                         ),
-                                                        const SizedBox(height: 10),
+                                                        const SizedBox(
+                                                          height: 10,
+                                                        ),
                                                       ],
                                                     ),
                                                   ),
@@ -2804,6 +3277,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                           ),
                                         ],
                                       ),
+
+                                Positioned(
+                                  left: 10,
+                                  top: padding.top + 51,
+                                  child: LiveRankPill(roomId: _roomId),
+                                ),
 
                                 // 🟢 1. 弹幕区：动态感知键盘高度！
                                 Positioned(
@@ -2814,12 +3293,21 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                     valueListenable: _keyboardNotifier,
                                     builder: (context, bottomInset, child) {
                                       // 计算逻辑
-                                      final double currentBottom = max(bottomInset, fixedBottomOffset);
-                                      double currentHeight = (baseChatListHeight + safeBottomOffset) - currentBottom;
-                                      if (currentHeight < 150) currentHeight = 150.0;
+                                      final double currentBottom = max(
+                                        bottomInset,
+                                        fixedBottomOffset,
+                                      );
+                                      double currentHeight =
+                                          (baseChatListHeight +
+                                              safeBottomOffset) -
+                                          currentBottom;
+                                      if (currentHeight < 150)
+                                        currentHeight = 150.0;
 
                                       return Padding(
-                                        padding: EdgeInsets.only(bottom: currentBottom),
+                                        padding: EdgeInsets.only(
+                                          bottom: currentBottom,
+                                        ),
                                         child: SizedBox(
                                           height: currentHeight,
                                           child: child, // 直接使用传进来的 child，杜绝重绘！
@@ -2834,7 +3322,8 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                             child: NotificationListener<ScrollNotification>(
                                               onNotification: (ScrollNotification notification) {
                                                 // 1. 手指刚按上去，或刚开始滑动
-                                                if (notification is ScrollStartNotification) {
+                                                if (notification
+                                                    is ScrollStartNotification) {
                                                   if (_parentDrag != null) {
                                                     _parentDrag?.cancel();
                                                     _parentDrag = null;
@@ -2842,77 +3331,138 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                                   _parentDragDistance = 0.0;
 
                                                   // 判断手指按下瞬间，列表是否【已经】在顶部或底部边缘？
-                                                  final metrics = notification.metrics;
-                                                  if (metrics.pixels <= metrics.minScrollExtent + 2.0 ||
-                                                      metrics.pixels >= metrics.maxScrollExtent - 2.0) {
+                                                  final metrics =
+                                                      notification.metrics;
+                                                  if (metrics.pixels <=
+                                                          metrics.minScrollExtent +
+                                                              2.0 ||
+                                                      metrics.pixels >=
+                                                          metrics.maxScrollExtent -
+                                                              2.0) {
                                                     _canForwardToParent = true;
                                                   } else {
                                                     _canForwardToParent = false;
                                                   }
                                                 }
                                                 // 2. 划到底部/顶部，触发了越界拖拽 (Overscroll)！
-                                                else if (notification is OverscrollNotification) {
-                                                  if (!_canForwardToParent) return false;
+                                                else if (notification
+                                                    is OverscrollNotification) {
+                                                  if (!_canForwardToParent)
+                                                    return false;
 
-                                                  if (notification.dragDetails != null && widget.pageController != null) {
-                                                    double dy = notification.dragDetails!.delta.dy;
+                                                  if (notification
+                                                              .dragDetails !=
+                                                          null &&
+                                                      widget.pageController !=
+                                                          null) {
+                                                    double dy = notification
+                                                        .dragDetails!
+                                                        .delta
+                                                        .dy;
 
                                                     // 🟢 核心修改：通过开关拦截特定方向的滑动！
                                                     // dy < 0 代表手指正在【往上滑】 (试图看下方的直播间)
-                                                    if (dy < 0 && !_enableSwipeUpToSwitchRoom) return false;
+                                                    if (dy < 0 &&
+                                                        !_enableSwipeUpToSwitchRoom)
+                                                      return false;
                                                     // dy > 0 代表手指正在【往下滑】 (试图看上方的直播间)
-                                                    if (dy > 0 && !_enableSwipeDownToSwitchRoom) return false;
+                                                    if (dy > 0 &&
+                                                        !_enableSwipeDownToSwitchRoom)
+                                                      return false;
 
                                                     if (_parentDrag == null) {
-                                                      _parentDrag ??= widget.pageController!.position.drag(
-                                                        DragStartDetails(globalPosition: notification.dragDetails!.globalPosition),
-                                                        () {
-                                                          _parentDrag = null;
-                                                        },
-                                                      );
+                                                      _parentDrag ??= widget
+                                                          .pageController!
+                                                          .position
+                                                          .drag(
+                                                            DragStartDetails(
+                                                              globalPosition:
+                                                                  notification
+                                                                      .dragDetails!
+                                                                      .globalPosition,
+                                                            ),
+                                                            () {
+                                                              _parentDrag =
+                                                                  null;
+                                                            },
+                                                          );
                                                     }
 
-                                                    _parentDragDistance += dy; // 累计拖拽距离
+                                                    _parentDragDistance +=
+                                                        dy; // 累计拖拽距离
 
                                                     // 1:1 绝对跟手传递，没有任何死区延迟
                                                     _parentDrag?.update(
                                                       DragUpdateDetails(
-                                                        sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
+                                                        sourceTimeStamp:
+                                                            notification
+                                                                .dragDetails!
+                                                                .sourceTimeStamp,
                                                         delta: Offset(0, dy),
                                                         primaryDelta: dy,
-                                                        globalPosition: notification.dragDetails!.globalPosition,
+                                                        globalPosition:
+                                                            notification
+                                                                .dragDetails!
+                                                                .globalPosition,
                                                       ),
                                                     );
                                                   }
                                                 }
                                                 // 3. 手指往回拉 (反向拉动必须跟着手指退回去)
-                                                else if (notification is ScrollUpdateNotification) {
-                                                  if (_parentDrag != null && notification.dragDetails != null) {
-                                                    double dy = notification.dragDetails!.delta.dy;
+                                                else if (notification
+                                                    is ScrollUpdateNotification) {
+                                                  if (_parentDrag != null &&
+                                                      notification
+                                                              .dragDetails !=
+                                                          null) {
+                                                    double dy = notification
+                                                        .dragDetails!
+                                                        .delta
+                                                        .dy;
                                                     _parentDragDistance += dy;
 
                                                     _parentDrag?.update(
                                                       DragUpdateDetails(
-                                                        sourceTimeStamp: notification.dragDetails!.sourceTimeStamp,
+                                                        sourceTimeStamp:
+                                                            notification
+                                                                .dragDetails!
+                                                                .sourceTimeStamp,
                                                         delta: Offset(0, dy),
                                                         primaryDelta: dy,
-                                                        globalPosition: notification.dragDetails!.globalPosition,
+                                                        globalPosition:
+                                                            notification
+                                                                .dragDetails!
+                                                                .globalPosition,
                                                       ),
                                                     );
                                                   }
                                                 }
                                                 // 4. 手指离开屏幕，滑动结束
-                                                else if (notification is ScrollEndNotification) {
+                                                else if (notification
+                                                    is ScrollEndNotification) {
                                                   if (_parentDrag != null) {
-                                                    Velocity finalVelocity = notification.dragDetails?.velocity ?? Velocity.zero;
+                                                    Velocity finalVelocity =
+                                                        notification
+                                                            .dragDetails
+                                                            ?.velocity ??
+                                                        Velocity.zero;
 
                                                     // 防止“稍微滑一下就切房” (拖拽不足60像素强制回弹)
-                                                    if (_parentDragDistance.abs() < 60.0) {
-                                                      finalVelocity = Velocity.zero;
+                                                    if (_parentDragDistance
+                                                            .abs() <
+                                                        60.0) {
+                                                      finalVelocity =
+                                                          Velocity.zero;
                                                     }
 
                                                     _parentDrag?.end(
-                                                      DragEndDetails(velocity: finalVelocity, primaryVelocity: finalVelocity.pixelsPerSecond.dy),
+                                                      DragEndDetails(
+                                                        velocity: finalVelocity,
+                                                        primaryVelocity:
+                                                            finalVelocity
+                                                                .pixelsPerSecond
+                                                                .dy,
+                                                      ),
                                                     );
                                                     _parentDrag = null;
                                                   }
@@ -2924,15 +3474,23 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                               child: Align(
                                                 alignment: Alignment.bottomLeft,
                                                 child: SizedBox(
-                                                  width: size.width * 0.80, // 保持 80% 大宽屏，左手无压力
+                                                  width:
+                                                      size.width *
+                                                      0.80, // 保持 80% 大宽屏，左手无压力
                                                   height: double.infinity,
                                                   child: ScrollConfiguration(
-                                                    behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+                                                    behavior:
+                                                        ScrollConfiguration.of(
+                                                          context,
+                                                        ).copyWith(
+                                                          overscroll: false,
+                                                        ),
                                                     child: BuildChatList(
                                                       key: _chatListKey,
                                                       bottomInset: 0,
                                                       roomId: _roomId,
-                                                      controller: _chatController,
+                                                      controller:
+                                                          _chatController,
                                                     ),
                                                   ),
                                                 ),
@@ -2982,23 +3540,49 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                     child: Center(
                                       child: Container(
                                         height: 22,
-                                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                        ),
                                         decoration: BoxDecoration(
                                           gradient: iHaveUsedPromo
-                                              ? LinearGradient(colors: [Colors.green.withAlpha(100), Colors.teal.withAlpha(100)])
-                                              : LinearGradient(colors: [Colors.redAccent.withAlpha(100), Colors.redAccent.withAlpha(100)]),
-                                          borderRadius: BorderRadius.circular(11),
+                                              ? LinearGradient(
+                                                  colors: [
+                                                    Colors.green.withAlpha(100),
+                                                    Colors.teal.withAlpha(100),
+                                                  ],
+                                                )
+                                              : LinearGradient(
+                                                  colors: [
+                                                    Colors.redAccent.withAlpha(
+                                                      100,
+                                                    ),
+                                                    Colors.redAccent.withAlpha(
+                                                      100,
+                                                    ),
+                                                  ],
+                                                ),
+                                          borderRadius: BorderRadius.circular(
+                                            11,
+                                          ),
                                         ),
                                         child: Row(
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
                                             Text(
-                                              iHaveUsedPromo ? "首翻已达成" : "首次送礼翻倍",
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                                              iHaveUsedPromo
+                                                  ? "首翻已达成"
+                                                  : "首次送礼翻倍",
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 11,
+                                              ),
                                             ),
                                             const SizedBox(width: 6),
                                             Text(
-                                              StringTool.formatTime(_promoTimeLeft),
+                                              StringTool.formatTime(
+                                                _promoTimeLeft,
+                                              ),
                                               style: const TextStyle(
                                                 color: Colors.white,
                                                 fontFamily: "monospace",
@@ -3029,58 +3613,138 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                             child: Center(
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
                                                   Transform.translate(
-                                                    offset: Offset(_pkLeftAnimation.value, 0),
+                                                    offset: Offset(
+                                                      _pkLeftAnimation.value,
+                                                      0,
+                                                    ),
                                                     child: Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 12,
+                                                            vertical: 6,
+                                                          ),
                                                       decoration: BoxDecoration(
-                                                        gradient: const LinearGradient(
-                                                          colors: [Color(0xFFFE4164), Color(0xFFFF7F7F)],
-                                                          begin: Alignment.topLeft,
-                                                          end: Alignment.bottomRight,
-                                                        ),
-                                                        borderRadius: const BorderRadius.only(
-                                                          topLeft: Radius.circular(12),
-                                                          bottomLeft: Radius.circular(12),
-                                                        ),
-                                                        boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
+                                                        gradient:
+                                                            const LinearGradient(
+                                                              colors: [
+                                                                Color(
+                                                                  0xFFFE4164,
+                                                                ),
+                                                                Color(
+                                                                  0xFFFF7F7F,
+                                                                ),
+                                                              ],
+                                                              begin: Alignment
+                                                                  .topLeft,
+                                                              end: Alignment
+                                                                  .bottomRight,
+                                                            ),
+                                                        borderRadius:
+                                                            const BorderRadius.only(
+                                                              topLeft:
+                                                                  Radius.circular(
+                                                                    12,
+                                                                  ),
+                                                              bottomLeft:
+                                                                  Radius.circular(
+                                                                    12,
+                                                                  ),
+                                                            ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.red
+                                                                .withOpacity(
+                                                                  0.5,
+                                                                ),
+                                                            blurRadius: 15,
+                                                            spreadRadius: 2,
+                                                          ),
+                                                        ],
                                                       ),
                                                       child: const Text(
                                                         "P",
                                                         style: TextStyle(
                                                           fontSize: 28,
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                           color: Colors.white,
-                                                          shadows: [Shadow(blurRadius: 5, color: Colors.red)],
+                                                          shadows: [
+                                                            Shadow(
+                                                              blurRadius: 5,
+                                                              color: Colors.red,
+                                                            ),
+                                                          ],
                                                         ),
                                                       ),
                                                     ),
                                                   ),
                                                   Transform.translate(
-                                                    offset: Offset(_pkRightAnimation.value, 0),
+                                                    offset: Offset(
+                                                      _pkRightAnimation.value,
+                                                      0,
+                                                    ),
                                                     child: Container(
-                                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 12,
+                                                            vertical: 6,
+                                                          ),
                                                       decoration: BoxDecoration(
-                                                        gradient: const LinearGradient(
-                                                          colors: [Color(0xFF3A7BD5), Color(0xFF00D2FF)],
-                                                          begin: Alignment.topLeft,
-                                                          end: Alignment.bottomRight,
-                                                        ),
-                                                        borderRadius: const BorderRadius.only(
-                                                          topRight: Radius.circular(12),
-                                                          bottomRight: Radius.circular(12),
-                                                        ),
-                                                        boxShadow: [BoxShadow(color: Colors.blue.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)],
+                                                        gradient:
+                                                            const LinearGradient(
+                                                              colors: [
+                                                                Color(
+                                                                  0xFF3A7BD5,
+                                                                ),
+                                                                Color(
+                                                                  0xFF00D2FF,
+                                                                ),
+                                                              ],
+                                                              begin: Alignment
+                                                                  .topLeft,
+                                                              end: Alignment
+                                                                  .bottomRight,
+                                                            ),
+                                                        borderRadius:
+                                                            const BorderRadius.only(
+                                                              topRight:
+                                                                  Radius.circular(
+                                                                    12,
+                                                                  ),
+                                                              bottomRight:
+                                                                  Radius.circular(
+                                                                    12,
+                                                                  ),
+                                                            ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: Colors.blue
+                                                                .withOpacity(
+                                                                  0.5,
+                                                                ),
+                                                            blurRadius: 15,
+                                                            spreadRadius: 2,
+                                                          ),
+                                                        ],
                                                       ),
                                                       child: const Text(
                                                         "K",
                                                         style: TextStyle(
                                                           fontSize: 28,
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                           color: Colors.white,
-                                                          shadows: [Shadow(blurRadius: 5, color: Colors.blue)],
+                                                          shadows: [
+                                                            Shadow(
+                                                              blurRadius: 5,
+                                                              color:
+                                                                  Colors.blue,
+                                                            ),
+                                                          ],
                                                         ),
                                                       ),
                                                     ),
@@ -3123,7 +3787,11 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
               enableEffectDelay: false,
               onEffectTrigger: (GiftEvent event) {
                 if (event.giftEffectUrl.isNotEmpty) {
-                  _giftEffectKey.currentState?.addEffect(event.giftEffectUrl, event.id, event.configJsonList);
+                  _giftEffectKey.currentState?.addEffect(
+                    event.giftEffectUrl,
+                    event.id,
+                    event.configJsonList,
+                  );
                 }
               },
             ),
@@ -3170,7 +3838,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                           setState(() {
                             _isCameraOn = !_isCameraOn;
                             // 同步更新列表中我的状态
-                            int idx = _coHostList.indexWhere((u) => u.userId == _myUserId);
+                            int idx = _coHostList.indexWhere(
+                              (u) => u.userId == _myUserId,
+                            );
                             if (idx != -1) {
                               var old = _coHostList[idx];
                               _coHostList[idx] = CoHostUserModel(
@@ -3185,20 +3855,32 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                           });
                           if (_isCameraOn) {
                             if (_trtcManager.localViewId != null) {
-                              _trtcManager.trtcCloud.startLocalPreview(true, _trtcManager.localViewId!);
+                              _trtcManager.trtcCloud.startLocalPreview(
+                                true,
+                                _trtcManager.localViewId!,
+                              );
                             }
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已开启摄像头")));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("已开启摄像头")),
+                            );
                           } else {
                             _trtcManager.trtcCloud.stopLocalPreview();
-                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已关闭摄像头")));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("已关闭摄像头")),
+                            );
                           }
                         },
                         onToggleMute: () {
                           bool targetMuteState = !user.isMuted;
-                          if (isMe) AiRealTimeVoiceService().setMicMute(targetMuteState);
+                          if (isMe)
+                            AiRealTimeVoiceService().setMicMute(
+                              targetMuteState,
+                            );
 
                           setState(() {
-                            int idx = _coHostList.indexWhere((u) => u.userId == user.userId);
+                            int idx = _coHostList.indexWhere(
+                              (u) => u.userId == user.userId,
+                            );
                             if (idx != -1) {
                               var old = _coHostList[idx];
                               _coHostList[idx] = CoHostUserModel(
@@ -3211,13 +3893,23 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                               );
                             }
                           });
-                          _sendSocketMessage("MUTE_STATE_CHANGE", content: targetMuteState ? "1" : "0", targetRoomId: user.roomId);
+                          _sendSocketMessage(
+                            "MUTE_STATE_CHANGE",
+                            content: targetMuteState ? "1" : "0",
+                            targetRoomId: user.roomId,
+                          );
                         },
-                        onMuteAllExceptMe: () => _sendSocketMessage("MUTE_ALL_EXCEPT", targetRoomId: _roomId),
+                        onMuteAllExceptMe: () => _sendSocketMessage(
+                          "MUTE_ALL_EXCEPT",
+                          targetRoomId: _roomId,
+                        ),
                         onSetFocus: () {},
                         // 连麦列表不需要设为主咖
                         onEnterRoom: () {},
-                        onViewProfile: () => LiveUserProfilePopup.show(context, {"userId": user.userId}),
+                        onViewProfile: () => LiveUserProfilePopup.show(
+                          context,
+                          {"userId": user.userId},
+                        ),
                       );
                     },
                   );
@@ -3266,7 +3958,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                       value: _countdownController.value,
                                       strokeWidth: 4,
                                       backgroundColor: Colors.white24,
-                                      valueColor: const AlwaysStoppedAnimation(Color(0xFFFF0000)),
+                                      valueColor: const AlwaysStoppedAnimation(
+                                        Color(0xFFFF0000),
+                                      ),
                                     ),
                                   ),
                                   Container(
@@ -3275,17 +3969,27 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
                                       gradient: const LinearGradient(
-                                        colors: [Color(0xFFFF0000), Color(0xFFFF0000)],
+                                        colors: [
+                                          Color(0xFFFF0000),
+                                          Color(0xFFFF0000),
+                                        ],
                                         begin: Alignment.topLeft,
                                         end: Alignment.bottomRight,
                                       ),
-                                      border: Border.all(color: Colors.red, width: 2),
+                                      border: Border.all(
+                                        color: Colors.red,
+                                        width: 2,
+                                      ),
                                     ),
                                     alignment: const Alignment(0, -0.05),
                                     child: const Text(
                                       "连击",
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w900,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -3305,7 +4009,12 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
     );
   }
 
-  Widget _buildCircleBtn({required VoidCallback onTap, required Widget icon, required Color borderColor, String? label}) {
+  Widget _buildCircleBtn({
+    required VoidCallback onTap,
+    required Widget icon,
+    required Color borderColor,
+    String? label,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
@@ -3316,12 +4025,21 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             decoration: BoxDecoration(
               color: Colors.black.withOpacity(0.4),
               shape: BoxShape.circle,
-              border: Border.all(color: borderColor.withOpacity(0.5), width: 1.5),
+              border: Border.all(
+                color: borderColor.withOpacity(0.5),
+                width: 1.5,
+              ),
             ),
             alignment: Alignment.center,
             child: icon,
           ),
-          if (label != null) ...[const SizedBox(height: 2), Text(label, style: const TextStyle(color: Colors.white, fontSize: 10))],
+          if (label != null) ...[
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.white, fontSize: 10),
+            ),
+          ],
         ],
       ),
     );
@@ -3337,12 +4055,21 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
           // 如果正在连麦就挂断，没连麦就开启
           if (AiRealTimeVoiceService().isSpeaking) {
             await AiRealTimeVoiceService().stopVoiceCall();
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已挂断 AI 连麦")));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("已挂断 AI 连麦")));
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("正在连接 AI...")));
-            bool success = await AiRealTimeVoiceService().startVoiceCall(roomId: _roomId, userId: _myUserId);
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text("正在连接 AI...")));
+            bool success = await AiRealTimeVoiceService().startVoiceCall(
+              roomId: _roomId,
+              userId: _myUserId,
+            );
             if (success) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("✅ 连接成功，可以直接说话了！")));
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(const SnackBar(content: Text("✅ 连接成功，可以直接说话了！")));
             }
           }
         },
@@ -3357,7 +4084,10 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
             children: const [
               Icon(Icons.mic, color: Colors.white, size: 18),
               SizedBox(width: 4),
-              Text("AI 连麦", style: TextStyle(color: Colors.white, fontSize: 12)),
+              Text(
+                "AI 连麦",
+                style: TextStyle(color: Colors.white, fontSize: 12),
+              ),
             ],
           ),
         ),
@@ -3391,7 +4121,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
   void didChangeMetrics() {
     super.didChangeMetrics();
     // 从底层 Window 获取物理像素，转换为逻辑像素
-    final bottomInset = WidgetsBinding.instance.window.viewInsets.bottom / WidgetsBinding.instance.window.devicePixelRatio;
+    final bottomInset =
+        WidgetsBinding.instance.window.viewInsets.bottom /
+        WidgetsBinding.instance.window.devicePixelRatio;
 
     // 如果高度变了，只通知局部组件刷新，绝对不重绘整个页面！
     if (_keyboardNotifier.value != bottomInset) {
@@ -3442,7 +4174,9 @@ class _RealLivePageState extends State<RealLivePage> with TickerProviderStateMix
 
     _pkScoreUpdateTrigger.dispose(); // 🟢 2. 新增销毁
     _isDisposed = true;
-    if (_trtcManager.currentRoomId == _roomId || (_currentTrtcRoomId.isNotEmpty && _trtcManager.currentRoomId == _currentTrtcRoomId)) {
+    if (_trtcManager.currentRoomId == _roomId ||
+        (_currentTrtcRoomId.isNotEmpty &&
+            _trtcManager.currentRoomId == _currentTrtcRoomId)) {
       _trtcManager.exitRoom(); // 只有完全退出直播间 (比如按返回键) 时，才会执行到这里
     } else {
       debugPrint("🛡️ [防误杀] 发现 TRTC 已被新房间接管，老页面放弃执行 exitRoom");

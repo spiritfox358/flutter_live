@@ -45,7 +45,9 @@ class FollowingRoomModel {
       roomTitle: json['roomTitle'] ?? "",
       roomCover: json['roomCover'] ?? "",
       roomType: int.tryParse(json['roomType']?.toString() ?? "0") ?? 0,
-      roomMode: int.tryParse(json['roomMode']?.toString() ?? "0") ?? 0, // 🚀 解析 roomMode
+      roomMode:
+          int.tryParse(json['roomMode']?.toString() ?? "0") ??
+          0, // 🚀 解析 roomMode
       rawJson: json,
     );
   }
@@ -58,14 +60,16 @@ class HomeFollowingFeedPage extends StatefulWidget {
   State<HomeFollowingFeedPage> createState() => _HomeFollowingFeedPageState();
 }
 
-class _HomeFollowingFeedPageState extends State<HomeFollowingFeedPage> with AutomaticKeepAliveClientMixin {
+class _HomeFollowingFeedPageState extends State<HomeFollowingFeedPage>
+    with AutomaticKeepAliveClientMixin {
   List<FollowingRoomModel> _list = [];
   bool _isInitLoading = true;
 
   // 提取出所有正在开播的原始 JSON 数据，专门喂给滑动切房组件
   List<dynamic> _onlyLiveRawList = [];
 
-  final GlobalKey<RefreshIndicatorState> _refreshKey = GlobalKey<RefreshIndicatorState>();
+  final GlobalKey<RefreshIndicatorState> _refreshKey =
+      GlobalKey<RefreshIndicatorState>();
 
   @override
   bool get wantKeepAlive => true;
@@ -82,8 +86,12 @@ class _HomeFollowingFeedPageState extends State<HomeFollowingFeedPage> with Auto
       if (mounted) {
         setState(() {
           if (responseData is List) {
-            _list = responseData.map((json) => FollowingRoomModel.fromJson(json)).toList();
-            _onlyLiveRawList = responseData.where((json) => json['isLive']?.toString() == "1").toList();
+            _list = responseData
+                .map((json) => FollowingRoomModel.fromJson(json))
+                .toList();
+            _onlyLiveRawList = responseData
+                .where((json) => json['isLive']?.toString() == "1")
+                .toList();
           }
           _isInitLoading = false;
         });
@@ -100,7 +108,9 @@ class _HomeFollowingFeedPageState extends State<HomeFollowingFeedPage> with Auto
       return;
     }
 
-    int activeIndex = _onlyLiveRawList.indexWhere((json) => json['roomId']?.toString() == model.roomId);
+    int activeIndex = _onlyLiveRawList.indexWhere(
+      (json) => json['roomId']?.toString() == model.roomId,
+    );
     if (activeIndex == -1) activeIndex = 0;
 
     Navigator.push(
@@ -118,35 +128,68 @@ class _HomeFollowingFeedPageState extends State<HomeFollowingFeedPage> with Auto
   Widget build(BuildContext context) {
     super.build(context);
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.black : Colors.white;
+    final textColor = isDark ? Colors.white : Colors.black;
     final dividerColor = theme.dividerColor;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: bgColor,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          "关注",
+          style: TextStyle(
+            color: textColor,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: RefreshIndicator(
         key: _refreshKey,
         color: const Color(0xFFFF0050),
         backgroundColor: Colors.white,
         onRefresh: _handleRefresh,
         child: _isInitLoading
-            ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF0050)))
+            ? const Center(
+                child: CircularProgressIndicator(color: Color(0xFFFF0050)),
+              )
             : _list.isEmpty
             ? ListView(
-          physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
-          children: [
-            Container(
-              height: MediaQuery.of(context).size.height * 0.7,
-              alignment: Alignment.center,
-              child: const Text("暂无关注的人", style: TextStyle(color: Colors.grey)),
-            ),
-          ],
-        )
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
+                children: [
+                  Container(
+                    height: MediaQuery.of(context).size.height * 0.7,
+                    alignment: Alignment.center,
+                    child: const Text(
+                      "暂无关注的人",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ],
+              )
             : ListView.separated(
-          physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
-          padding: const EdgeInsets.only(top: 5, bottom: 80),
-          itemCount: _list.length,
-          separatorBuilder: (ctx, i) => Divider(height: 1, thickness: 0.5, indent: 90, endIndent: 16, color: dividerColor.withOpacity(0.1)),
-          itemBuilder: (context, index) => _buildListItem(_list[index], theme),
-        ),
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: ClampingScrollPhysics(),
+                ),
+                padding: const EdgeInsets.only(top: 5, bottom: 80),
+                itemCount: _list.length,
+                separatorBuilder: (ctx, i) => Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  indent: 90,
+                  endIndent: 16,
+                  color: dividerColor.withValues(alpha: 0.1),
+                ),
+                itemBuilder: (context, index) =>
+                    _buildListItem(_list[index], theme),
+              ),
       ),
     );
   }
@@ -184,11 +227,19 @@ class _HomeFollowingFeedPageState extends State<HomeFollowingFeedPage> with Auto
                 children: [
                   Text(
                     model.userName,
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color),
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textTheme.titleMedium?.color,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    model.isLive ? (model.roomTitle.isNotEmpty ? model.roomTitle : "正在直播中...") : model.signature,
+                    model.isLive
+                        ? (model.roomTitle.isNotEmpty
+                              ? model.roomTitle
+                              : "正在直播中...")
+                        : model.signature,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     // 🚀 2. 修复暗黑模式：统一使用 Colors.grey，避免黑底黑字看不见
@@ -201,9 +252,14 @@ class _HomeFollowingFeedPageState extends State<HomeFollowingFeedPage> with Auto
             // 🚀 3. 完美复刻 live_list_page 的渐变状态角标
             if (model.isLive)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(colors: [Color(0xFFFF0050), Color(0xFFFF0080)]),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF0050), Color(0xFFFF0080)],
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -212,16 +268,29 @@ class _HomeFollowingFeedPageState extends State<HomeFollowingFeedPage> with Auto
                     const SizedBox(width: 4),
                     Text(
                       modeText,
-                      style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
               )
             else
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: Colors.grey.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
-                child: const Text("离线", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  "离线",
+                  style: TextStyle(color: Colors.grey, fontSize: 11),
+                ),
               ),
           ],
         ),
@@ -240,13 +309,17 @@ class _RippleAvatar extends StatefulWidget {
   State<_RippleAvatar> createState() => _RippleAvatarState();
 }
 
-class _RippleAvatarState extends State<_RippleAvatar> with SingleTickerProviderStateMixin {
+class _RippleAvatarState extends State<_RippleAvatar>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 2000));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
     if (widget.isLive) _controller.repeat();
   }
 
@@ -278,11 +351,19 @@ class _RippleAvatarState extends State<_RippleAvatar> with SingleTickerProviderS
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           // 暗色模式下如果边框太亮会突兀，可以随主题稍作调整，这里给个柔和的灰色
-          border: Border.all(color: Colors.grey.withOpacity(0.3), width: 1),
+          border: Border.all(
+            color: Colors.grey.withValues(alpha: 0.3),
+            width: 1,
+          ),
         ),
         child: ClipOval(
           // 🚀🚀🚀 修复：删掉了 ColorFiltered 遗像滤镜，恢复彩色头像！只保留灰色边框表示未开播
-          child: Image.network(widget.avatarUrl, fit: BoxFit.cover, errorBuilder: (c,e,s) => const Icon(Icons.person, color: Colors.grey)),
+          child: Image.network(
+            widget.avatarUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (c, e, s) =>
+                const Icon(Icons.person, color: Colors.grey),
+          ),
         ),
       );
     }
@@ -294,10 +375,12 @@ class _RippleAvatarState extends State<_RippleAvatar> with SingleTickerProviderS
         children: [
           ...List.generate(
             3,
-                (index) => AnimatedBuilder(
+            (index) => AnimatedBuilder(
               animation: _controller,
               builder: (ctx, child) {
-                double t = Curves.easeOutQuad.transform((_controller.value + index * 0.33) % 1.0);
+                double t = Curves.easeOutQuad.transform(
+                  (_controller.value + index * 0.33) % 1.0,
+                );
                 return Transform.scale(
                   scale: 1.0 + t * 0.3,
                   child: Container(
@@ -306,7 +389,9 @@ class _RippleAvatarState extends State<_RippleAvatar> with SingleTickerProviderS
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: const Color(0xFFFF0050).withOpacity((1.0 - t).clamp(0.0, 1.0) * 0.6),
+                        color: const Color(
+                          0xFFFF0050,
+                        ).withValues(alpha: (1.0 - t).clamp(0.0, 1.0) * 0.6),
                         width: 3.0 * (1.0 - t).clamp(0.5, 3.0),
                       ),
                     ),
@@ -321,7 +406,10 @@ class _RippleAvatarState extends State<_RippleAvatar> with SingleTickerProviderS
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFFFF0050), width: 2.0),
-              image: DecorationImage(image: NetworkImage(widget.avatarUrl), fit: BoxFit.cover),
+              image: DecorationImage(
+                image: NetworkImage(widget.avatarUrl),
+                fit: BoxFit.cover,
+              ),
             ),
           ),
         ],

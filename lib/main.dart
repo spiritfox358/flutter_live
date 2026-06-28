@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_live/screens/dashboard/ranking/user_ranking_page.dart';
+import 'package:flutter_live/screens/home/home_following_feed_page.dart';
 import 'package:flutter_live/screens/home/home_tabs_page.dart';
 import 'package:flutter_live/screens/login/login_page.dart';
 import 'package:flutter_live/screens/message/services/dm_service.dart';
@@ -115,7 +115,7 @@ class _MainContainerState extends State<MainContainer> {
 
   final List<Widget> _screens = [
     const HomeTabsPage(),
-    const UserRankingPage(),
+    const HomeFollowingFeedPage(),
     const SizedBox.shrink(),
     const MessagePage(),
     const UserProfilePage(),
@@ -272,9 +272,8 @@ class _MainContainerState extends State<MainContainer> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              // 注意：这里的 '榜单' 是基于你上传代码里的命名，可以随时改成 '朋友'
               _buildTextTab(0, '首页', selectedColor, unselectedColor),
-              _buildTextTab(1, '榜单', selectedColor, unselectedColor),
+              _buildTextTab(1, '关注', selectedColor, unselectedColor),
               _buildIconTab(2, selectedColor, unselectedColor), // 中间加号
               _buildTextTab(
                 3,
@@ -506,13 +505,19 @@ class _MainContainerState extends State<MainContainer> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (c) => const Center(child: CircularProgressIndicator(color: Color(0xFFFF0050))),
+      builder: (c) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFFFF0050)),
+      ),
     );
 
     try {
       final res = await HttpUtil().post(
         "/api/room/start_live",
-        data: {"anchorId": int.tryParse(myUserId) ?? 0, "title": UserStore.to.nickname, "coverImg": UserStore.to.avatar},
+        data: {
+          "anchorId": int.tryParse(myUserId) ?? 0,
+          "title": UserStore.to.nickname,
+          "coverImg": UserStore.to.avatar,
+        },
       );
       if (mounted) {
         Navigator.pop(context); // 关loading
@@ -536,7 +541,9 @@ class _MainContainerState extends State<MainContainer> {
       }
     } catch (e) {
       if (mounted) Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("开播失败: $e")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("开播失败: $e")));
     }
   }
 

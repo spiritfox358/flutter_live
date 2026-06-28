@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_live/screens/home/feed/article_feed_page.dart';
-import 'package:flutter_live/screens/home/home_following_feed_page.dart';
 import 'live_list_page.dart';
 
 class HomeTabsPage extends StatefulWidget {
@@ -16,7 +15,7 @@ class _HomeTabsPageState extends State<HomeTabsPage>
   late TabController _tabController;
 
   // final List<String> _tabs = ["推荐", "直播", "我的主播","多人PK房间"];
-  final List<String> _tabs = ["推荐", "直播", "关注"];
+  final List<String> _tabs = ["推荐", "直播"];
   // final List<String> _tabs = ["推荐", "直播", "我的主播"];
 
   @override
@@ -43,38 +42,20 @@ class _HomeTabsPageState extends State<HomeTabsPage>
     final theme = Theme.of(context);
     final isDarkTheme = theme.brightness == Brightness.dark;
 
-    // 🟢 推荐页已改为图文列表（浅色），不再需要黑底沉浸式
-    const bool isImmersive = false;
-
-    // 🟢 核心步骤 3：根据是否沉浸式，动态决定所有颜色和阴影
-    // 如果是沉浸式：黑底、透明AppBar、白字、加阴影
-    // 如果是其他页：跟随系统主题色（白/黑底）、去阴影
-    final Color bgColor = isImmersive
-        ? Colors.black
-        : theme.scaffoldBackgroundColor;
-    final Color appBarBgColor = isImmersive
-        ? Colors.transparent
-        : theme.scaffoldBackgroundColor;
+    final Color bgColor = theme.scaffoldBackgroundColor;
+    final Color appBarBgColor = theme.scaffoldBackgroundColor;
 
     // 图标和选中的文字颜色（其他页如果是亮色模式就是黑色，暗黑模式就是白色）
-    final Color iconAndTextColor = isImmersive
-        ? Colors.white
-        : (isDarkTheme ? Colors.white : Colors.black87);
+    final Color iconAndTextColor = isDarkTheme ? Colors.white : Colors.black87;
     // 未选中的文字颜色
-    final Color unselectedTextColor = isImmersive
-        ? Colors.white70
-        : Colors.grey;
+    final Color unselectedTextColor = Colors.grey;
 
     // 只有沉浸模式才需要文字和图标的阴影
-    final List<Shadow>? shadows = isImmersive
-        ? const [
-            Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
-          ]
-        : null;
+    final List<Shadow>? shadows = null;
 
     // 动态调整手机顶部的系统状态栏（时间、电量）颜色
     SystemChrome.setSystemUIOverlayStyle(
-      isImmersive || isDarkTheme
+      isDarkTheme
           ? SystemUiOverlayStyle
                 .light // 白色状态栏
           : SystemUiOverlayStyle.dark, // 黑色状态栏
@@ -82,7 +63,7 @@ class _HomeTabsPageState extends State<HomeTabsPage>
 
     return Scaffold(
       // 🟢 动态控制：只有在推荐页，视频才顶到刘海屏里面
-      extendBodyBehindAppBar: isImmersive,
+      extendBodyBehindAppBar: false,
       backgroundColor: bgColor,
 
       appBar: AppBar(
@@ -135,7 +116,6 @@ class _HomeTabsPageState extends State<HomeTabsPage>
         children: const [
           ArticleFeedPage(),
           LiveListPage(),
-          HomeFollowingFeedPage(),
           // MyAnchorListPage(),
           // PKRealLayoutDemoPage(),
           // PKTestPage(),

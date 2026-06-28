@@ -10,7 +10,7 @@ class BuildTopBar extends StatelessWidget {
   final String roomId;
   final int onlineCount;
   final String avatar;
-// 🟢 1. 新增：接收 ViewerList 的 Key
+  // 🟢 1. 新增：接收 ViewerList 的 Key
   final GlobalKey<ViewerListState>? viewerListKey;
   // 🟢 1. 新增：定义点击回调
   final VoidCallback? onClose;
@@ -34,10 +34,15 @@ class BuildTopBar extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ProfilePill(name: name, avatar: avatar,anchorId:anchorId),
+            ProfilePill(name: name, avatar: avatar, anchorId: anchorId),
             const Spacer(),
-            ViewerList(key: viewerListKey,roomId: roomId, onlineCount: onlineCount),
+            ViewerList(
+              key: viewerListKey,
+              roomId: roomId,
+              onlineCount: onlineCount,
+            ),
             const SizedBox(width: 8),
             // 🟢 3. 包裹 GestureDetector 添加点击事件
             GestureDetector(
@@ -45,7 +50,11 @@ class BuildTopBar extends StatelessWidget {
               behavior: HitTestBehavior.opaque, // 扩大点击区域有效性
               child: Padding(
                 padding: const EdgeInsets.all(4.0), // 增加一点点击热区
-                child: Icon(Icons.close, color: Colors.white.withAlpha(230), size: 25),
+                child: Icon(
+                  Icons.close,
+                  color: Colors.white.withAlpha(230),
+                  size: 25,
+                ),
               ),
             ),
           ],
