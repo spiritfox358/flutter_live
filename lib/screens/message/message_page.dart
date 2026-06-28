@@ -2,10 +2,14 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/home/live/live_swipe_page.dart';
+import 'package:flutter_live/screens/me/profile/user_profile_page.dart';
 import 'package:flutter_live/screens/message/chat_detail_page.dart';
 import 'package:flutter_live/screens/message/models/dm_conversation.dart';
 import 'package:flutter_live/screens/message/services/dm_service.dart';
 import 'package:flutter_live/screens/message/services/dm_socket_service.dart';
+import 'package:flutter_live/screens/message/services/dm_unread_notifier.dart';
+import 'package:flutter_live/tools/HttpUtil.dart';
 import 'package:flutter_live/tools/time_util.dart';
 
 class MessagePage extends StatefulWidget {
@@ -15,41 +19,44 @@ class MessagePage extends StatefulWidget {
   State<MessagePage> createState() => _MessagePageState();
 }
 
+class _MessageStoryUser {
+  final String userId;
+  final String name;
+  final String avatar;
+  final String signature;
+  final String roomId;
+  final bool isLive;
+  final Map<String, dynamic> rawJson;
+
+  const _MessageStoryUser({
+    required this.userId,
+    required this.name,
+    required this.avatar,
+    required this.signature,
+    required this.roomId,
+    required this.isLive,
+    required this.rawJson,
+  });
+
+  factory _MessageStoryUser.fromJson(Map<String, dynamic> json) {
+    return _MessageStoryUser(
+      userId: json['userId']?.toString() ?? '',
+      name: (json['userName'] ?? '用户').toString(),
+      avatar: (json['userAvatar'] ?? '').toString(),
+      signature: (json['signature'] ?? '').toString(),
+      roomId: json['roomId']?.toString() ?? '',
+      isLive: json['isLive']?.toString() == '1',
+      rawJson: json,
+    );
+  }
+}
+
 class _MessagePageState extends State<MessagePage> {
   static final List<DmConversation> _conversationCache = [];
   static bool _hasLoadedConversationCache = false;
 
-  final List<Map<String, dynamic>> _stories = [
-    {
-      "isMe": true,
-      "name": "限时日常",
-      "avatar":
-          "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_13.jpg",
-    },
-    {
-      "isMe": false,
-      "name": "小太阳",
-      "avatar": "https://images.xxapi.cn/images/head/2867952553.jpg",
-      "badge": "连线中",
-      "isLive": false,
-    },
-    {
-      "isMe": false,
-      "name": "小魔女",
-      "avatar": "https://images.xxapi.cn/images/head/6623257184.jpg",
-      "badge": "连线中",
-      "isLive": false,
-    },
-    {
-      "isMe": false,
-      "name": "榜一大哥",
-      "avatar":
-          "https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/live/bg/bg_13.jpg",
-      "badge": "直播中",
-      "isLive": true,
-    },
-  ];
-
+  final List<_MessageStoryUser> _stories = [];
+  final List<dynamic> _liveStoryRawList = [];
   final List<DmConversation> _conversations = [];
   StreamSubscription<DmSocketEvent>? _socketSub;
   bool _hasLoadedConversations = false;
@@ -60,9 +67,16 @@ class _MessagePageState extends State<MessagePage> {
     super.initState();
     _conversations.addAll(_conversationCache);
     _hasLoadedConversations = _hasLoadedConversationCache;
-    _restoreCachedConversations(fetchIfEmpty: true);
+    unawaited(
+      _restoreCachedConversations(fetchIfEmpty: true).then((_) {
+        if (_conversations.isNotEmpty) {
+          return _syncConversationsSilently();
+        }
+      }),
+    );
     DmSocketService.instance.connect();
     _socketSub = DmSocketService.instance.events.listen(_handleSocketEvent);
+    unawaited(_loadStories());
   }
 
   @override
@@ -122,6 +136,120 @@ class _MessagePageState extends State<MessagePage> {
     }
   }
 
+  Future<void> _loadStories() async {
+    try {
+      final data = await HttpUtil().get('/api/relation/following_rooms');
+      if (!mounted || data is! List) return;
+
+      final stories = data
+          .whereType<Map>()
+          .map(
+            (item) =>
+                _MessageStoryUser.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .where((item) => item.userId.isNotEmpty)
+          .toList();
+      final liveRawList = data
+          .whereType<Map>()
+          .where((item) => item['isLive']?.toString() == '1')
+          .toList();
+
+      setState(() {
+        _stories
+          ..clear()
+          ..addAll(stories);
+        _liveStoryRawList
+          ..clear()
+          ..addAll(liveRawList);
+      });
+    } catch (e) {
+      debugPrint('加载消息页关注头像失败: $e');
+    }
+  }
+
+  Future<void> _syncConversationsSilently() async {
+    try {
+      final remote = await DmService.getConversations(updateCache: false);
+      if (!mounted || remote.isEmpty) return;
+
+      final merged = _mergeConversations(_conversations, remote);
+      if (!_hasConversationChanged(_conversations, merged)) return;
+
+      setState(() {
+        _conversations
+          ..clear()
+          ..addAll(merged);
+        _conversationCache
+          ..clear()
+          ..addAll(merged);
+        _hasLoadedConversations = true;
+        _hasLoadedConversationCache = true;
+        _error = null;
+      });
+      unawaited(DmService.cacheConversations(merged));
+    } catch (e) {
+      debugPrint('静默同步私信列表失败: $e');
+    }
+  }
+
+  List<DmConversation> _mergeConversations(
+    List<DmConversation> local,
+    List<DmConversation> remote,
+  ) {
+    final byId = <int, DmConversation>{
+      for (final conversation in local) conversation.id: conversation,
+    };
+
+    for (final incoming in remote) {
+      final current = byId[incoming.id];
+      if (current == null) {
+        byId[incoming.id] = incoming;
+        continue;
+      }
+
+      final currentTime =
+          current.lastMessageTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final incomingTime =
+          incoming.lastMessageTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+      if (incomingTime.isAfter(currentTime) ||
+          incoming.unreadCount != current.unreadCount ||
+          incoming.isTop != current.isTop ||
+          incoming.isMuted != current.isMuted) {
+        byId[incoming.id] = incoming;
+      }
+    }
+
+    return byId.values.toList()..sort((a, b) {
+      if (a.isTop != b.isTop) return a.isTop ? -1 : 1;
+      final aTime = a.lastMessageTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime = b.lastMessageTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bTime.compareTo(aTime);
+    });
+  }
+
+  bool _hasConversationChanged(
+    List<DmConversation> before,
+    List<DmConversation> after,
+  ) {
+    if (before.length != after.length) return true;
+    for (var i = 0; i < before.length; i++) {
+      final a = before[i];
+      final b = after[i];
+      if (a.id != b.id ||
+          a.lastMessage != b.lastMessage ||
+          a.lastSenderId != b.lastSenderId ||
+          a.unreadCount != b.unreadCount ||
+          a.isTop != b.isTop ||
+          a.isMuted != b.isMuted ||
+          a.lastMessageTime?.millisecondsSinceEpoch !=
+              b.lastMessageTime?.millisecondsSinceEpoch) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   void _handleSocketEvent(DmSocketEvent event) {
     final message = event.message;
     if (message == null) return;
@@ -134,7 +262,7 @@ class _MessagePageState extends State<MessagePage> {
                   item.targetId == message.receiverId)),
     );
     if (index < 0) {
-      _loadConversations();
+      unawaited(_syncConversationsSilently());
       return;
     }
 
@@ -178,6 +306,9 @@ class _MessagePageState extends State<MessagePage> {
   }
 
   Future<void> _openConversation(DmConversation conversation) async {
+    if (conversation.unreadCount > 0) {
+      globalDmUnreadDeltaNotifier.value -= conversation.unreadCount;
+    }
     unawaited(DmService.markConversationReadLocally(conversation.id));
     if (conversation.unreadCount > 0) {
       _replaceConversation(conversation.copyWith(unreadCount: 0));
@@ -211,7 +342,6 @@ class _MessagePageState extends State<MessagePage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? Colors.black : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black;
-    final iconColor = isDark ? Colors.white : Colors.black87;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -219,10 +349,6 @@ class _MessagePageState extends State<MessagePage> {
         backgroundColor: bgColor,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.menu, color: iconColor, size: 28),
-          onPressed: () {},
-        ),
         title: Text(
           "消息",
           style: TextStyle(
@@ -232,17 +358,6 @@ class _MessagePageState extends State<MessagePage> {
           ),
         ),
         centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search, color: iconColor, size: 28),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: Icon(Icons.add_circle_outline, color: iconColor, size: 26),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 4),
-        ],
       ),
       body: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -273,6 +388,10 @@ class _MessagePageState extends State<MessagePage> {
   }
 
   Widget _buildStoriesArea(bool isDark) {
+    if (_stories.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       height: 110,
       padding: const EdgeInsets.only(top: 10, bottom: 10),
@@ -286,26 +405,22 @@ class _MessagePageState extends State<MessagePage> {
     );
   }
 
-  Widget _buildStoryItem(Map<String, dynamic> story, bool isDark) {
-    final bool isMe = story['isMe'] == true;
-    final String name = story['name'] ?? '';
-    final String avatar = story['avatar'] ?? '';
-    final String? badge = story['badge'];
-    final bool isLive = story['isLive'] ?? false;
-
+  Widget _buildStoryItem(_MessageStoryUser story, bool isDark) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 64,
-            height: 64,
-            child: Stack(
-              alignment: Alignment.center,
-              clipBehavior: Clip.none,
-              children: [
-                if (!isMe)
+      child: InkWell(
+        onTap: () => _openStoryUser(story),
+        borderRadius: BorderRadius.circular(36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 64,
+              height: 64,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
                   Container(
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
@@ -320,94 +435,97 @@ class _MessagePageState extends State<MessagePage> {
                       ),
                     ),
                   ),
-                ClipOval(
-                  child: CachedNetworkImage(
-                    imageUrl: avatar,
-                    width: isMe ? 60 : 58,
-                    height: isMe ? 60 : 58,
-                    fit: BoxFit.cover,
-                    errorWidget: (context, url, error) => Container(
-                      color: Colors.grey[300],
-                      child: const Icon(Icons.person),
-                    ),
-                  ),
-                ),
-                if (isMe)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      width: 18,
-                      height: 18,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF25D366),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: isDark ? Colors.black : Colors.white,
-                          width: 2,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        color: Colors.white,
-                        size: 14,
+                  ClipOval(
+                    child: CachedNetworkImage(
+                      imageUrl: story.avatar,
+                      width: 58,
+                      height: 58,
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[300],
+                        child: const Icon(Icons.person),
                       ),
                     ),
                   ),
-                if (badge != null)
-                  Positioned(
-                    bottom: -6,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: isLive
-                              ? [
-                                  const Color(0xFFFF2C55),
-                                  const Color(0xFFFF5270),
-                                ]
-                              : [
-                                  const Color(0xFFFF2C55),
-                                  const Color(0xFFE02080),
-                                ],
+                  if (story.isLive)
+                    Positioned(
+                      bottom: -6,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
                         ),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: isDark ? Colors.black : Colors.white,
-                          width: 1.5,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFF2C55), Color(0xFFFF5270)],
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isDark ? Colors.black : Colors.white,
+                            width: 1.5,
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        badge,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.bold,
+                        child: const Text(
+                          '直播中',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: 70,
-            child: Text(
-              name,
-              style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.black87,
-                fontSize: 12,
+                ],
               ),
-              maxLines: 1,
-              textAlign: TextAlign.center,
-              overflow: TextOverflow.ellipsis,
             ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: 70,
+              child: Text(
+                story.name,
+                style: TextStyle(
+                  color: isDark ? Colors.white70 : Colors.black87,
+                  fontSize: 12,
+                ),
+                maxLines: 1,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _openStoryUser(_MessageStoryUser story) {
+    if (story.isLive && story.roomId.isNotEmpty) {
+      var activeIndex = _liveStoryRawList.indexWhere(
+        (item) => item['roomId']?.toString() == story.roomId,
+      );
+      if (activeIndex < 0) activeIndex = 0;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => LiveSwipePage(
+            initialRoomList: _liveStoryRawList,
+            initialIndex: activeIndex,
           ),
-        ],
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => UserProfilePage(
+          userInfo: {
+            'userId': story.userId,
+            'id': story.userId,
+            'nickname': story.name,
+            'avatar': story.avatar,
+            'signature': story.signature,
+          },
+        ),
       ),
     );
   }

@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_live/screens/home/feed/recommend_feed_page.dart';
+import 'package:flutter_live/screens/home/feed/article_feed_page.dart';
 import 'package:flutter_live/screens/home/home_following_feed_page.dart';
-import 'package:flutter_live/screens/home/live/widgets/view_mode/pk_multi_battle_view.dart';
 import 'live_list_page.dart';
-import 'my_anchor_list_page.dart';
 
 class HomeTabsPage extends StatefulWidget {
   const HomeTabsPage({super.key});
@@ -13,7 +11,8 @@ class HomeTabsPage extends StatefulWidget {
   State<HomeTabsPage> createState() => _HomeTabsPageState();
 }
 
-class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderStateMixin {
+class _HomeTabsPageState extends State<HomeTabsPage>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   // final List<String> _tabs = ["推荐", "直播", "我的主播","多人PK房间"];
@@ -44,29 +43,40 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
     final theme = Theme.of(context);
     final isDarkTheme = theme.brightness == Brightness.dark;
 
-    // 🟢 核心步骤 2：判断当前是否处于“推荐”页面（索引为0）
-    final bool isImmersive = _tabController.index == 0;
+    // 🟢 推荐页已改为图文列表（浅色），不再需要黑底沉浸式
+    const bool isImmersive = false;
 
     // 🟢 核心步骤 3：根据是否沉浸式，动态决定所有颜色和阴影
     // 如果是沉浸式：黑底、透明AppBar、白字、加阴影
     // 如果是其他页：跟随系统主题色（白/黑底）、去阴影
-    final Color bgColor = isImmersive ? Colors.black : theme.scaffoldBackgroundColor;
-    final Color appBarBgColor = isImmersive ? Colors.transparent : theme.scaffoldBackgroundColor;
+    final Color bgColor = isImmersive
+        ? Colors.black
+        : theme.scaffoldBackgroundColor;
+    final Color appBarBgColor = isImmersive
+        ? Colors.transparent
+        : theme.scaffoldBackgroundColor;
 
     // 图标和选中的文字颜色（其他页如果是亮色模式就是黑色，暗黑模式就是白色）
-    final Color iconAndTextColor = isImmersive ? Colors.white : (isDarkTheme ? Colors.white : Colors.black87);
+    final Color iconAndTextColor = isImmersive
+        ? Colors.white
+        : (isDarkTheme ? Colors.white : Colors.black87);
     // 未选中的文字颜色
-    final Color unselectedTextColor = isImmersive ? Colors.white70 : Colors.grey;
+    final Color unselectedTextColor = isImmersive
+        ? Colors.white70
+        : Colors.grey;
 
     // 只有沉浸模式才需要文字和图标的阴影
     final List<Shadow>? shadows = isImmersive
-        ? const [Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1))]
+        ? const [
+            Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 1)),
+          ]
         : null;
 
     // 动态调整手机顶部的系统状态栏（时间、电量）颜色
     SystemChrome.setSystemUIOverlayStyle(
       isImmersive || isDarkTheme
-          ? SystemUiOverlayStyle.light // 白色状态栏
+          ? SystemUiOverlayStyle
+                .light // 白色状态栏
           : SystemUiOverlayStyle.dark, // 黑色状态栏
     );
 
@@ -81,11 +91,6 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
         scrolledUnderElevation: 0,
         centerTitle: false,
         titleSpacing: 0,
-
-        leading: IconButton(
-          icon: Icon(Icons.menu, color: iconAndTextColor, shadows: shadows),
-          onPressed: () {},
-        ),
 
         title: TabBar(
           controller: _tabController,
@@ -107,9 +112,9 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
           padding: const EdgeInsets.symmetric(horizontal: 0),
 
           indicatorPadding: const EdgeInsets.only(
-            top: 8,    // ✅ 上边距
+            top: 8, // ✅ 上边距
             bottom: 8, // ✅ 下边距
-            left: 3,  // 左边距
+            left: 3, // 左边距
             right: 3, // 右边距
           ),
           // 动态应用阴影
@@ -118,20 +123,9 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
             fontWeight: FontWeight.bold,
             shadows: shadows,
           ),
-          unselectedLabelStyle: TextStyle(
-            fontSize: 16,
-            shadows: shadows,
-          ),
+          unselectedLabelStyle: TextStyle(fontSize: 16, shadows: shadows),
           tabs: _tabs.map((e) => Tab(text: e)).toList(),
         ),
-
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search, color: iconAndTextColor, shadows: shadows),
-            onPressed: () {},
-          ),
-          const SizedBox(width: 8),
-        ],
       ),
 
       body: TabBarView(
@@ -139,7 +133,7 @@ class _HomeTabsPageState extends State<HomeTabsPage> with SingleTickerProviderSt
         // 这里如果你未来想要左右滑动切换 Tab，可以把 NeverScrollableScrollPhysics 删掉
         physics: const NeverScrollableScrollPhysics(),
         children: const [
-          RecommendFeedPage(),
+          ArticleFeedPage(),
           LiveListPage(),
           HomeFollowingFeedPage(),
           // MyAnchorListPage(),

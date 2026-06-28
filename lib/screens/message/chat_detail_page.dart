@@ -6,6 +6,7 @@ import 'package:flutter_live/screens/message/models/dm_conversation.dart';
 import 'package:flutter_live/screens/message/models/dm_message.dart';
 import 'package:flutter_live/screens/message/services/dm_service.dart';
 import 'package:flutter_live/screens/message/services/dm_socket_service.dart';
+import 'package:flutter_live/screens/message/services/dm_unread_notifier.dart';
 import 'package:flutter_live/store/user_store.dart';
 import 'package:flutter_live/tools/time_util.dart';
 
@@ -92,6 +93,7 @@ class _ChatDetailPageState extends State<ChatDetailPage> {
     unawaited(DmService.markConversationReadLocally(widget.conversation.id));
     await DmService.markRead(widget.conversation.id).catchError((_) => 0);
     DmSocketService.instance.markRead(widget.conversation.id);
+    globalDmUnreadRefreshNotifier.value++;
   }
 
   void _handleSocketEvent(DmSocketEvent event) {

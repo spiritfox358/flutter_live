@@ -18,9 +18,10 @@ class HttpUtil {
   // static const String _baseIpPort = 's0.efzxt.com:8358';
   // static const String _baseIpPort = '101.200.77.1:8358';
 
-  static const String _baseIpPort = 'dance.koruhq.com';
-  // static const String _baseIpPort = '192.168.0.103:8358';
-  static const String _baseUrl = "https://$_baseIpPort";
+  // static const String _baseIpPort = 'dance.koruhq.com';
+  // static const String _baseIpPort = '120.26.7.131:8358';
+  static const String _baseIpPort = '192.168.0.100:8358';
+  static const String _baseUrl = "http://$_baseIpPort";
 
   HttpUtil._internal() {
     BaseOptions options = BaseOptions(

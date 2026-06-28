@@ -8,6 +8,7 @@ import '../../../main.dart';
 import '../../../tools/HttpUtil.dart';
 import '../../me/profile/user_profile_page.dart';
 import '../../works/publish_work_page.dart';
+import '../../works/work_social_service.dart';
 
 class RecommendFeedPage extends StatefulWidget {
   const RecommendFeedPage({super.key});
@@ -24,6 +25,7 @@ class _RecommendFeedPageState extends State<RecommendFeedPage> {
   bool _isLoading = false;
   bool _hasMore = true;
   bool _isPageVisible = true;
+  Size? _lockedViewportSize;
 
   @override
   void initState() {
@@ -60,6 +62,12 @@ class _RecommendFeedPageState extends State<RecommendFeedPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _lockedViewportSize ??= MediaQuery.of(context).size;
+  }
+
+  @override
   void dispose() {
     globalMainTabNotifier.removeListener(_onBottomTabChanged);
     globalRefreshRecommendNotifier.removeListener(_onRefreshSignal);
@@ -91,43 +99,81 @@ class _RecommendFeedPageState extends State<RecommendFeedPage> {
 
   @override
   Widget build(BuildContext context) {
+    final viewportSize = _lockedViewportSize ?? MediaQuery.of(context).size;
     return Scaffold(
       backgroundColor: Colors.black,
-      body: _feedList.isEmpty && _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : PageView.builder(
-        controller: _pageController,
-        scrollDirection: Axis.vertical,
-        dragStartBehavior: DragStartBehavior.down,
-        physics: const TikTokPagePhysics(),
-        // 🚀🚀🚀 核心提速魔法 1：允许隐式滚动！
-        // 只要开启这个，Flutter 会在后台提前把“下一个”视频的组件初始化并缓冲，等你滑过去的时候直接秒播！
-        allowImplicitScrolling: true,
-        itemCount: _feedList.length,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-          if (index >= _feedList.length - 2) {
-            _loadData();
-          }
-        },
-        itemBuilder: (context, index) {
-          final item = _feedList[index];
-          final int type = item['type'];
-          final bool isCurrentView = (_currentIndex == index) && _isPageVisible;
+      resizeToAvoidBottomInset: false,
+      body: MediaQuery.removeViewInsets(
+        context: context,
+        removeBottom: true,
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          minWidth: viewportSize.width,
+          maxWidth: viewportSize.width,
+          minHeight: viewportSize.height,
+          maxHeight: viewportSize.height,
+          child: SizedBox(
+            width: viewportSize.width,
+            height: viewportSize.height,
+            child: _feedList.isEmpty && _isLoading
+                ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                : PageView.builder(
+                    controller: _pageController,
+                    scrollDirection: Axis.vertical,
+                    dragStartBehavior: DragStartBehavior.down,
+                    physics: const TikTokPagePhysics(),
+                    // 🚀🚀🚀 核心提速魔法 1：允许隐式滚动！
+                    // 只要开启这个，Flutter 会在后台提前把“下一个”视频的组件初始化并缓冲，等你滑过去的时候直接秒播！
+                    allowImplicitScrolling: true,
+                    itemCount: _feedList.length,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _currentIndex = index;
+                      });
+                      if (index >= _feedList.length - 2) {
+                        _loadData();
+                      }
+                    },
+                    itemBuilder: (context, index) {
+                      final item = _feedList[index];
+                      final int type = item['type'];
+                      final bool isCurrentView = (_currentIndex == index) && _isPageVisible;
 
-          switch (type) {
-            case 1:
-              return FeedVideoItem(feedData: item, isCurrentView: isCurrentView);
-            case 2:
-              return _buildPlaceholder("直播间: ${item['liveData']?['roomId']}", isCurrentView);
-            case 3:
-              return _buildPlaceholder("图文/文章", isCurrentView);
-            default:
-              return const SizedBox();
-          }
-        },
+                      switch (type) {
+                        case 1:
+                          return FeedVideoItem(
+                            key: ValueKey(item['feedId']?.toString() ?? 'feed_$index'),
+                            feedData: item,
+                            isCurrentView: isCurrentView,
+                            onLikeChanged: (liked, likeCount) {
+                              final videoData = Map<String, dynamic>.from(item['videoData'] as Map? ?? {});
+                              videoData['liked'] = liked;
+                              videoData['likeCount'] = likeCount;
+                              _feedList[index] = {
+                                ...item,
+                                'videoData': videoData,
+                              };
+                            },
+                            onCommentCountChanged: (commentCount) {
+                              final videoData = Map<String, dynamic>.from(item['videoData'] as Map? ?? {});
+                              videoData['commentCount'] = commentCount;
+                              _feedList[index] = {
+                                ...item,
+                                'videoData': videoData,
+                              };
+                            },
+                          );
+                        case 2:
+                          return _buildPlaceholder("直播间: ${item['liveData']?['roomId']}", isCurrentView);
+                        case 3:
+                          return _buildPlaceholder("图文/文章", isCurrentView);
+                        default:
+                          return const SizedBox();
+                      }
+                    },
+                  ),
+          ),
+        ),
       ),
     );
   }
@@ -157,11 +203,15 @@ class _RecommendFeedPageState extends State<RecommendFeedPage> {
 class FeedVideoItem extends StatefulWidget {
   final Map<String, dynamic> feedData;
   final bool isCurrentView;
+  final void Function(bool liked, int likeCount)? onLikeChanged;
+  final void Function(int commentCount)? onCommentCountChanged;
 
   const FeedVideoItem({
     super.key,
     required this.feedData,
     required this.isCurrentView,
+    this.onLikeChanged,
+    this.onCommentCountChanged,
   });
 
   @override
@@ -175,7 +225,16 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
   bool _isInitialized = false;
   bool _isPlaying = false;
   bool _isLiked = false;
+  bool _isLikeBusy = false;
   bool _isFollowed = false;
+  bool _isLoadingComments = false;
+  bool _isSendingComment = false;
+  int _likeCount = 0;
+  int _commentCount = 0;
+  int _workId = 0;
+  final ValueNotifier<double> _keyboardNotifier = ValueNotifier<double>(0);
+  final TextEditingController _commentController = TextEditingController();
+  List<Map<String, dynamic>> _comments = [];
 
   // 🚀🚀🚀 核心提速魔法 2：记录是否已经渲染出真实画面的“第一帧”
   bool _hasRenderedFirstFrame = false;
@@ -184,7 +243,52 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _syncSocialStateFromWidget();
     _initVideo();
+  }
+
+  void _syncSocialStateFromWidget() {
+    final videoData = widget.feedData['videoData'] ?? {};
+    _workId = _readInt(videoData['workId']);
+    _likeCount = _readInt(videoData['likeCount']);
+    _commentCount = _readInt(videoData['commentCount']);
+    _isLiked = _readBool(videoData['liked']);
+  }
+
+  Future<void> _toggleLike() async {
+    if (_isLikeBusy || _workId <= 0) return;
+    final oldLiked = _isLiked;
+    final oldCount = _likeCount;
+    final nextLiked = !oldLiked;
+
+    setState(() {
+      _isLikeBusy = true;
+      _isLiked = nextLiked;
+      _likeCount = (_likeCount + (nextLiked ? 1 : -1)).clamp(0, 1 << 31);
+    });
+    widget.onLikeChanged?.call(_isLiked, _likeCount);
+
+    try {
+      final result = nextLiked
+          ? await WorkSocialService.likeWork(_workId)
+          : await WorkSocialService.unlikeWork(_workId);
+      if (!mounted) return;
+      setState(() {
+        _isLiked = result['liked'] == true;
+        _likeCount = _readInt(result['likeCount']);
+      });
+      widget.onLikeChanged?.call(_isLiked, _likeCount);
+    } catch (e) {
+      debugPrint("推荐流点赞失败: $e");
+      if (!mounted) return;
+      setState(() {
+        _isLiked = oldLiked;
+        _likeCount = oldCount;
+      });
+      widget.onLikeChanged?.call(_isLiked, _likeCount);
+    } finally {
+      if (mounted) setState(() => _isLikeBusy = false);
+    }
   }
 
   Future<void> _handleFollow() async {
@@ -199,6 +303,197 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
     } catch (e) {
       debugPrint("关注失败: $e");
     }
+  }
+
+  Future<void> _loadComments({VoidCallback? rebuildSheet}) async {
+    if (_isLoadingComments || _workId <= 0) return;
+    setState(() => _isLoadingComments = true);
+    rebuildSheet?.call();
+    try {
+      final list = await WorkSocialService.getComments(_workId);
+      if (mounted) setState(() => _comments = list);
+    } catch (e) {
+      debugPrint("推荐流加载评论失败: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingComments = false);
+      rebuildSheet?.call();
+    }
+  }
+
+  void _showCommentsSheet() {
+    if (_workId <= 0) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        var didRequestComments = false;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            if (!didRequestComments) {
+              didRequestComments = true;
+              Future.microtask(() => _loadComments(rebuildSheet: () => setSheetState(() {})));
+            }
+
+            Future<void> sendComment() async {
+              final content = _commentController.text.trim();
+              if (content.isEmpty || _isSendingComment) return;
+
+              setSheetState(() => _isSendingComment = true);
+              try {
+                final comment = await WorkSocialService.createComment(_workId, content);
+                _commentController.clear();
+                if (mounted) {
+                  setState(() {
+                    _comments = [comment, ..._comments];
+                    _commentCount += 1;
+                  });
+                  widget.onCommentCountChanged?.call(_commentCount);
+                }
+                setSheetState(() {});
+              } catch (e) {
+                debugPrint("推荐流发表评论失败: $e");
+              } finally {
+                setSheetState(() => _isSendingComment = false);
+              }
+            }
+
+            final sheetHeight = MediaQuery.of(context).size.height * 0.68;
+
+            return MediaQuery.removeViewInsets(
+              context: context,
+              removeBottom: true,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FocusScope.of(context).unfocus(),
+                child: Container(
+                  height: sheetHeight,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF111111),
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: Column(
+                    children: [
+                      const SizedBox(height: 10),
+                      Container(
+                        width: 38,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: Colors.white24,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        "$_commentCount 条评论",
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16),
+                      ),
+                      const SizedBox(height: 10),
+                      Expanded(
+                        child: _isLoadingComments && _comments.isEmpty
+                            ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                            : _comments.isEmpty
+                                ? const Center(
+                                    child: Text("还没有评论", style: TextStyle(color: Colors.white54)),
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                                    itemCount: _comments.length,
+                                    itemBuilder: (context, index) {
+                                      final comment = _comments[index];
+                                      final avatar = comment['avatar']?.toString() ?? "";
+                                      final nickname = comment['nickname']?.toString() ?? "用户";
+                                      final content = comment['content']?.toString() ?? "";
+                                      return Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 10),
+                                        child: Row(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            CircleAvatar(
+                                              radius: 18,
+                                              backgroundColor: Colors.white12,
+                                              backgroundImage: avatar.isNotEmpty ? CachedNetworkImageProvider(avatar) : null,
+                                              child: avatar.isEmpty
+                                                  ? const Icon(Icons.person, color: Colors.white54, size: 18)
+                                                  : null,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(nickname, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                                                  const SizedBox(height: 4),
+                                                  Text(content, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.35)),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                      ),
+                      ValueListenableBuilder<double>(
+                        valueListenable: _keyboardNotifier,
+                        builder: (context, keyboardInset, child) {
+                          return Container(
+                            padding: EdgeInsets.fromLTRB(12, 8, 12, keyboardInset + 10),
+                            decoration: const BoxDecoration(
+                              border: Border(top: BorderSide(color: Colors.white12)),
+                            ),
+                            child: child,
+                          );
+                        },
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                onTap: () {},
+                                controller: _commentController,
+                                minLines: 1,
+                                maxLines: 3,
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                                decoration: InputDecoration(
+                                  hintText: "说点什么...",
+                                  hintStyle: const TextStyle(color: Colors.white38),
+                                  filled: true,
+                                  fillColor: Colors.white10,
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              onPressed: _isSendingComment ? null : sendComment,
+                              icon: _isSendingComment
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+                                    )
+                                  : const Icon(Icons.send_rounded, color: Color(0xFFFF2D55)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    ),
+                ),
+              ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _initVideo() async {
@@ -242,6 +537,11 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
   @override
   void didUpdateWidget(covariant FeedVideoItem oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final oldFeedId = oldWidget.feedData['feedId']?.toString();
+    final newFeedId = widget.feedData['feedId']?.toString();
+    if (oldFeedId != newFeedId) {
+      _syncSocialStateFromWidget();
+    }
     if (widget.isCurrentView != oldWidget.isCurrentView) {
       if (widget.isCurrentView) {
         _play();
@@ -267,6 +567,16 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
     }
   }
 
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    final view = WidgetsBinding.instance.platformDispatcher.views.first;
+    final bottomInset = view.viewInsets.bottom / view.devicePixelRatio;
+    if (_keyboardNotifier.value != bottomInset) {
+      _keyboardNotifier.value = bottomInset;
+    }
+  }
+
   void _play() {
     _player?.play();
   }
@@ -283,6 +593,8 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _player?.dispose();
+    _commentController.dispose();
+    _keyboardNotifier.dispose();
     super.dispose();
   }
 
@@ -331,7 +643,7 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
         if (!_isPlaying && _isInitialized)
           IgnorePointer(
             child: Center(
-              child: Icon(Icons.play_arrow_rounded, color: Colors.white.withOpacity(0.5), size: 80),
+              child: Icon(Icons.play_arrow_rounded, color: Colors.white.withValues(alpha: 0.5), size: 80),
             ),
           ),
 
@@ -350,9 +662,6 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
   // --- 右侧菜单和底部信息保持不变 ---
   Widget _buildRightActionBar() {
     final author = widget.feedData['author'] ?? {};
-    final videoData = widget.feedData['videoData'] ?? {};
-    final int likeCount = videoData['likeCount'] ?? 0;
-    final int commentCount = videoData['commentCount'] ?? 0;
 
     return Positioned(
       right: 12,
@@ -414,7 +723,7 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
           const SizedBox(height: 20),
 
           GestureDetector(
-            onTap: () => setState(() => _isLiked = !_isLiked),
+            onTap: _toggleLike,
             child: Column(
               children: [
                 Icon(
@@ -424,7 +733,7 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  (_isLiked ? likeCount + 1 : likeCount).toString(),
+                  _formatNumber(_likeCount),
                   style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
                 ),
               ],
@@ -432,25 +741,28 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
           ),
           const SizedBox(height: 20),
 
-          Column(
-            children: [
-              const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 34),
-              const SizedBox(height: 4),
-              Text(
-                commentCount.toString(),
-                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
-              ),
-            ],
+          GestureDetector(
+            onTap: _showCommentsSheet,
+            child: Column(
+              children: [
+                const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 34),
+                const SizedBox(height: 4),
+                Text(
+                  _formatNumber(_commentCount),
+                  style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 20),
-
-          const Column(
-            children: [
-              Icon(Icons.share_rounded, color: Colors.white, size: 36),
-              SizedBox(height: 4),
-              Text("分享", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-            ],
-          ),
+          // TODO: 分享功能暂未实现，先隐藏
+          // const SizedBox(height: 20),
+          // const Column(
+          //   children: [
+          //     Icon(Icons.share_rounded, color: Colors.white, size: 36),
+          //     SizedBox(height: 4),
+          //     Text("分享", style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+          //   ],
+          // ),
         ],
       ),
     );
@@ -492,6 +804,24 @@ class _FeedVideoItemState extends State<FeedVideoItem> with WidgetsBindingObserv
         ],
       ),
     );
+  }
+
+  int _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? "") ?? 0;
+  }
+
+  bool _readBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value.toInt() != 0;
+    final text = value?.toString().toLowerCase();
+    return text == 'true' || text == '1';
+  }
+
+  String _formatNumber(int number) {
+    if (number >= 10000) return "${(number / 10000).toStringAsFixed(1)}w";
+    return number.toString();
   }
 }
 

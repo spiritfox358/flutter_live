@@ -82,6 +82,29 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
     }
   }
 
+  void _openUserProfile() {
+    if (userInfo == null) return;
+    final navigator = Navigator.of(context);
+    final profileInfo = {
+      'userId': userInfo?['userId']?.toString() ?? userInfo?['id']?.toString(),
+      'id': userInfo?['id']?.toString() ?? userInfo?['userId']?.toString(),
+      'nickname': userInfo?['nickname'],
+      'avatar': userInfo?['avatar'],
+      'signature': userInfo?['signature'],
+      'gender': userInfo?['gender'],
+      'city': userInfo?['city'],
+      'ipLocation': userInfo?['ipLocation'],
+      'profileBg': userInfo?['profileBg'],
+      'profileBgColor': userInfo?['profileBgColor'],
+    };
+    navigator.pop();
+    navigator.push(
+      MaterialPageRoute(
+        builder: (context) => UserProfilePage(userInfo: profileInfo),
+      ),
+    );
+  }
+
   // 🚀 新增：点击关注/取消关注的逻辑
   Future<void> _toggleFollow() async {
     if (_isRelationLoading || _relationStatus == -1) return;
@@ -205,15 +228,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
         children: [
           // 头像部分
           GestureDetector(
-            onTap: () {
-              // 这个跳转跟点击头像一样，直接进个人中心
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => UserProfilePage(userInfo: userInfo),
-                ),
-              );
-            },
+            onTap: _openUserProfile,
             child: Stack(
               alignment: Alignment.center,
               clipBehavior: Clip.none,
@@ -230,7 +245,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 10,
                         offset: const Offset(0, 5),
                       ),
@@ -265,16 +280,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
                 if (isMe) ...[
                   // 🚀🚀🚀 终极改造：如果是自己，显示整个横跨的大按钮，不显示其他两个小按钮
                   GestureDetector(
-                    onTap: () {
-                      // 🚀 跳转跟头像点击逻辑完全一样
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              UserProfilePage(userInfo: userInfo),
-                        ),
-                      );
-                    },
+                    onTap: _openUserProfile,
                     child: Container(
                       height: 38, // 🚀 调高一点点，看着更厚实
                       width: double.infinity, // 🟢 撑满这一行的所有剩余空间！
@@ -561,7 +567,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
               Expanded(
                 child: GestureDetector(
                   onTap: () {
-                    print('点击了礼物图鉴');
+                    debugPrint('点击了礼物图鉴');
                   },
                   child: _buildCard(
                     iconUrl: "",
@@ -655,7 +661,7 @@ class _LiveUserProfilePopupState extends State<LiveUserProfilePopup> {
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.05),
+            color: Colors.grey.withValues(alpha: 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),

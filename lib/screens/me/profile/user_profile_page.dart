@@ -22,6 +22,10 @@ class UserProfilePage extends StatefulWidget {
 
 class _UserProfilePageState extends State<UserProfilePage>
     with SingleTickerProviderStateMixin {
+  static const double _meHeaderHeight = 278.0;
+  static const double _otherHeaderHeight = 318.0;
+  static const double _profileTagSlotHeight = 28.0;
+
   late TabController _tabController;
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<double> _titleOpacityNotifier = ValueNotifier(0.0);
@@ -44,38 +48,84 @@ class _UserProfilePageState extends State<UserProfilePage>
   String _relationText = "关注";
   bool _isRelationLoading = false;
 
+  Map<String, dynamic>? _remoteUserInfo;
+
+  Map<String, dynamic>? get _effectiveUserInfo {
+    if (isMe) return UserStore.to.profile;
+    return _remoteUserInfo ?? widget.userInfo;
+  }
+
+  String? _readUserId(Map<String, dynamic>? info) {
+    final userId = info?['userId']?.toString();
+    if (userId != null && userId.isNotEmpty) return userId;
+    final id = info?['id']?.toString();
+    if (id != null && id.isNotEmpty) return id;
+    return null;
+  }
+
+  String _readString(String key, {String fallback = ''}) {
+    final value = _effectiveUserInfo?[key]?.toString();
+    if (value == null || value.isEmpty) return fallback;
+    return value;
+  }
+
   bool get isMe {
     if (widget.userInfo == null) return true;
-    return widget.userInfo!['userId']?.toString() == UserStore.to.userId;
+    return _readUserId(widget.userInfo) == UserStore.to.userId;
   }
 
   String get _fetchId {
     if (isMe) return UserStore.to.userId.toString();
-    return widget.userInfo?['userId']?.toString() ??
-        widget.userInfo?['id']?.toString() ??
-        "";
+    return _readUserId(_effectiveUserInfo) ?? "";
   }
 
   String get _displayAvatar =>
-      isMe ? UserStore.to.avatar : (widget.userInfo?['avatar'] ?? '');
+      isMe ? UserStore.to.avatar : _readString('avatar');
 
   String get _displayNickname =>
-      isMe ? UserStore.to.nickname : (widget.userInfo?['nickname'] ?? '--');
+      isMe ? UserStore.to.nickname : _readString('nickname', fallback: '--');
 
   String get _displayUserId =>
-      isMe ? UserStore.to.userId : (widget.userInfo?['id']?.toString() ?? '--');
+      isMe ? UserStore.to.userId : (_readUserId(_effectiveUserInfo) ?? '--');
 
   String get _displaySignature =>
-      isMe ? UserStore.to.signature : (widget.userInfo?['signature'] ?? '...');
+      isMe ? UserStore.to.signature : _readString('signature', fallback: '...');
 
-  String get _displayBgImage => isMe
-      ? UserStore.to.profileBg
-      : (widget.userInfo?['profileBg'] ?? _defaultBgImage);
+  List<String> get _profileTags {
+    final source = _effectiveUserInfo;
+    if (source == null) return [];
+
+    final tags = <String>[];
+    final city = source['city']?.toString().trim();
+    final ipLocation = source['ipLocation']?.toString().trim();
+    final gender = _genderText(source['gender']);
+
+    if (ipLocation != null && ipLocation.isNotEmpty) {
+      tags.add('IP: $ipLocation');
+    } else if (city != null && city.isNotEmpty) {
+      tags.add(city);
+    }
+    if (gender != null) tags.add(gender);
+    return tags;
+  }
+
+  String? _genderText(dynamic value) {
+    final raw = value?.toString();
+    if (raw == '1') return '男';
+    if (raw == '2') return '女';
+    return null;
+  }
+
+  String get _displayBgImage {
+    if (isMe) return UserStore.to.profileBg;
+    final profileBg = _readString('profileBg');
+    return profileBg.isEmpty ? _defaultBgImage : profileBg;
+  }
 
   Color get _dynamicBgColor {
     String? hexString = isMe
         ? UserStore.to.profileBgColor
-        : widget.userInfo?['profileBgColor'];
+        : _readString('profileBgColor');
     return _parseHexColor(hexString);
   }
 
@@ -97,7 +147,7 @@ class _UserProfilePageState extends State<UserProfilePage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: isMe ? 4 : 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
 
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
@@ -133,9 +183,37 @@ class _UserProfilePageState extends State<UserProfilePage>
             .post("/api/user/visitor/record", data: {"targetUserId": _fetchId})
             .catchError((e) => debugPrint("记录访客失败: $e")), // 防止未捕获的异常报错
       );
+      unawaited(_fetchRemoteUserInfo());
       unawaited(_fetchRelationStatus());
     }
     _fetchUserWorks();
+  }
+
+  Future<void> _fetchRemoteUserInfo() async {
+    final uid = _fetchId;
+    if (uid.isEmpty) return;
+
+    try {
+      final data = await HttpUtil().get(
+        "/api/user/info",
+        params: {"userId": uid},
+      );
+      if (!mounted || data is! Map) return;
+
+      final merged = <String, dynamic>{...?widget.userInfo};
+      for (final entry in data.entries) {
+        if (entry.value != null) {
+          merged[entry.key.toString()] = entry.value;
+        }
+      }
+      merged['userId'] = _readUserId(Map<String, dynamic>.from(merged)) ?? uid;
+      merged['id'] = merged['id'] ?? merged['userId'];
+
+      setState(() => _remoteUserInfo = merged);
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkScrollLock());
+    } catch (e) {
+      debugPrint("获取用户主页资料失败: $e");
+    }
   }
 
   Future<void> _fetchUserWorks() async {
@@ -275,7 +353,7 @@ class _UserProfilePageState extends State<UserProfilePage>
     final double realVisibleHeight = screenHeight - customBottomBarHeight;
 
     // 头部总高度 (背景区 + TabBar + 刘海屏)
-    final double baseHeaderHeight = isMe ? 355.0 : 290.0;
+    final double baseHeaderHeight = isMe ? _meHeaderHeight : _otherHeaderHeight;
     final double tabBarHeight = 46.0;
     final double headerExpandedHeight =
         baseHeaderHeight + tabBarHeight + topPadding;
@@ -339,7 +417,7 @@ class _UserProfilePageState extends State<UserProfilePage>
     const double navBarHeight = 44.0;
     const double tabBarHeight = 46.0;
 
-    final double baseHeaderHeight = isMe ? 355.0 : 290.0;
+    final double baseHeaderHeight = isMe ? _meHeaderHeight : _otherHeaderHeight;
     final double expandedHeight = baseHeaderHeight + tabBarHeight;
 
     // 🚀 终极杀招：直接使用系统的 NeverScrollableScrollPhysics (绝对禁止滚动)
@@ -451,12 +529,7 @@ class _UserProfilePageState extends State<UserProfilePage>
                                 );
                               },
                               tabs: isMe
-                                  ? const [
-                                      Text("作品"),
-                                      Text("推荐"),
-                                      Text("收藏"),
-                                      Text("喜欢"),
-                                    ]
+                                  ? const [Text("作品"), Text("喜欢")]
                                   : const [Text("作品"), Text("推荐")],
                             ),
                           ),
@@ -472,8 +545,6 @@ class _UserProfilePageState extends State<UserProfilePage>
                   children: isMe
                       ? [
                           _buildWorksGrid(scrollPhysics),
-                          _buildEmptyPage("推荐为空", scrollPhysics),
-                          _buildEmptyPage("暂时没有收藏", scrollPhysics),
                           _buildEmptyPage("喜欢的视频", scrollPhysics),
                         ]
                       : [
@@ -592,15 +663,12 @@ class _UserProfilePageState extends State<UserProfilePage>
                               ),
                               const SizedBox(width: 12),
                             ],
-                            if (buttonOpacity > 0.0)
+                            if (buttonOpacity > 0.0 && !isMe)
                               IgnorePointer(
                                 ignoring: buttonOpacity == 0.0,
                                 child: Opacity(
                                   opacity: buttonOpacity,
-                                  child: _buildGlassCapsule(
-                                    isMe ? "添加朋友" : "求更新",
-                                    iconColor,
-                                  ),
+                                  child: _buildGlassCapsule("求更新", iconColor),
                                 ),
                               ),
                           ],
@@ -641,11 +709,12 @@ class _UserProfilePageState extends State<UserProfilePage>
                                 ),
                               ),
 
-                            _buildGlassIcon(
-                              Icons.search,
-                              iconColor,
-                              onTap: () {},
-                            ),
+                            if (!isMe)
+                              _buildGlassIcon(
+                                Icons.search,
+                                iconColor,
+                                onTap: () {},
+                              ),
                             if (isMe) ...[
                               const SizedBox(width: 12),
                               _buildGlassIcon(
@@ -940,14 +1009,6 @@ class _UserProfilePageState extends State<UserProfilePage>
     ],
   );
 
-  Widget _buildToolItem(IconData icon, String text) => Column(
-    children: [
-      Icon(icon, color: Colors.black87, size: 28),
-      const SizedBox(height: 6),
-      Text(text, style: const TextStyle(color: Colors.black87, fontSize: 11)),
-    ],
-  );
-
   Widget _buildHeaderContent() {
     return Stack(
       children: [
@@ -969,10 +1030,12 @@ class _UserProfilePageState extends State<UserProfilePage>
                     ).createShader(bounds);
                   },
                   blendMode: BlendMode.dstIn,
-                  child: Image.network(
-                    _displayBgImage,
-                    fit: BoxFit.fitWidth,
-                    alignment: Alignment.topCenter,
+                  child: SizedBox.expand(
+                    child: Image.network(
+                      _displayBgImage,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topCenter,
+                    ),
                   ),
                 )
               : const SizedBox(),
@@ -1083,38 +1146,12 @@ class _UserProfilePageState extends State<UserProfilePage>
                   Text(
                     _displaySignature,
                     style: const TextStyle(color: Colors.black54, fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  _buildProfileTags(),
 
-                  if (isMe) ...[
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
-                      color: Colors.grey[100],
-                      child: const Text(
-                        "+ 添加性别等标签",
-                        style: TextStyle(color: Colors.grey, fontSize: 10),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    const Divider(height: 1, color: Color(0xFFEEEEEE)),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        _buildToolItem(Icons.shopping_cart_outlined, "我的订单"),
-                        _buildToolItem(Icons.history, "观看历史"),
-                        _buildToolItem(
-                          Icons.account_balance_wallet_outlined,
-                          "我的钱包",
-                        ),
-                        _buildToolItem(Icons.person_search_outlined, "常访问的人"),
-                        _buildToolItem(Icons.grid_view, "全部功能"),
-                      ],
-                    ),
-                  ] else ...[
+                  if (!isMe) ...[
                     const SizedBox(height: 18),
                     _buildProfileActionRow(),
                   ],
@@ -1126,6 +1163,46 @@ class _UserProfilePageState extends State<UserProfilePage>
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildProfileTags() {
+    final tags = _profileTags;
+
+    return SizedBox(
+      height: _profileTagSlotHeight,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: tags.isEmpty
+            ? const SizedBox.shrink()
+            : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
+                child: Row(
+                  children: tags.map((tag) {
+                    return Container(
+                      margin: const EdgeInsets.only(right: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3F3F3),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        tag,
+                        style: const TextStyle(
+                          color: Color(0xFF666666),
+                          fontSize: 11,
+                          height: 1,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+      ),
     );
   }
 

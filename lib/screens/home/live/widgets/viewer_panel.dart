@@ -65,6 +65,25 @@ class _ViewerPanelState extends State<ViewerPanel> {
     }
   }
 
+  // 根据当前选中的 Tab 过滤/排序观众列表
+  List<dynamic> get _displayViewers {
+    final list = List<dynamic>.from(_viewers);
+    switch (_currentTab) {
+      case 1: // 高等级
+        list.sort((a, b) => ((b['level'] ?? 0) as int).compareTo((a['level'] ?? 0) as int));
+        return list;
+      case 2: // 千钻贡献
+        return list.where((u) => ((u['score'] ?? 0) as int) >= 1000).toList()
+          ..sort((a, b) => ((b['score'] ?? 0) as int).compareTo((a['score'] ?? 0) as int));
+      case 3: // 星守护
+        return list.where((u) => (u['isVip'] ?? false) == true).toList();
+      case 0: // 贡献榜（默认，按分数）
+      default:
+        list.sort((a, b) => ((b['score'] ?? 0) as int).compareTo((a['score'] ?? 0) as int));
+        return list;
+    }
+  }
+
   // 辅助方法：格式化分数
   String _formatScore(int score) {
     if (score == 0) return "0";
@@ -74,6 +93,7 @@ class _ViewerPanelState extends State<ViewerPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final viewers = _displayViewers;
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
       decoration: const BoxDecoration(
@@ -87,13 +107,13 @@ class _ViewerPanelState extends State<ViewerPanel> {
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
-                : _viewers.isEmpty
+                : viewers.isEmpty
                 ? _buildEmptyView()
                 : ListView.builder(
                     padding: EdgeInsets.zero,
-                    itemCount: _viewers.length,
+                    itemCount: viewers.length,
                     itemBuilder: (context, index) {
-                      return _buildViewerItem(_viewers[index], index);
+                      return _buildViewerItem(viewers[index], index);
                     },
                   ),
           ),

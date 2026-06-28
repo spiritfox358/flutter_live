@@ -148,16 +148,6 @@ class _LiveListPageState extends State<LiveListPage> with AutomaticKeepAliveClie
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _onStartLive,
-        backgroundColor: const Color(0xFFFF0050),
-        elevation: 4,
-        icon: const Icon(Icons.videocam, color: Colors.white),
-        label: const Text(
-          "我要开播",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ),
       // 原生 RefreshIndicator
       body: RefreshIndicator(
         key: _refreshKey,

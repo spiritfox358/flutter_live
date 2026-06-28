@@ -3,7 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_thumbnail/video_thumbnail.dart'; // 🟢 新增插件
-import 'package:path_provider/path_provider.dart';     // 🟢 新增插件
+import 'package:path_provider/path_provider.dart'; // 🟢 新增插件
 import '../../../tools/HttpUtil.dart';
 import '../../widgets/in_app_notification.dart';
 
@@ -49,7 +49,7 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
           thumbnailPath: tempDir.path,
           imageFormat: ImageFormat.JPEG,
           maxHeight: 800, // 封面图最大高度
-          quality: 75,    // 图片质量
+          quality: 75, // 图片质量
         );
 
         setState(() {
@@ -63,24 +63,35 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
       debugPrint("选择视频失败: $e");
       if (mounted) {
         setState(() => _isExtracting = false);
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("无法打开相册或提取封面失败")));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("无法打开相册或提取封面失败")));
       }
     }
   }
 
   void _startPublish() {
     if (_selectedVideo == null || _coverImage == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("请先选择视频并等待封面生成")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("请先选择视频并等待封面生成")));
       return;
     }
 
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("请填写作品标题")));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("请填写作品标题")));
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("已转入后台发布中..."), backgroundColor: Colors.blue));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("已转入后台发布中..."),
+        backgroundColor: Colors.blue,
+      ),
+    );
 
     // 🟢 传入截取好的封面图
     _performBackgroundUpload(title, 0, _selectedVideo!, _coverImage!);
@@ -91,11 +102,13 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
       _coverImage = null; // 清空封面
     });
 
-    _backToHomeAndFirstTab();
+    _closePage();
   }
 
-  void _backToHomeAndFirstTab() {
-    globalMainTabNotifier.value = 0;
+  void _closePage() {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -103,17 +116,15 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgColor = isDark ? Colors.black : Colors.white;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final subTextColor = isDark ? Colors.white.withOpacity(0.9) : Colors.black54;
+    final subTextColor = isDark
+        ? Colors.white.withValues(alpha: 0.9)
+        : Colors.black54;
     final inputBgColor = isDark ? const Color(0xFF1A1A1A) : Colors.grey[100];
     final hintColor = isDark ? Colors.white24 : Colors.black26;
     final iconColor = isDark ? Colors.white : Colors.black;
 
     return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) {
-        if (didPop) return;
-        _backToHomeAndFirstTab();
-      },
+      canPop: true,
       child: Scaffold(
         backgroundColor: bgColor,
         appBar: AppBar(
@@ -121,15 +132,31 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
           elevation: 0,
           leading: IconButton(
             icon: Icon(Icons.arrow_back_ios_new, color: iconColor),
-            onPressed: _backToHomeAndFirstTab,
+            onPressed: _closePage,
           ),
-          title: Text("发布视频", style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+          title: Text(
+            "发布视频",
+            style: TextStyle(
+              color: textColor,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           centerTitle: true,
           actions: [
             TextButton(
               onPressed: _isExtracting ? null : _startPublish, // 提取封面时禁用发布按钮
-              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16)),
-              child: const Text("发布", style: TextStyle(color: Colors.purpleAccent, fontSize: 18, fontWeight: FontWeight.bold)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+              child: const Text(
+                "发布",
+                style: TextStyle(
+                  color: Colors.purpleAccent,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -140,7 +167,14 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("选择视频", style: TextStyle(color: subTextColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  "选择视频",
+                  style: TextStyle(
+                    color: subTextColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 GestureDetector(
                   onTap: _pickVideo,
@@ -150,10 +184,15 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
                     decoration: BoxDecoration(
                       color: inputBgColor,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isDark ? Colors.white12 : Colors.grey[300]!),
+                      border: Border.all(
+                        color: isDark ? Colors.white12 : Colors.grey[300]!,
+                      ),
                       // 🟢 如果封面生成了，直接用封面做背景图
                       image: _coverImage != null
-                          ? DecorationImage(image: FileImage(_coverImage!), fit: BoxFit.cover)
+                          ? DecorationImage(
+                              image: FileImage(_coverImage!),
+                              fit: BoxFit.cover,
+                            )
                           : null,
                     ),
                     child: _buildVideoPreviewArea(isDark),
@@ -161,10 +200,20 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
                 ),
                 const SizedBox(height: 24),
 
-                Text("标题", style: TextStyle(color: subTextColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(
+                  "标题",
+                  style: TextStyle(
+                    color: subTextColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 Container(
-                  decoration: BoxDecoration(color: inputBgColor, borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(
+                    color: inputBgColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: TextField(
                     controller: _titleController,
                     style: TextStyle(color: textColor, fontSize: 16),
@@ -172,7 +221,10 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
                     maxLines: 2,
                     decoration: InputDecoration(
                       counterText: "",
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       hintText: "写点什么描述一下你的视频吧...",
                       hintStyle: TextStyle(color: hintColor),
                       border: InputBorder.none,
@@ -197,9 +249,16 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.video_library, size: 50, color: isDark ? Colors.white38 : Colors.black26),
+          Icon(
+            Icons.video_library,
+            size: 50,
+            color: isDark ? Colors.white38 : Colors.black26,
+          ),
           const SizedBox(height: 8),
-          Text("点击选择要上传的视频", style: TextStyle(color: isDark ? Colors.white38 : Colors.black38)),
+          Text(
+            "点击选择要上传的视频",
+            style: TextStyle(color: isDark ? Colors.white38 : Colors.black38),
+          ),
         ],
       );
     } else {
@@ -207,7 +266,10 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
       return Center(
         child: Container(
           padding: const EdgeInsets.all(12),
-          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+            color: Colors.black54,
+            shape: BoxShape.circle,
+          ),
           child: const Icon(Icons.play_arrow, color: Colors.white, size: 30),
         ),
       );
@@ -218,22 +280,40 @@ class _PublishWorkPageState extends State<PublishWorkPage> {
 // ==========================================
 // 🚀 独立上传函数：现在支持同时上传视频和封面了
 // ==========================================
-Future<void> _performBackgroundUpload(String title, int type, File videoFile, File coverFile) async {
+Future<void> _performBackgroundUpload(
+  String title,
+  int type,
+  File videoFile,
+  File coverFile,
+) async {
   try {
     debugPrint("🚀 开始后台上传视频和封面...");
 
     var formData = FormData.fromMap({"title": title, "type": type});
 
     // 1. 添加视频文件
-    formData.files.add(MapEntry("file", await MultipartFile.fromFile(videoFile.path, filename: "video.mp4")));
+    formData.files.add(
+      MapEntry(
+        "file",
+        await MultipartFile.fromFile(videoFile.path, filename: "video.mp4"),
+      ),
+    );
 
     // 2. 🟢 添加封面图片文件 (假设后端接收封面的参数名是 coverFile)
-    formData.files.add(MapEntry("coverFile", await MultipartFile.fromFile(coverFile.path, filename: "cover.jpg")));
+    formData.files.add(
+      MapEntry(
+        "coverFile",
+        await MultipartFile.fromFile(coverFile.path, filename: "cover.jpg"),
+      ),
+    );
 
     await HttpUtil().post(
       "/api/work/create",
       data: formData,
-      options: Options(sendTimeout: const Duration(minutes: 60), receiveTimeout: const Duration(minutes: 60)),
+      options: Options(
+        sendTimeout: const Duration(minutes: 60),
+        receiveTimeout: const Duration(minutes: 60),
+      ),
     );
 
     debugPrint("✅ 后台发布成功");

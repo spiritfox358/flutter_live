@@ -167,7 +167,9 @@ class DmService {
     return result;
   }
 
-  static Future<List<DmConversation>> getConversations() async {
+  static Future<List<DmConversation>> getConversations({
+    bool updateCache = true,
+  }) async {
     final data = await HttpUtil().get('/api/dm/conversations');
     if (data is! List) return [];
 
@@ -180,7 +182,9 @@ class DmService {
       conversations.map(_hydrateTargetProfile),
     );
     final merged = await _applyReadOverrides(hydrated);
-    await cacheConversations(merged);
+    if (updateCache) {
+      await cacheConversations(merged);
+    }
     return merged;
   }
 
