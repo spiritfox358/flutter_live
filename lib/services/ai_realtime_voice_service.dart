@@ -78,7 +78,7 @@ class AiRealTimeVoiceService {
         debugPrint("⚠️ 原生播放器预热异常: $e");
       }
 
-      final wsUrl = "ws://${HttpUtil.getBaseIpPort}/ws/audio";
+      final wsUrl = "${HttpUtil.wsScheme}://${HttpUtil.getBaseIpPort}/ws/audio";
       _channel = WebSocketChannel.connect(Uri.parse(wsUrl));
 
       _wsStreamSub = _channel!.stream.listen(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/store/account_events.dart';
 import '../../../../tools/HttpUtil.dart';
 import 'live/live_swipe_page.dart';
 
@@ -77,6 +78,25 @@ class _HomeFollowingFeedPageState extends State<HomeFollowingFeedPage>
   @override
   void initState() {
     super.initState();
+    _handleRefresh();
+    // 🔔 监听账号变化：切换账号后(本页被 keep-alive 不会重建)，用新账号重新拉取关注列表
+    globalAccountChangedNotifier.addListener(_onAccountChanged);
+  }
+
+  @override
+  void dispose() {
+    globalAccountChangedNotifier.removeListener(_onAccountChanged);
+    super.dispose();
+  }
+
+  void _onAccountChanged() {
+    if (!mounted) return;
+    // 先清空旧账号数据并显示加载态，避免短暂展示上一个账号的关注
+    setState(() {
+      _list = [];
+      _onlyLiveRawList = [];
+      _isInitLoading = true;
+    });
     _handleRefresh();
   }
 

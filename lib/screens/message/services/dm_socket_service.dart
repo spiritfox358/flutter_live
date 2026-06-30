@@ -70,11 +70,8 @@ class DmSocketService {
     if (_connecting || _channel != null || UserStore.to.token.isEmpty) return;
     _connecting = true;
 
-    final scheme =
-        HttpUtil.getBaseIpPort.contains('localhost') ||
-            HttpUtil.getBaseIpPort.contains('192.168.')
-        ? 'ws'
-        : 'wss';
+    // WS scheme 跟随 HTTP scheme（http->ws, https->wss），与后端实际协议一致
+    final scheme = HttpUtil.wsScheme;
     final token = Uri.encodeComponent(UserStore.to.token);
     final uri = Uri.parse(
       '$scheme://${HttpUtil.getBaseIpPort}/ws/dm?token=$token',

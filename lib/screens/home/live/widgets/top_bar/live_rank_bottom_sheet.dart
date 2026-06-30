@@ -7,15 +7,25 @@ import '../../../../../tools/HttpUtil.dart';
 
 class LiveRankBottomSheet extends StatefulWidget {
   final String roomId;
+  final ValueChanged<Map<String, dynamic>>? onEnterRoom;
 
-  const LiveRankBottomSheet({super.key, required this.roomId});
+  const LiveRankBottomSheet({
+    super.key,
+    required this.roomId,
+    this.onEnterRoom,
+  });
 
-  static Future<void> show(BuildContext context, {required String roomId}) {
+  static Future<void> show(
+    BuildContext context, {
+    required String roomId,
+    ValueChanged<Map<String, dynamic>>? onEnterRoom,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => LiveRankBottomSheet(roomId: roomId),
+      builder: (_) =>
+          LiveRankBottomSheet(roomId: roomId, onEnterRoom: onEnterRoom),
     );
   }
 
@@ -25,13 +35,18 @@ class LiveRankBottomSheet extends StatefulWidget {
 
 class LiveRankPill extends StatelessWidget {
   final String roomId;
+  final ValueChanged<Map<String, dynamic>>? onEnterRoom;
 
-  const LiveRankPill({super.key, required this.roomId});
+  const LiveRankPill({super.key, required this.roomId, this.onEnterRoom});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => LiveRankBottomSheet.show(context, roomId: roomId),
+      onTap: () => LiveRankBottomSheet.show(
+        context,
+        roomId: roomId,
+        onEnterRoom: onEnterRoom,
+      ),
       behavior: HitTestBehavior.opaque,
       child: Container(
         height: 18,
@@ -230,10 +245,14 @@ class _LiveRankBottomSheetState extends State<LiveRankBottomSheet>
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
       itemCount: rooms.length,
-      separatorBuilder: (context, index) => const Divider(height: 1),
+      separatorBuilder: (context, index) => const SizedBox(height: 0),
       itemBuilder: (context, index) {
         final room = rooms[index];
-        return _RankRow(room: room, rank: index + 1);
+        return _RankRow(
+          room: room,
+          rank: index + 1,
+          onEnterRoom: widget.onEnterRoom,
+        );
       },
     );
   }
@@ -242,8 +261,13 @@ class _LiveRankBottomSheetState extends State<LiveRankBottomSheet>
 class _RankRow extends StatelessWidget {
   final _LiveRankRoom room;
   final int rank;
+  final ValueChanged<Map<String, dynamic>>? onEnterRoom;
 
-  const _RankRow({required this.room, required this.rank});
+  const _RankRow({
+    required this.room,
+    required this.rank,
+    required this.onEnterRoom,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -275,9 +299,25 @@ class _RankRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            CircleAvatar(
-              radius: 22,
-              backgroundImage: NetworkImage(room.avatar),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                Navigator.of(context).pop();
+                onEnterRoom?.call(room.toRoomData());
+              },
+              child: Container(
+                width: 50,
+                height: 50,
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFFF2E55), width: 2),
+                ),
+                child: CircleAvatar(
+                  backgroundColor: const Color(0xFFF2F2F2),
+                  backgroundImage: NetworkImage(room.avatar),
+                ),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -332,6 +372,7 @@ class _LiveRankRoom {
   final int contributorCount;
   final int popularityScore;
   final int status;
+  final int roomType;
   final _RankMetric metric;
   static const String _fallbackAvatar =
       'https://fzxt-resources.oss-cn-beijing.aliyuncs.com/assets/default_avatar.png';
@@ -348,6 +389,7 @@ class _LiveRankRoom {
     required this.contributorCount,
     required this.popularityScore,
     required this.status,
+    required this.roomType,
     required this.metric,
   });
 
@@ -385,8 +427,23 @@ class _LiveRankRoom {
         json['popularityScore'] ?? json['popularity_score'],
       ),
       status: _asInt(json['status']),
+      roomType: _asInt(json['roomType'] ?? json['room_type']),
       metric: metric,
     );
+  }
+
+  Map<String, dynamic> toRoomData() {
+    return {
+      'id': roomId,
+      'roomId': roomId,
+      'anchorId': anchorId,
+      'userName': title,
+      'title': title,
+      'avatar': avatar,
+      'coverImg': avatar,
+      'roomType': roomType,
+      'status': status,
+    };
   }
 
   static int _asInt(dynamic value) {

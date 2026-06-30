@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Coin Dance support page for account, live room, gift, and app help." />
+  <title>Coin Dance Support</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #121212;
+      --panel: #1e1e1e;
+      --panel-soft: #25222d;
+      --text: #ffffff;
+      --muted: rgba(255, 255, 255, 0.7);
+      --faint: rgba(255, 255, 255, 0.45);
+      --line: rgba(255, 255, 255, 0.1);
+      --pink: #ff4fd8;
+      --gold: #ffd66b;
+      --cyan: #5ce1ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, "PingFang SC", "Hiragino Sans GB", sans-serif;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(255, 79, 216, 0.22), transparent 28rem),
+        radial-gradient(circle at 90% 20%, rgba(92, 225, 255, 0.16), transparent 24rem),
+        var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(960px, 100%);
+      margin: 0 auto;
+      padding: 32px 18px 48px;
+    }
+
+    .hero {
+      display: grid;
+      gap: 18px;
+      padding: 28px 0 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .app-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 16px;
+      box-shadow: 0 16px 42px rgba(0, 0, 0, 0.35);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      font-size: clamp(32px, 8vw, 58px);
+      line-height: 1.02;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      max-width: 650px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+
+    .info-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .info-item {
+      min-height: 64px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .label {
+      display: block;
+      color: var(--faint);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .value {
+      display: block;
+      margin-top: 4px;
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 700;
+      overflow-wrap: anywhere;
+    }
+
+    .card {
+      background: rgba(30, 30, 30, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 18px;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+    }
+
+    .card h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .faq-item + .faq-item {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+    }
+
+    .faq-item h3 {
+      color: var(--text);
+      font-size: 15px;
+      margin-bottom: 5px;
+    }
+
+    .card p,
+    li {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    li + li {
+      margin-top: 8px;
+    }
+
+    .wide {
+      grid-column: span 2;
+    }
+
+    .contact {
+      background: linear-gradient(135deg, rgba(255, 79, 216, 0.16), rgba(92, 225, 255, 0.1)), var(--panel-soft);
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    a.button {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 16px;
+      border-radius: 8px;
+      color: #111111;
+      background: var(--gold);
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    a.button.secondary {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--line);
+    }
+
+    .meta {
+      margin-top: 22px;
+      color: var(--faint);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        padding-top: 22px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .info-list {
+        grid-template-columns: 1fr;
+      }
+
+      .wide {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="hero" aria-labelledby="page-title">
+      <div class="brand">
+        <img class="app-icon" src="icons/Icon-192.png" alt="Coin Dance app icon" />
+        <div>
+          <h1 id="page-title">Coin Dance Support</h1>
+          <p class="subtitle">Help for live rooms, accounts, gifts, recharges, messages, and creator features.</p>
+        </div>
+      </div>
+      <div class="info-list" aria-label="App support summary">
+        <div class="info-item">
+          <span class="label">App name</span>
+          <span class="value">Coin Dance</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Contact email</span>
+          <span class="value">2822095382@qq.com</span>
+        </div>
+        <div class="info-item">
+          <span class="label">FAQ</span>
+          <span class="value">Account, live room, gift, coin, and purchase help</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Privacy Policy</span>
+          <span class="value">See the privacy policy section below</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid" aria-label="Support topics">
+      <article class="card contact wide">
+        <h2>Contact Support</h2>
+        <p>
+          If you need help with your account, room access, purchase records, gifts, or a safety issue,
+          please include your Coin Dance user ID, device model, app version, and screenshots when available.
+        </p>
+        <div class="button-row">
+          <a class="button" href="mailto:support@2822095382@qq.com?subject=Coin%20Dance%20Support">Email Support</a>
+          <a class="button secondary" href="mailto:support@2822095382@qq.com?subject=Coin%20Dance%20Purchase%20Help">Purchase Help</a>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Account Help</h2>
+        <ul>
+          <li>Login and registration issues</li>
+          <li>Profile, avatar, and nickname updates</li>
+          <li>Following list and private message help</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Live Rooms</h2>
+        <ul>
+          <li>Joining or leaving live rooms</li>
+          <li>Audio, video, and voice connection issues</li>
+          <li>PK room and ranking questions</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Gifts & Coins</h2>
+        <ul>
+          <li>Gift sending or animation problems</li>
+          <li>Coin balance and recharge questions</li>
+          <li>Recent spending and order review</li>
+        </ul>
+      </article>
+
+      <article class="card wide">
+        <h2>Safety & Community</h2>
+        <p>
+          Coin Dance is built for live social entertainment. Please report abusive content, impersonation,
+          payment concerns, or account security issues so they can be reviewed quickly.
+        </p>
+      </article>
+
+      <article class="card">
+        <h2>Response Time</h2>
+        <p>We usually review support requests within 1-3 business days.</p>
+      </article>
+
+      <article class="card wide">
+        <h2>FAQ</h2>
+        <div class="faq-item">
+          <h3>How do I get help with login or account access?</h3>
+          <p>Email support with your Coin Dance user ID, registered account, device model, and a screenshot of the issue.</p>
+        </div>
+        <div class="faq-item">
+          <h3>What should I do if gifts, coins, or recharge records look wrong?</h3>
+          <p>Send the order time, amount, App Store receipt details if available, and screenshots. We will review the purchase record.</p>
+        </div>
+        <div class="faq-item">
+          <h3>How do I report live room audio, video, PK, or chat problems?</h3>
+          <p>Include the room name or room ID, what happened, your app version, and whether the issue happened on Wi-Fi or mobile data.</p>
+        </div>
+      </article>
+
+      <article class="card">
+        <h2>Privacy Policy</h2>
+        <p>
+          Coin Dance uses account, profile, live room, message, purchase, device, and crash information only to provide,
+          protect, and improve the app. We do not sell personal information. For privacy questions, contact support 2822095382@qq.com.
+        </p>
+      </article>
+
+      <article class="card wide">
+        <h2>Support Information</h2>
+        <p>
+          For the fastest help, send your app name, user ID, app version, device model, system version, screenshots,
+          and a short description of the problem. Support is available for account access, profile updates, live rooms,
+          messages, gifts, coins, recharges, safety reports, and creator tools.
+        </p>
+      </article>
+    </section>
+
+    <p class="meta">Coin Dance · Independent developer support · Last updated June 30, 2026</p>
+  </main>
+</body>
+</html>

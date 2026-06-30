@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_live/screens/message/chat_detail_page.dart';
 import 'package:flutter_live/screens/message/services/dm_service.dart';
+import 'package:flutter_live/screens/message/services/dm_socket_service.dart';
+import 'package:flutter_live/screens/message/services/dm_unread_notifier.dart';
+import 'package:flutter_live/screens/login/login_page.dart';
 import 'package:flutter_live/screens/me/profile/me_screen.dart';
 import 'package:flutter_live/services/user_service.dart';
 
@@ -44,6 +47,8 @@ class _UserProfilePageState extends State<UserProfilePage>
 
   List<dynamic> _worksList = [];
   bool _isLoadingWorks = true;
+  bool _isSwitchingAccount = false;
+  bool _isAnchorLive = false;
   int _relationStatus = 0; // 0-未关注, 1-已关注, 2-互相关注, -1-自己
   String _relationText = "关注";
   bool _isRelationLoading = false;
@@ -176,6 +181,8 @@ class _UserProfilePageState extends State<UserProfilePage>
       _checkScrollLock();
     });
 
+    unawaited(_fetchRemoteUserInfo());
+
     if (!isMe) {
       // add visitor record
       unawaited(
@@ -183,7 +190,6 @@ class _UserProfilePageState extends State<UserProfilePage>
             .post("/api/user/visitor/record", data: {"targetUserId": _fetchId})
             .catchError((e) => debugPrint("记录访客失败: $e")), // 防止未捕获的异常报错
       );
-      unawaited(_fetchRemoteUserInfo());
       unawaited(_fetchRelationStatus());
     }
     _fetchUserWorks();
@@ -208,8 +214,16 @@ class _UserProfilePageState extends State<UserProfilePage>
       }
       merged['userId'] = _readUserId(Map<String, dynamic>.from(merged)) ?? uid;
       merged['id'] = merged['id'] ?? merged['userId'];
+      final isLive = merged['isLive']?.toString() == '1';
 
-      setState(() => _remoteUserInfo = merged);
+      if (isMe) {
+        await UserStore.to.saveProfile(merged);
+      }
+
+      setState(() {
+        _remoteUserInfo = merged;
+        _isAnchorLive = isLive;
+      });
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkScrollLock());
     } catch (e) {
       debugPrint("获取用户主页资料失败: $e");
@@ -259,6 +273,180 @@ class _UserProfilePageState extends State<UserProfilePage>
     } catch (e) {
       debugPrint("clear fail: $e");
     }
+  }
+
+  Future<void> _showSwitchAccountSheet() async {
+    if (_isSwitchingAccount) return;
+
+    final currentProfile = UserStore.to.profile;
+    if (UserStore.to.token.isNotEmpty && currentProfile != null) {
+      await UserStore.to.saveLoginSession(
+        token: UserStore.to.token,
+        profile: currentProfile,
+      );
+    }
+    if (!mounted) return;
+
+    await showModalBottomSheet(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        int? switchingUserId;
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> handleSwitch(Map<String, dynamic> account) async {
+              final userId = int.tryParse(account['id']?.toString() ?? '');
+              if (userId == null ||
+                  userId <= 0 ||
+                  account['isCurrent'] == true) {
+                return;
+              }
+
+              setModalState(() => switchingUserId = userId);
+              await _switchAccount(userId.toString(), sheetContext);
+              if (sheetContext.mounted) {
+                setModalState(() => switchingUserId = null);
+              }
+            }
+
+            Future<void> handleAddAccount() async {
+              Navigator.of(sheetContext).pop();
+              final loggedIn = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) => const LoginPage(returnAfterLogin: true),
+                ),
+              );
+              if (loggedIn == true && mounted) {
+                _refreshAfterAccountChanged();
+              }
+            }
+
+            final accounts = UserStore.to.loggedInAccounts.map((item) {
+              final profile = Map<String, dynamic>.from(item['profile'] as Map);
+              final profileUserId =
+                  profile['id']?.toString() ??
+                  profile['userId']?.toString() ??
+                  "";
+              profile['isCurrent'] = profileUserId == UserStore.to.userId;
+              return profile;
+            }).toList();
+
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.68,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE1E1E1),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 18, 20, 10),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        "切换账号",
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.fromLTRB(
+                        16,
+                        0,
+                        16,
+                        18 + MediaQuery.of(context).padding.bottom,
+                      ),
+                      itemBuilder: (context, index) {
+                        if (index == accounts.length) {
+                          return _buildAddAccountItem(handleAddAccount);
+                        }
+                        final account = accounts[index];
+                        final userId = int.tryParse(
+                          account['id']?.toString() ?? '',
+                        );
+                        final isCurrent = account['isCurrent'] == true;
+                        final isSwitching =
+                            userId != null && switchingUserId == userId;
+                        return _buildSwitchAccountItem(
+                          account: account,
+                          isCurrent: isCurrent,
+                          isSwitching: isSwitching,
+                          onTap: () => handleSwitch(account),
+                        );
+                      },
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: 8),
+                      itemCount: accounts.length + 1,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _switchAccount(String userId, BuildContext sheetContext) async {
+    if (_isSwitchingAccount) return;
+
+    setState(() => _isSwitchingAccount = true);
+    try {
+      final switched = await UserStore.to.switchToCachedAccount(userId);
+      if (!switched) throw Exception("本地没有这个账号的登录缓存");
+
+      if (!mounted) return;
+      _refreshAfterAccountChanged();
+
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("已切换到 ${UserStore.to.nickname}")));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("切换账号失败: $e")));
+    } finally {
+      if (mounted) setState(() => _isSwitchingAccount = false);
+    }
+  }
+
+  void _refreshAfterAccountChanged() {
+    DmSocketService.instance.disconnect();
+    UserStore.to.forceUpdateAvatar();
+    DmSocketService.instance.connect();
+    globalDmUnreadRefreshNotifier.value++;
+
+    setState(() {
+      _visitorCount = 0;
+      _worksList = [];
+      _isLoadingWorks = true;
+    });
+    unawaited(UserService.syncUserInfo());
+    unawaited(fetchUnreadVisitorCount());
+    unawaited(_fetchUserWorks());
   }
 
   Future<void> _openPrivateChat() async {
@@ -663,6 +851,18 @@ class _UserProfilePageState extends State<UserProfilePage>
                               ),
                               const SizedBox(width: 12),
                             ],
+                            if (buttonOpacity > 0.0 && isMe)
+                              IgnorePointer(
+                                ignoring: buttonOpacity == 0.0,
+                                child: Opacity(
+                                  opacity: buttonOpacity,
+                                  child: _buildGlassCapsule(
+                                    "切换账号",
+                                    iconColor,
+                                    onTap: _showSwitchAccountSheet,
+                                  ),
+                                ),
+                              ),
                             if (buttonOpacity > 0.0 && !isMe)
                               IgnorePointer(
                                 ignoring: buttonOpacity == 0.0,
@@ -873,23 +1073,56 @@ class _UserProfilePageState extends State<UserProfilePage>
     width: 90,
     height: 90,
     child: Stack(
+      alignment: Alignment.center,
       children: [
-        Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-            image: _displayAvatar.isNotEmpty
-                ? DecorationImage(
-                    image: NetworkImage(_displayAvatar),
-                    fit: BoxFit.cover,
-                  )
+        SizedBox(
+          width: 86,
+          height: 86,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: _isAnchorLive ? const Color(0xFFFF2E55) : Colors.white,
+                width: _isAnchorLive ? 3 : 2,
+              ),
+              image: _displayAvatar.isNotEmpty
+                  ? DecorationImage(
+                      image: NetworkImage(_displayAvatar),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            child: _displayAvatar.isEmpty
+                ? const CircularProgressIndicator(strokeWidth: 2)
                 : null,
           ),
-          child: _displayAvatar.isEmpty
-              ? const CircularProgressIndicator(strokeWidth: 2)
-              : null,
         ),
-        if (isMe)
+        if (_isAnchorLive)
+          Positioned(
+            left: 18,
+            right: 18,
+            bottom: 2,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFF2E55),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: const Text(
+                  "直播中",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        if (isMe && !_isAnchorLive)
           Positioned(
             right: 0,
             bottom: 2,
@@ -953,17 +1186,19 @@ class _UserProfilePageState extends State<UserProfilePage>
     );
   }
 
-  Widget _buildGlassCapsule(String text, Color color) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-    decoration: BoxDecoration(
-      color: color == Colors.black
-          ? Colors.grey[200]
-          : Colors.white.withValues(alpha: 0.2),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
-      children: [
-        Text(
+  Widget _buildGlassCapsule(String text, Color color, {VoidCallback? onTap}) {
+    final child = Container(
+      height: 32,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: color == Colors.black
+            ? Colors.white
+            : Colors.black.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black12),
+      ),
+      child: Center(
+        child: Text(
           text,
           style: TextStyle(
             color: color,
@@ -971,9 +1206,155 @@ class _UserProfilePageState extends State<UserProfilePage>
             fontWeight: FontWeight.bold,
           ),
         ),
-      ],
-    ),
-  );
+      ),
+    );
+
+    if (onTap == null) return child;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: child,
+    );
+  }
+
+  Widget _buildSwitchAccountItem({
+    required Map<String, dynamic> account,
+    required bool isCurrent,
+    required bool isSwitching,
+    required VoidCallback onTap,
+  }) {
+    final avatar = account['avatar']?.toString() ?? '';
+    final nickname = account['nickname']?.toString() ?? '未命名账号';
+    final accountId =
+        account['accountId']?.toString() ?? account['id'].toString();
+    final signature = account['signature']?.toString() ?? '';
+
+    return Material(
+      color: isCurrent ? const Color(0xFFFFF1F4) : const Color(0xFFF7F7F7),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: isCurrent || isSwitching ? null : onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: const Color(0xFFEDEDED),
+                backgroundImage: avatar.isEmpty ? null : NetworkImage(avatar),
+                child: avatar.isEmpty
+                    ? const Icon(Icons.person, color: Colors.black38)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            nickname,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (isCurrent) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF2E55),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              "当前",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      signature.isEmpty ? "抖音号：$accountId" : signature,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.black45,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (isSwitching)
+                const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(
+                  isCurrent ? Icons.check_circle : Icons.chevron_right,
+                  color: isCurrent ? const Color(0xFFFF2E55) : Colors.black26,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddAccountItem(VoidCallback onTap) {
+    return Material(
+      color: const Color(0xFFF7F7F7),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: const Padding(
+          padding: EdgeInsets.all(12),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Color(0xFFECECEC),
+                child: Icon(Icons.add, color: Color(0xFFFF2E55), size: 28),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  "添加账号",
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, color: Colors.black26),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildGlassIcon(IconData icon, Color color, {VoidCallback? onTap}) {
     return GestureDetector(

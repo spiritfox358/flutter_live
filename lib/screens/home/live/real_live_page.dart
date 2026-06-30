@@ -187,7 +187,7 @@ class _RealLivePageState extends State<RealLivePage>
   // 用户余额
   int _myCoins = 0;
 
-  final String _wsUrl = "ws://${HttpUtil.getBaseIpPort}/ws/live";
+  final String _wsUrl = "${HttpUtil.wsScheme}://${HttpUtil.getBaseIpPort}/ws/live";
 
   final _enableGlobalBackgroundImage = false;
   final String _globalBackgroundImage =
@@ -2656,6 +2656,70 @@ class _RealLivePageState extends State<RealLivePage>
     );
   }
 
+  void _switchToRankRoom(Map<String, dynamic> roomData) {
+    final targetRoomId =
+        roomData['roomId']?.toString() ?? roomData['id']?.toString() ?? "";
+    if (targetRoomId.isEmpty || targetRoomId == _roomId) return;
+    if (_isHost && !_isRobotActive) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("主播不能离开自己的直播间")));
+      return;
+    }
+
+    _isSwitchingRoom = true;
+    _instantKillAllAudio();
+
+    final playersToDispose = _players.values.toList();
+    _players.clear();
+    _videoControllers.clear();
+
+    for (var p in playersToDispose) {
+      p.setVolume(0.0);
+      p.pause();
+    }
+
+    HardcoreMixer.dispose();
+    try {
+      _nativePlayer.invokeMethod('stopPlayer', {'roomId': _roomId});
+    } catch (e) {}
+    AIMusicService().stopMusic(_roomId);
+
+    LiveRoomConfig.pendingCleanupTask = () async {
+      for (var p in playersToDispose) {
+        try {
+          await p.open(Playlist([]));
+          await p.dispose();
+        } catch (e) {}
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+    }();
+
+    final roomType = int.tryParse(roomData['roomType']?.toString() ?? "0") ?? 0;
+    const roomTypeMap = {
+      0: LiveRoomType.normal,
+      1: LiveRoomType.voice,
+      2: LiveRoomType.music,
+      3: LiveRoomType.video,
+    };
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => RealLivePage(
+          userId: widget.userId,
+          userName: widget.userName,
+          avatarUrl: widget.avatarUrl,
+          level: widget.level,
+          isHost: false,
+          roomId: targetRoomId,
+          monthLevel: _monthLevel,
+          roomType: roomTypeMap[roomType] ?? LiveRoomType.normal,
+          initialRoomData: roomData,
+        ),
+      ),
+    );
+  }
+
   // 🟢 核心修改：根据类型分发中间视图
   Widget _buildSingleModeContent(double topPadding) {
     // 🟢 复用 PK 模式中的 TopBar，确保统一
@@ -3281,7 +3345,10 @@ class _RealLivePageState extends State<RealLivePage>
                                 Positioned(
                                   left: 10,
                                   top: padding.top + 51,
-                                  child: LiveRankPill(roomId: _roomId),
+                                  child: LiveRankPill(
+                                    roomId: _roomId,
+                                    onEnterRoom: _switchToRankRoom,
+                                  ),
                                 ),
 
                                 // 🟢 1. 弹幕区：动态感知键盘高度！

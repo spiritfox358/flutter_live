@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_live/screens/dashboard/ranking/user_ranking_page.dart';
 import 'package:flutter_live/screens/me/profile/edit_profile_bg_page.dart';
 import 'package:flutter_live/screens/me/profile/edit_profile_page.dart';
 import 'package:flutter_live/services/user_service.dart';
@@ -91,6 +92,8 @@ class _MeScreenState extends State<MeScreen> {
             // 🟢 在这里调用头部构建方法
             _buildUserHeader(userProfile, cardColor, textColor, subTextColor),
             const SizedBox(height: 16),
+            _buildQuickActions(cardColor, textColor, subTextColor, iconColor),
+            const SizedBox(height: 12),
             _buildWalletCard(coin),
             const SizedBox(height: 16),
             _buildMenuSection(userProfile, cardColor, textColor, iconColor),
@@ -101,6 +104,97 @@ class _MeScreenState extends State<MeScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildQuickActions(
+    Color cardColor,
+    Color textColor,
+    Color subTextColor,
+    Color iconColor,
+  ) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          _buildQuickActionItem(
+            icon: Icons.directions_walk_rounded,
+            label: "足迹",
+            textColor: textColor,
+            subTextColor: subTextColor,
+            iconColor: iconColor,
+            onTap: () => _showComingSoon("足迹"),
+          ),
+          _buildQuickActionItem(
+            icon: Icons.receipt_long_rounded,
+            label: "近期消费",
+            textColor: textColor,
+            subTextColor: subTextColor,
+            iconColor: iconColor,
+            onTap: () => _showComingSoon("近期消费"),
+          ),
+          _buildQuickActionItem(
+            icon: Icons.emoji_events_rounded,
+            label: "榜单",
+            textColor: textColor,
+            subTextColor: subTextColor,
+            iconColor: iconColor,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const UserRankingPage()),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActionItem({
+    required IconData icon,
+    required String label,
+    required Color textColor,
+    required Color subTextColor,
+    required Color iconColor,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(
+          height: 58,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: iconColor, size: 24),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showComingSoon(String label) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text("$label 稍后开放")));
   }
 
   // 🟢 修改处：包裹 GestureDetector 并添加跳转逻辑

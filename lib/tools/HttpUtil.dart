@@ -19,8 +19,8 @@ class HttpUtil {
   // static const String _baseIpPort = '101.200.77.1:8358';
 
   // static const String _baseIpPort = 'dance.koruhq.com';
-  // static const String _baseIpPort = '120.26.7.131:8358';
-  static const String _baseIpPort = '192.168.0.100:8358';
+  static const String _baseIpPort = '120.26.7.131:8358';
+  // static const String _baseIpPort = '192.168.0.100:8358';
   static const String _baseUrl = "http://$_baseIpPort";
 
   HttpUtil._internal() {
@@ -57,6 +57,10 @@ class HttpUtil {
   }
 
   static String get getBaseIpPort => _baseIpPort;
+
+  // WebSocket 的 scheme 跟随 HTTP：http -> ws, https -> wss
+  // 避免靠"是不是局域网"瞎猜导致明文端口被当成 TLS 连接
+  static String get wsScheme => _baseUrl.startsWith('https') ? 'wss' : 'ws';
 
   // GET 请求
   Future<dynamic> get(String path, {Map<String, dynamic>? params}) async {

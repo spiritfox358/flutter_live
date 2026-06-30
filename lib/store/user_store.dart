@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'account_events.dart';
+
 /// 🟢 用户信息管理工具类 (单例模式)
 class UserStore {
   // 私有构造函数
@@ -15,6 +17,7 @@ class UserStore {
 
   static const String _kTokenKey = "TOKEN";
   static const String _kProfileKey = "USER_PROFILE";
+  static const String _kLoggedInAccountsKey = "LOGGED_IN_ACCOUNTS";
 
   // 🟢 1. 新增：头像版本标识
   // 默认给一个当前时间戳，保证每次冷启动 App 都能拉取一次最新的
@@ -31,6 +34,16 @@ class UserStore {
   // 1. 保存 Token
   Future<void> setToken(String token) async {
     await _prefs.setString(_kTokenKey, token);
+    // 🔔 账号发生变化(登录/切换账号)，通知关注页等保活页面刷新
+    globalAccountChangedNotifier.value++;
+  }
+
+  Future<void> saveLoginSession({
+    required String token,
+    required Map<String, dynamic> profile,
+  }) async {
+    await setToken(token);
+    await saveProfile(profile);
   }
 
   // 2. 获取 Token
@@ -44,6 +57,11 @@ class UserStore {
     // 这里把 Map 转成 String 存进去
     String profileStr = jsonEncode(json);
     await _prefs.setString(_kProfileKey, profileStr);
+
+    final currentToken = token;
+    if (currentToken.isNotEmpty) {
+      await _upsertLoggedInAccount(token: currentToken, profile: json);
+    }
   }
 
   // 5. 获取用户信息 (返回 Map，方便取值)
@@ -51,6 +69,70 @@ class UserStore {
     String str = _prefs.getString(_kProfileKey) ?? "";
     if (str.isEmpty) return null;
     return jsonDecode(str);
+  }
+
+  List<Map<String, dynamic>> get loggedInAccounts {
+    final raw = _prefs.getString(_kLoggedInAccountsKey) ?? "";
+    if (raw.isEmpty) return [];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return [];
+      return decoded
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .where((item) {
+            final itemToken = item['token']?.toString() ?? "";
+            final itemProfile = item['profile'];
+            return itemToken.isNotEmpty && itemProfile is Map;
+          })
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<bool> switchToCachedAccount(String userId) async {
+    final account = loggedInAccounts.firstWhere((item) {
+      final itemProfile = Map<String, dynamic>.from(item['profile'] as Map);
+      return _profileUserId(itemProfile) == userId;
+    }, orElse: () => <String, dynamic>{});
+    if (account.isEmpty) return false;
+
+    final cachedToken = account['token']?.toString() ?? "";
+    final cachedProfile = Map<String, dynamic>.from(account['profile'] as Map);
+    if (cachedToken.isEmpty) return false;
+
+    await setToken(cachedToken);
+    await saveProfile(cachedProfile);
+    return true;
+  }
+
+  Future<void> _upsertLoggedInAccount({
+    required String token,
+    required Map<String, dynamic> profile,
+  }) async {
+    final profileId = _profileUserId(profile);
+    if (token.isEmpty || profileId.isEmpty) return;
+
+    final accounts = loggedInAccounts;
+    accounts.removeWhere((item) {
+      final itemProfile = Map<String, dynamic>.from(item['profile'] as Map);
+      return _profileUserId(itemProfile) == profileId;
+    });
+    accounts.insert(0, {
+      'token': token,
+      'profile': profile,
+      'lastLoginAt': DateTime.now().toIso8601String(),
+    });
+    await _prefs.setString(_kLoggedInAccountsKey, jsonEncode(accounts));
+  }
+
+  String _profileUserId(Map<String, dynamic> json) {
+    final userId = json['id']?.toString();
+    if (userId != null && userId.isNotEmpty) return userId;
+    final legacyUserId = json['userId']?.toString();
+    if (legacyUserId != null && legacyUserId.isNotEmpty) return legacyUserId;
+    return "";
   }
 
   // 便捷获取常用字段
@@ -66,7 +148,8 @@ class UserStore {
   String get profileBgColor => profile?['profileBgColor'] ?? "";
   String get levelHonourBuffUrl => profile?['levelHonourBuffUrl'] ?? "";
 
-  Map<String, dynamic> get decorations => profile?['decorations'] ?? <String, dynamic>{};
+  Map<String, dynamic> get decorations =>
+      profile?['decorations'] ?? <String, dynamic>{};
 
   int get userLevel => profile?['level'] ?? 1;
 

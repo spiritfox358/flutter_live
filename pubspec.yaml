@@ -55,6 +55,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
@@ -69,3 +70,14 @@ flutter:
 # 在文件最下方加上这个强行覆盖规则
 dependency_overrides:
   device_info_plus: ^10.1.0
+
+# App icon configuration
+flutter_launcher_icons:
+  android: true
+  ios: true
+  web:
+    generate: true
+  image_path: "assets/coin_dance_icon.png"
+  # Adaptive icons for Android
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/coin_dance_icon.png"

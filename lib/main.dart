@@ -12,6 +12,7 @@ import 'package:flutter_live/screens/me/profile/user_profile_page.dart';
 import 'package:flutter_live/screens/message/message_page.dart';
 import 'package:flutter_live/screens/home/live/real_live_page.dart';
 import 'package:flutter_live/screens/works/publish_work_page.dart';
+import 'package:flutter_live/screens/works/publish_article_page.dart';
 import 'package:flutter_live/store/user_store.dart';
 import 'package:flutter_live/tools/HttpUtil.dart';
 import 'package:flutter_live/widgets/in_app_notification.dart';
@@ -425,6 +426,16 @@ class _MainContainerState extends State<MainContainer> {
                   subTextColor: subTextColor,
                   onTap: _openVideoPublisher,
                 ),
+                const SizedBox(height: 8),
+                _buildCreateAction(
+                  icon: Icons.article_rounded,
+                  title: '发布图文',
+                  subtitle: '发布图片和文字',
+                  iconColor: const Color(0xFF7C4DFF),
+                  textColor: textColor,
+                  subTextColor: subTextColor,
+                  onTap: _openArticlePublisher,
+                ),
                 // TODO: 安全相关功能未完成，先隐藏开播按钮
                 // const SizedBox(height: 8),
                 // _buildCreateAction(
@@ -552,5 +563,12 @@ class _MainContainerState extends State<MainContainer> {
     Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => const PublishWorkPage()));
+  }
+
+  void _openArticlePublisher() {
+    Navigator.of(context).pop();
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const PublishArticlePage()));
   }
 }

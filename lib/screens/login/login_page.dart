@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import '../../main.dart';
 import '../../store/user_store.dart';
 import '../../tools/HttpUtil.dart';
-import '../home/live/real_live_page.dart';
-import '../home/live_list_page.dart';
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  final bool returnAfterLogin;
+
+  const LoginPage({super.key, this.returnAfterLogin = false});
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -26,30 +26,43 @@ class _LoginPageState extends State<LoginPage> {
     FocusScope.of(context).unfocus();
 
     setState(() => _isLoading = false);
-    var response = await HttpUtil().post("/api/user/login", data: {"accountId": _emailController.text, "password": _passwordController.text});
+    var response = await HttpUtil().post(
+      "/api/user/login",
+      data: {
+        "accountId": _emailController.text,
+        "password": _passwordController.text,
+      },
+    );
 
     // 假设 HttpUtil 统一处理了 Result.succ 的 data 部分
     if (response != null) {
       // 2. 获取数据
       String token = response['token'];
       Map<String, dynamic> userInfo = response['userInfo'];
-      String userId = userInfo['account_id'].toString(); // 注意转 String
-      String nickname = userInfo['nickname'];
-      String avatar = userInfo['avatar'];
-      await UserStore.to.setToken(token);
-      await UserStore.to.saveProfile(userInfo);
+      await UserStore.to.saveLoginSession(token: token, profile: userInfo);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('登录成功')));
+
+      if (widget.returnAfterLogin) {
+        Navigator.pop(context, true);
+        return;
+      }
+
       // 3. 存储 Token (使用 shared_preferences)
       // 4. 跳转到直播页 (传入真实用户信息)
-      if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => MainContainer()));
-      }
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => MainContainer()),
+      );
+      return;
     } else {
       // 登录失败提示...
     }
     if (!mounted) return;
     setState(() => _isLoading = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('登录成功')));
   }
 
   @override
@@ -71,26 +84,43 @@ class _LoginPageState extends State<LoginPage> {
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: '手机号', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: '手机号',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 20),
               TextFormField(
                 controller: _passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: '密码', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: '密码',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 40),
               ElevatedButton(
                 onPressed: _isLoading ? null : _login,
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 child: _isLoading
-                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Text('登 录', style: TextStyle(fontSize: 16)),
               ),
               const SizedBox(height: 20),
               TextButton(
                 onPressed: () {
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const RegisterPage()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RegisterPage(),
+                    ),
+                  );
                 },
                 child: const Text('没有账号？去注册'),
               ),
